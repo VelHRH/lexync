@@ -1,0 +1,415 @@
+import { canonicalLanguageTag, studyPairLabel, type ManualCapture, type StudyPair } from '@lexync/domain';
+import type { Session } from '@supabase/supabase-js';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+
+type PairRow = {
+  id: string;
+  reference_language_tag: string;
+  target_language_tag: string;
+};
+
+type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
+
+function toStudyPair(row: PairRow): StudyPair {
+  return {
+    id: row.id,
+    referenceLanguageTag: row.reference_language_tag,
+    targetLanguageTag: row.target_language_tag,
+  };
+}
+
+export function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<AuthMode>('sign-in');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [studyPairs, setStudyPairs] = useState<StudyPair[]>([]);
+  const [selectedPairId, setSelectedPairId] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState('');
+  const [referenceLanguage, setReferenceLanguage] = useState('');
+  const [expression, setExpression] = useState('');
+  const [translation, setTranslation] = useState('');
+  const [example, setExample] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState('');
+  const [noticeTone, setNoticeTone] = useState<'error' | 'success'>('error');
+  const [savedCapture, setSavedCapture] = useState<ManualCapture | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadSession = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    setSession(data.session);
+    setLoading(false);
+  }, []);
+
+  const loadStudyPairs = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('study_pairs')
+      .select('id, target_language_tag, reference_language_tag')
+      .order('created_at');
+
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+
+    const pairs = (data as PairRow[]).map(toStudyPair);
+    setStudyPairs(pairs);
+    setSelectedPairId((current) => current || pairs[0]?.id || '');
+  }, []);
+
+  useEffect(() => {
+    void loadSession();
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setLoading(false);
+    });
+    const receiveAuth = (message: unknown) => {
+      if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'auth-complete') {
+        void loadSession();
+      }
+    };
+    browser.runtime.onMessage.addListener(receiveAuth);
+
+    return () => {
+      data.subscription.unsubscribe();
+      browser.runtime.onMessage.removeListener(receiveAuth);
+    };
+  }, [loadSession]);
+
+  useEffect(() => {
+    if (session) {
+      void loadStudyPairs();
+    }
+  }, [loadStudyPairs, session]);
+
+  function authenticationCallback() {
+    const callback = new URL('/auth/callback', import.meta.env.WXT_PUBLIC_WEB_URL);
+    callback.searchParams.set('extension_id', browser.runtime.id);
+    return callback.toString();
+  }
+
+  function showAuthMode(mode: AuthMode) {
+    setAuthMode(mode);
+    setPassword('');
+    setConfirmPassword('');
+    setNotice('');
+  }
+
+  async function authenticate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedEmail = email.trim();
+    setNotice('');
+    setNoticeTone('error');
+
+    if (!normalizedEmail) {
+      setNotice('Email is required.');
+      return;
+    }
+
+    if (authMode !== 'forgot-password' && password.length < 6) {
+      setNotice('Password must contain at least 6 characters.');
+      return;
+    }
+
+    if (authMode === 'sign-up' && password !== confirmPassword) {
+      setNotice('Passwords do not match.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      if (authMode === 'forgot-password') {
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+          redirectTo: authenticationCallback(),
+        });
+
+        if (error) {
+          setNotice(error.message);
+          return;
+        }
+
+        setNoticeTone('success');
+        setNotice('Check your email for a password reset link.');
+        return;
+      }
+
+      if (authMode === 'sign-up') {
+        const { data, error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: { emailRedirectTo: authenticationCallback() },
+        });
+
+        if (error) {
+          setNotice(error.message);
+          return;
+        }
+
+        if (!data.session) {
+          setNoticeTone('success');
+          setNotice('Check your email to confirm your account.');
+        }
+
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+      if (error) {
+        setNotice(error.message);
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Authentication could not be completed.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function createStudyPair(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNotice('');
+    const targetTag = canonicalLanguageTag(targetLanguage);
+    const referenceTag = canonicalLanguageTag(referenceLanguage);
+    const nextErrors: Record<string, string> = {};
+
+    if (!targetTag) {
+      nextErrors.targetLanguage = 'Enter a valid BCP 47 language tag.';
+    }
+
+    if (!referenceTag) {
+      nextErrors.referenceLanguage = 'Enter a valid BCP 47 language tag.';
+    }
+
+    setErrors(nextErrors);
+
+    if (!targetTag || !referenceTag) {
+      return;
+    }
+
+    setSubmitting(true);
+    const { data, error } = await supabase
+      .from('study_pairs')
+      .insert({ target_language_tag: targetTag, reference_language_tag: referenceTag })
+      .select('id, target_language_tag, reference_language_tag')
+      .single();
+    setSubmitting(false);
+
+    if (error) {
+      setNoticeTone('error');
+      setNotice(error.message);
+      return;
+    }
+
+    const pair = toStudyPair(data as PairRow);
+    setStudyPairs((current) => [...current, pair]);
+    setSelectedPairId(pair.id);
+    setTargetLanguage('');
+    setReferenceLanguage('');
+  }
+
+  async function saveVocabularyEntry(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNotice('');
+    const nextErrors: Record<string, string> = {};
+
+    if (!expression.trim()) {
+      nextErrors.expression = 'Expression is required.';
+    }
+
+    if (!translation.trim()) {
+      nextErrors.translation = 'Translation is required.';
+    }
+
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0 || !selectedPairId) {
+      return;
+    }
+
+    setSubmitting(true);
+    const { data, error } = await supabase.rpc('capture_manual_entry', {
+      p_example: example || null,
+      p_expression: expression,
+      p_study_pair_id: selectedPairId,
+      p_translation: translation,
+    });
+    setSubmitting(false);
+
+    if (error) {
+      setNoticeTone('error');
+      setNotice(error.message);
+      return;
+    }
+
+    setSavedCapture(data as ManualCapture);
+  }
+
+  if (loading) {
+    return <main className="shell"><p className="status">Opening your private library…</p></main>;
+  }
+
+  if (!session) {
+    const heading = authMode === 'sign-up'
+      ? 'Create your account.'
+      : authMode === 'forgot-password'
+        ? 'Reset your password.'
+        : 'Welcome back.';
+    const submitLabel = authMode === 'sign-up'
+      ? 'Create account'
+      : authMode === 'forgot-password'
+        ? 'Send reset link'
+        : 'Sign in';
+
+    return (
+      <main className="shell signed-out">
+        <div className="brand"><span>Lx</span>lexync</div>
+        <p className="eyebrow">Private by design</p>
+        <h1>{heading}</h1>
+        <p className="intro">
+          {authMode === 'forgot-password'
+            ? 'Enter your email and we will send you a link to choose a new password.'
+            : 'Use your email and password to access your private learning loop.'}
+        </p>
+        <form className="auth-form" onSubmit={authenticate} noValidate>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              inputMode="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          {authMode !== 'forgot-password' && (
+            <label>
+              Password
+              <input
+                autoComplete={authMode === 'sign-up' ? 'new-password' : 'current-password'}
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+          )}
+          {authMode === 'sign-up' && (
+            <label>
+              Confirm password
+              <input
+                autoComplete="new-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </label>
+          )}
+          <button className="primary" disabled={submitting} type="submit">{submitLabel}</button>
+        </form>
+        <div className="auth-switches">
+          {authMode === 'sign-in' && (
+            <>
+              <button type="button" onClick={() => showAuthMode('forgot-password')}>Forgot password?</button>
+              <button type="button" onClick={() => showAuthMode('sign-up')}>Create account</button>
+            </>
+          )}
+          {authMode !== 'sign-in' && (
+            <button type="button" onClick={() => showAuthMode('sign-in')}>Back to sign in</button>
+          )}
+        </div>
+        {notice && <p className={`notice ${noticeTone}`} role="status">{notice}</p>}
+      </main>
+    );
+  }
+
+  if (savedCapture) {
+    const pair = {
+      targetLanguageTag: savedCapture.targetLanguageTag,
+      referenceLanguageTag: savedCapture.referenceLanguageTag,
+    };
+
+    return (
+      <main className="shell saved">
+        <div className="success-mark">✓</div>
+        <p className="eyebrow">Vocabulary Entry saved</p>
+        <h1>{savedCapture.expression}</h1>
+        <p className="pair-label">{studyPairLabel(pair)}</p>
+        <section className="sense-card" aria-label="Saved Sense">
+          <span>Sense 01</span>
+          <strong>{savedCapture.translation}</strong>
+          <p>{savedCapture.example ?? 'No Example added'}</p>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="shell">
+      <header>
+        <div className="brand"><span>Lx</span>lexync</div>
+        <p className="identity">{session.user.email}</p>
+      </header>
+
+      <section className="panel">
+        <p className="eyebrow">Study Pair</p>
+        {studyPairs.length > 0 && (
+          <label>
+            Active Study Pair
+            <select value={selectedPairId} onChange={(event) => setSelectedPairId(event.target.value)}>
+              {studyPairs.map((pair) => <option key={pair.id} value={pair.id}>{studyPairLabel(pair)}</option>)}
+            </select>
+          </label>
+        )}
+        {studyPairs.length === 0 && (
+          <form onSubmit={createStudyPair} noValidate>
+            <div className="language-grid">
+              <label>
+                Target Language
+                <input value={targetLanguage} onChange={(event) => setTargetLanguage(event.target.value)} placeholder="it" />
+                {errors.targetLanguage && <span className="field-error">{errors.targetLanguage}</span>}
+              </label>
+              <label>
+                Reference Language
+                <input value={referenceLanguage} onChange={(event) => setReferenceLanguage(event.target.value)} placeholder="en" />
+                {errors.referenceLanguage && <span className="field-error">{errors.referenceLanguage}</span>}
+              </label>
+            </div>
+            <button className="secondary" disabled={submitting} type="submit">Create Study Pair</button>
+          </form>
+        )}
+      </section>
+
+      {studyPairs.length > 0 && (
+        <section className="panel capture-panel">
+          <p className="eyebrow">Manual entry</p>
+          <form onSubmit={saveVocabularyEntry} noValidate>
+            <label>
+              Expression
+              <input value={expression} onChange={(event) => setExpression(event.target.value)} placeholder="incontro" />
+              {errors.expression && <span className="field-error">{errors.expression}</span>}
+            </label>
+            <label>
+              Translation
+              <input value={translation} onChange={(event) => setTranslation(event.target.value)} placeholder="meeting" />
+              {errors.translation && <span className="field-error">{errors.translation}</span>}
+            </label>
+            <label>
+              Example <span className="optional">Optional</span>
+              <textarea value={example} onChange={(event) => setExample(event.target.value)} rows={3} placeholder="A sentence worth keeping" />
+            </label>
+            <button className="primary" disabled={submitting} type="submit">Save Vocabulary Entry</button>
+          </form>
+        </section>
+      )}
+
+      {notice && <p className={`notice ${noticeTone}`} role="status">{notice}</p>}
+    </main>
+  );
+}

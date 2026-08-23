@@ -21,6 +21,14 @@ export default defineConfig({
       testMatch: /landing-page\.mobile\.spec\.ts/,
       use: { ...devices['Pixel 7'] },
     },
+    {
+      name: 'extension-chromium',
+      testMatch: /extension\/.*\.spec\.ts/,
+    },
+    {
+      name: 'bundle-security',
+      testMatch: /security\/.*\.spec\.ts/,
+    },
   ],
   webServer: {
     command: 'pnpm --filter @lexync/web start',
