@@ -3,13 +3,21 @@
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "scripts": {
-    "build": "pnpm --filter @lexync/web build",
-    "check": "pnpm --filter @lexync/web check && tsc --noEmit -p tsconfig.tests.json",
+    "backend:start": "pnpm dlx supabase@2.115.0 start",
+    "backend:reset": "pnpm dlx supabase@2.115.0 db reset --local",
+    "backend:stop": "pnpm dlx supabase@2.115.0 stop",
+    "build": "pnpm --filter @lexync/domain build && pnpm --filter @lexync/web build && pnpm --filter @lexync/extension build",
+    "check": "pnpm -r check && tsc --noEmit -p tsconfig.tests.json",
     "dev": "pnpm --filter @lexync/web dev",
-    "test": "pnpm build && playwright test"
+    "dev:extension": "pnpm --filter @lexync/extension dev",
+    "test": "pnpm backend:start && pnpm backend:reset && pnpm test:db && node scripts/with-local-supabase.mjs pnpm run test:local",
+    "test:db": "pnpm dlx supabase@2.115.0 test db",
+    "test:local": "pnpm build && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.61.0",
+    "@supabase/supabase-js": "2.112.3",
+    "@types/chrome": "0.2.7",
     "@types/node": "24.3.0",
     "typescript": "5.9.2"
   }

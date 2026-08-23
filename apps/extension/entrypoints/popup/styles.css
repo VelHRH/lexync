@@ -1,0 +1,280 @@
+:root {
+  color: #19251e;
+  background: #f3f0e7;
+  font-family: Arial, Helvetica, sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 420px;
+  min-height: 560px;
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.shell {
+  min-height: 560px;
+  padding: 28px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 26px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.brand span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 52% 48% 45% 55%;
+  background: #19251e;
+  color: #fbf8ef;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.identity {
+  max-width: 205px;
+  margin: 0;
+  overflow: hidden;
+  color: rgba(25, 37, 30, 0.55);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #526c48;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 44px;
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.signed-out {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.signed-out .brand {
+  margin-bottom: 72px;
+}
+
+.intro {
+  margin: 20px 0 30px;
+  color: rgba(25, 37, 30, 0.66);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.panel {
+  padding: 20px;
+  border: 1px solid rgba(25, 37, 30, 0.14);
+  border-radius: 16px;
+  background: #fbf8ef;
+}
+
+.capture-panel {
+  margin-top: 16px;
+}
+
+form,
+label {
+  display: grid;
+}
+
+form {
+  gap: 15px;
+}
+
+label {
+  gap: 7px;
+  color: rgba(25, 37, 30, 0.68);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.language-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid rgba(25, 37, 30, 0.18);
+  border-radius: 9px;
+  outline: none;
+  background: #fffefa;
+  color: #19251e;
+  font-size: 13px;
+}
+
+input,
+select {
+  height: 40px;
+  padding: 0 11px;
+}
+
+textarea {
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #526c48;
+  box-shadow: 0 0 0 2px rgba(82, 108, 72, 0.12);
+}
+
+.primary,
+.secondary {
+  min-height: 43px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.primary {
+  border: 0;
+  background: #19251e;
+  color: #fbf8ef;
+}
+
+.secondary {
+  border: 1px solid #19251e;
+  background: transparent;
+  color: #19251e;
+}
+
+.apple {
+  width: 100%;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.field-error {
+  color: #a63f32;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.optional {
+  justify-self: end;
+  color: rgba(25, 37, 30, 0.42);
+  font-size: 9px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.notice,
+.status {
+  color: #a63f32;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.status {
+  margin-top: 220px;
+  text-align: center;
+}
+
+.saved {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.success-mark {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 38px;
+  border-radius: 50%;
+  background: #bdd7ad;
+  font-size: 18px;
+}
+
+.saved h1 {
+  font-size: 52px;
+}
+
+.pair-label {
+  margin: 11px 0 30px;
+  color: rgba(25, 37, 30, 0.52);
+  font-size: 12px;
+}
+
+.sense-card {
+  padding: 20px;
+  border-radius: 14px;
+  background: #19251e;
+  color: #fbf8ef;
+}
+
+.sense-card span {
+  color: #bdd7ad;
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.sense-card strong {
+  display: block;
+  margin: 14px 0 6px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 26px;
+  font-weight: 400;
+}
+
+.sense-card p {
+  margin: 0;
+  color: rgba(251, 248, 239, 0.58);
+  font-size: 12px;
+  line-height: 1.5;
+}

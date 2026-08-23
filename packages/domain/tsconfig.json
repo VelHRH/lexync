@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "noEmit": true,
+    "outDir": "dist",
     "strict": true,
-    "target": "ES2022",
-    "types": ["node", "@playwright/test", "chrome"]
+    "target": "ES2022"
   },
-  "include": ["playwright.config.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts"]
 }
