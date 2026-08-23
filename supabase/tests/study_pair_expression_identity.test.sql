@@ -93,8 +93,8 @@ select is(
   E'CAFÉ\t AU   LAIT',
   'the first captured Expression spelling is preserved'
 );
-select is((select count(*) from public.senses), 4::bigint, 'repeated capture still records its Sense before enrichment rules exist');
-select is((select count(*) from public.translations), 4::bigint, 'repeated capture still records its translation');
+select is((select count(*) from public.senses), 3::bigint, 'equivalent translations reuse one Sense');
+select is((select count(*) from public.translations), 3::bigint, 'equivalent translations are not duplicated');
 select is((select count(*) from public.examples), 0::bigint, 'no Example is invented');
 select is(
   (select count(*) from public.vocabulary_entries where expression_identity = public.expression_identity(U&'cafe\0301 au lait')),

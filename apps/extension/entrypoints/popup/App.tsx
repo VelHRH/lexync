@@ -376,7 +376,7 @@ export function App() {
         <h1>{savedCapture.expression}</h1>
         <p className="pair-label">{studyPairLabel(pair)}</p>
         <section className="sense-card" aria-label="Saved Sense">
-          <span>Sense 01</span>
+          <span>{savedCapture.senseCreated ? 'New Sense added' : 'Existing Sense enriched'}</span>
           <strong>{savedCapture.translation}</strong>
           <p>{savedCapture.example ?? 'No Example added'}</p>
         </section>

@@ -9,6 +9,7 @@ export type ManualCapture = {
   example: string | null;
   expression: string;
   referenceLanguageTag: string;
+  senseCreated: boolean;
   targetLanguageTag: string;
   translation: string;
   vocabularyEntryId: string;
