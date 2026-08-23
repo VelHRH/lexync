@@ -4,10 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Returning to Lexync</title>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main>
-      <p id="status">Returning to Lexync…</p>
+      <div class="brand"><span>Lx</span>lexync</div>
+      <p id="status" role="status">Returning to Lexync…</p>
+      <form id="password-form" hidden>
+        <label>
+          New password
+          <input id="password" type="password" autocomplete="new-password" />
+        </label>
+        <label>
+          Confirm new password
+          <input id="confirm-password" type="password" autocomplete="new-password" />
+        </label>
+        <button type="submit">Update password</button>
+      </form>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

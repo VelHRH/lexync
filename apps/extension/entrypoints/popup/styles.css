@@ -95,7 +95,7 @@ h1 {
 }
 
 .signed-out .brand {
-  margin-bottom: 72px;
+  margin-bottom: 38px;
 }
 
 .intro {
@@ -188,8 +188,29 @@ textarea:focus {
   color: #19251e;
 }
 
-.apple {
+.auth-form .primary {
   width: 100%;
+  margin-top: 2px;
+}
+
+.auth-switches {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.auth-switches button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #526c48;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.auth-switches button:only-child {
+  margin-left: auto;
 }
 
 button:disabled {
@@ -216,6 +237,10 @@ button:disabled {
   color: #a63f32;
   font-size: 11px;
   line-height: 1.5;
+}
+
+.notice.success {
+  color: #526c48;
 }
 
 .status {

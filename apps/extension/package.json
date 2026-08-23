@@ -19,6 +19,7 @@
     "@types/react-dom": "19.2.3",
     "@wxt-dev/module-react": "1.2.2",
     "typescript": "5.9.2",
+    "web-ext": "^10.6.0",
     "wxt": "0.21.4"
   }
 }

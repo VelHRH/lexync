@@ -9,6 +9,8 @@ type PairRow = {
   target_language_tag: string;
 };
 
+type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
+
 function toStudyPair(row: PairRow): StudyPair {
   return {
     id: row.id,
@@ -20,6 +22,10 @@ function toStudyPair(row: PairRow): StudyPair {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<AuthMode>('sign-in');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [studyPairs, setStudyPairs] = useState<StudyPair[]>([]);
   const [selectedPairId, setSelectedPairId] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
@@ -29,6 +35,7 @@ export function App() {
   const [example, setExample] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState('');
+  const [noticeTone, setNoticeTone] = useState<'error' | 'success'>('error');
   const [savedCapture, setSavedCapture] = useState<ManualCapture | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,25 +86,91 @@ export function App() {
     }
   }, [loadStudyPairs, session]);
 
-  async function signInWithApple() {
-    setNotice('');
+  function authenticationCallback() {
     const callback = new URL('/auth/callback', import.meta.env.WXT_PUBLIC_WEB_URL);
     callback.searchParams.set('extension_id', browser.runtime.id);
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: {
-        redirectTo: callback.toString(),
-        skipBrowserRedirect: true,
-      },
-    });
+    return callback.toString();
+  }
 
-    if (error || !data.url) {
-      setNotice(error?.message ?? 'Apple sign-in could not start.');
+  function showAuthMode(mode: AuthMode) {
+    setAuthMode(mode);
+    setPassword('');
+    setConfirmPassword('');
+    setNotice('');
+  }
+
+  async function authenticate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedEmail = email.trim();
+    setNotice('');
+    setNoticeTone('error');
+
+    if (!normalizedEmail) {
+      setNotice('Email is required.');
       return;
     }
 
-    setNotice('Waiting for Apple…');
-    await browser.tabs.create({ url: data.url });
+    if (authMode !== 'forgot-password' && password.length < 6) {
+      setNotice('Password must contain at least 6 characters.');
+      return;
+    }
+
+    if (authMode === 'sign-up' && password !== confirmPassword) {
+      setNotice('Passwords do not match.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      if (authMode === 'forgot-password') {
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+          redirectTo: authenticationCallback(),
+        });
+
+        if (error) {
+          setNotice(error.message);
+          return;
+        }
+
+        setNoticeTone('success');
+        setNotice('Check your email for a password reset link.');
+        return;
+      }
+
+      if (authMode === 'sign-up') {
+        const { data, error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: { emailRedirectTo: authenticationCallback() },
+        });
+
+        if (error) {
+          setNotice(error.message);
+          return;
+        }
+
+        if (!data.session) {
+          setNoticeTone('success');
+          setNotice('Check your email to confirm your account.');
+        }
+
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+      if (error) {
+        setNotice(error.message);
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Authentication could not be completed.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function createStudyPair(event: FormEvent<HTMLFormElement>) {
@@ -130,6 +203,7 @@ export function App() {
     setSubmitting(false);
 
     if (error) {
+      setNoticeTone('error');
       setNotice(error.message);
       return;
     }
@@ -170,6 +244,7 @@ export function App() {
     setSubmitting(false);
 
     if (error) {
+      setNoticeTone('error');
       setNotice(error.message);
       return;
     }
@@ -182,14 +257,74 @@ export function App() {
   }
 
   if (!session) {
+    const heading = authMode === 'sign-up'
+      ? 'Create your account.'
+      : authMode === 'forgot-password'
+        ? 'Reset your password.'
+        : 'Welcome back.';
+    const submitLabel = authMode === 'sign-up'
+      ? 'Create account'
+      : authMode === 'forgot-password'
+        ? 'Send reset link'
+        : 'Sign in';
+
     return (
       <main className="shell signed-out">
         <div className="brand"><span>Lx</span>lexync</div>
         <p className="eyebrow">Private by design</p>
-        <h1>Keep what<br />you notice.</h1>
-        <p className="intro">Sign in to capture an exact word or phrase into your personal learning loop.</p>
-        <button className="primary apple" type="button" onClick={signInWithApple}>Sign in with Apple</button>
-        {notice && <p className="notice" role="status">{notice}</p>}
+        <h1>{heading}</h1>
+        <p className="intro">
+          {authMode === 'forgot-password'
+            ? 'Enter your email and we will send you a link to choose a new password.'
+            : 'Use your email and password to access your private learning loop.'}
+        </p>
+        <form className="auth-form" onSubmit={authenticate} noValidate>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              inputMode="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          {authMode !== 'forgot-password' && (
+            <label>
+              Password
+              <input
+                autoComplete={authMode === 'sign-up' ? 'new-password' : 'current-password'}
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+          )}
+          {authMode === 'sign-up' && (
+            <label>
+              Confirm password
+              <input
+                autoComplete="new-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </label>
+          )}
+          <button className="primary" disabled={submitting} type="submit">{submitLabel}</button>
+        </form>
+        <div className="auth-switches">
+          {authMode === 'sign-in' && (
+            <>
+              <button type="button" onClick={() => showAuthMode('forgot-password')}>Forgot password?</button>
+              <button type="button" onClick={() => showAuthMode('sign-up')}>Create account</button>
+            </>
+          )}
+          {authMode !== 'sign-in' && (
+            <button type="button" onClick={() => showAuthMode('sign-in')}>Back to sign in</button>
+          )}
+        </div>
+        {notice && <p className={`notice ${noticeTone}`} role="status">{notice}</p>}
       </main>
     );
   }
@@ -274,7 +409,7 @@ export function App() {
         </section>
       )}
 
-      {notice && <p className="notice" role="status">{notice}</p>}
+      {notice && <p className={`notice ${noticeTone}`} role="status">{notice}</p>}
     </main>
   );
 }

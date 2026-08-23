@@ -32,15 +32,14 @@ Run the WXT extension in development with `pnpm dev:extension`. Copy `.env.examp
 
 `pnpm test` starts and resets the local Supabase project, runs the focused ownership-policy tests, builds every JavaScript/TypeScript workspace, and runs Playwright. Stop the local services with `pnpm backend:stop` when they are no longer needed.
 
-## Sign in with Apple smoke test
+## Email and password authentication
 
-The deterministic suite establishes authenticated test Learners against local Supabase. Live Apple authentication is a separate smoke check because it requires configured Apple and Supabase OAuth credentials.
+The extension supports account creation, email and password sign-in, email confirmation, and password recovery through Supabase Auth. No external OAuth provider credentials are required.
 
-Use a dedicated Chromium profile already authenticated to the test Apple account, configure Apple as the Supabase provider, allow the web `/auth/callback` URL, then run:
+Local Supabase disables email confirmation so deterministic tests can create authenticated Learners immediately. In a hosted project, enable email confirmation and add the web callback URL to the allowed Auth redirect URLs:
 
-```sh
-LEXYNC_APPLE_SMOKE=true \
-LEXYNC_APPLE_PROFILE_PATH=/path/to/test-profile \
-LEXYNC_APPLE_LEARNER_EMAIL=learner@example.test \
-pnpm test
+```text
+https://your-web-host/auth/callback
 ```
+
+Configure a production SMTP provider before sending confirmation and password recovery emails to real users.

@@ -44,7 +44,7 @@ The Next.js application is not part of the Learner's core study workflow in the 
 
 ## 3. Accounts and local access
 
-- Sign in with Apple is the only first-release authentication method.
+- Email and password registration, sign-in, confirmation, and password recovery are the first-release authentication methods.
 - The same account is used by the extension and iPhone application.
 - After a successful login and synchronization, offline lessons remain available until the Learner logs out or removes the application.
 - Server-side revocation takes effect the next time the device connects.
@@ -247,7 +247,7 @@ The pnpm workspace manages JavaScript and TypeScript packages. Xcode manages the
 
 ### 11.2 Backend
 
-- Supabase provides Sign in with Apple authentication, PostgreSQL, generated APIs, Row Level Security, Storage, database functions, and Edge Functions.
+- Supabase provides email and password authentication, PostgreSQL, generated APIs, Row Level Security, Storage, database functions, and Edge Functions.
 - There is no separate Effect service.
 - Browser and native clients may call Supabase directly under Row Level Security.
 - Atomic or privileged operations use PostgreSQL functions or Supabase Edge Functions.
@@ -298,13 +298,13 @@ The first acceptance scenario proves that:
 - Native iPhone journeys use an iPhone simulator and native UI tests.
 - CI runs against a local Supabase instance.
 - Webpage and language-application behavior uses controlled fixtures.
-- Sign in with Apple and live Duolingo/Clozemaster integrations are covered by separate smoke checks rather than deterministic CI scenarios.
+- Email and password authentication is covered by deterministic CI scenarios; live Duolingo/Clozemaster integrations use separate smoke checks.
 
 ## 14. First-release boundary
 
 The first usable release includes:
 
-- Sign in with Apple;
+- email and password registration, sign-in, and password recovery;
 - Study Pair management and explicit primary selection;
 - manual and plain-webpage extension capture;
 - online manual iPhone capture;
