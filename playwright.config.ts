@@ -29,6 +29,10 @@ export default defineConfig({
       name: 'bundle-security',
       testMatch: /security\/.*\.spec\.ts/,
     },
+    {
+      name: 'domain-contract',
+      testMatch: /domain\/.*\.spec\.ts/,
+    },
   ],
   webServer: {
     command: 'pnpm --filter @lexync/web start',

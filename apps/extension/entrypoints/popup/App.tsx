@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 
 type PairRow = {
   id: string;
+  is_primary: boolean;
   reference_language_tag: string;
   target_language_tag: string;
 };
@@ -14,6 +15,7 @@ type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
 function toStudyPair(row: PairRow): StudyPair {
   return {
     id: row.id,
+    isPrimary: row.is_primary,
     referenceLanguageTag: row.reference_language_tag,
     targetLanguageTag: row.target_language_tag,
   };
@@ -30,6 +32,7 @@ export function App() {
   const [selectedPairId, setSelectedPairId] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
   const [referenceLanguage, setReferenceLanguage] = useState('');
+  const [showPairForm, setShowPairForm] = useState(false);
   const [expression, setExpression] = useState('');
   const [translation, setTranslation] = useState('');
   const [example, setExample] = useState('');
@@ -48,7 +51,7 @@ export function App() {
   const loadStudyPairs = useCallback(async () => {
     const { data, error } = await supabase
       .from('study_pairs')
-      .select('id, target_language_tag, reference_language_tag')
+      .select('id, is_primary, target_language_tag, reference_language_tag')
       .order('created_at');
 
     if (error) {
@@ -59,6 +62,7 @@ export function App() {
     const pairs = (data as PairRow[]).map(toStudyPair);
     setStudyPairs(pairs);
     setSelectedPairId((current) => current || pairs[0]?.id || '');
+    setShowPairForm(pairs.length === 0);
   }, []);
 
   useEffect(() => {
@@ -195,16 +199,15 @@ export function App() {
     }
 
     setSubmitting(true);
-    const { data, error } = await supabase
-      .from('study_pairs')
-      .insert({ target_language_tag: targetTag, reference_language_tag: referenceTag })
-      .select('id, target_language_tag, reference_language_tag')
-      .single();
+    const { data, error } = await supabase.rpc('create_study_pair', {
+      p_reference_language_tag: referenceTag,
+      p_target_language_tag: targetTag,
+    });
     setSubmitting(false);
 
     if (error) {
       setNoticeTone('error');
-      setNotice(error.message);
+      setNotice(error.code === '23505' ? 'This Study Pair already exists.' : error.message);
       return;
     }
 
@@ -213,6 +216,35 @@ export function App() {
     setSelectedPairId(pair.id);
     setTargetLanguage('');
     setReferenceLanguage('');
+    setShowPairForm(false);
+  }
+
+  async function setPrimaryStudyPair(pairId: string) {
+    setNotice('');
+    setSubmitting(true);
+    const { error } = await supabase.rpc('set_primary_study_pair', {
+      p_study_pair_id: pairId,
+    });
+    setSubmitting(false);
+
+    if (error) {
+      setNoticeTone('error');
+      setNotice(error.message);
+      return;
+    }
+
+    const selectedPair = studyPairs.find((pair) => pair.id === pairId);
+
+    if (!selectedPair) {
+      return;
+    }
+
+    setStudyPairs((current) => current.map((pair) => ({
+      ...pair,
+      isPrimary: pair.targetLanguageTag === selectedPair.targetLanguageTag
+        ? pair.id === selectedPair.id
+        : pair.isPrimary,
+    })));
   }
 
   async function saveVocabularyEntry(event: FormEvent<HTMLFormElement>) {
@@ -338,7 +370,9 @@ export function App() {
     return (
       <main className="shell saved">
         <div className="success-mark">✓</div>
-        <p className="eyebrow">Vocabulary Entry saved</p>
+        <p className="eyebrow">
+          {savedCapture.vocabularyEntryCreated ? 'Vocabulary Entry saved' : 'Existing Vocabulary Entry used'}
+        </p>
         <h1>{savedCapture.expression}</h1>
         <p className="pair-label">{studyPairLabel(pair)}</p>
         <section className="sense-card" aria-label="Saved Sense">
@@ -346,6 +380,18 @@ export function App() {
           <strong>{savedCapture.translation}</strong>
           <p>{savedCapture.example ?? 'No Example added'}</p>
         </section>
+        <button
+          className="secondary another-entry"
+          type="button"
+          onClick={() => {
+            setSavedCapture(null);
+            setExpression('');
+            setTranslation('');
+            setExample('');
+          }}
+        >
+          Add another entry
+        </button>
       </main>
     );
   }
@@ -360,14 +406,34 @@ export function App() {
       <section className="panel">
         <p className="eyebrow">Study Pair</p>
         {studyPairs.length > 0 && (
-          <label>
-            Active Study Pair
-            <select value={selectedPairId} onChange={(event) => setSelectedPairId(event.target.value)}>
-              {studyPairs.map((pair) => <option key={pair.id} value={pair.id}>{studyPairLabel(pair)}</option>)}
-            </select>
-          </label>
+          <>
+            <label>
+              Active Study Pair
+              <select value={selectedPairId} onChange={(event) => setSelectedPairId(event.target.value)}>
+                {studyPairs.map((pair) => <option key={pair.id} value={pair.id}>{studyPairLabel(pair)}</option>)}
+              </select>
+            </label>
+            <fieldset className="primary-pairs">
+              <legend>Primary Study Pairs</legend>
+              {studyPairs.map((pair) => (
+                <label key={pair.id}>
+                  <input
+                    checked={pair.isPrimary}
+                    disabled={submitting}
+                    name={`primary-${pair.targetLanguageTag}`}
+                    type="radio"
+                    onChange={() => void setPrimaryStudyPair(pair.id)}
+                  />
+                  <span>{studyPairLabel(pair)}</span>
+                </label>
+              ))}
+            </fieldset>
+            {!showPairForm && (
+              <button className="secondary" type="button" onClick={() => setShowPairForm(true)}>Add Study Pair</button>
+            )}
+          </>
         )}
-        {studyPairs.length === 0 && (
+        {showPairForm && (
           <form onSubmit={createStudyPair} noValidate>
             <div className="language-grid">
               <label>
@@ -381,7 +447,23 @@ export function App() {
                 {errors.referenceLanguage && <span className="field-error">{errors.referenceLanguage}</span>}
               </label>
             </div>
-            <button className="secondary" disabled={submitting} type="submit">Create Study Pair</button>
+            <div className="pair-form-actions">
+              <button className="secondary" disabled={submitting} type="submit">Create Study Pair</button>
+              {studyPairs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPairForm(false);
+                    setTargetLanguage('');
+                    setReferenceLanguage('');
+                    setErrors({});
+                    setNotice('');
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         )}
       </section>
