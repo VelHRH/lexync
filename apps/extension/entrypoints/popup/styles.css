@@ -116,6 +116,48 @@ h1 {
   margin-top: 16px;
 }
 
+.primary-pairs {
+  display: grid;
+  gap: 8px;
+  margin: 15px 0;
+  padding: 0;
+  border: 0;
+}
+
+.primary-pairs legend {
+  margin-bottom: 7px;
+  color: rgba(25, 37, 30, 0.68);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.primary-pairs label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.primary-pairs input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.pair-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pair-form-actions > button:last-child:not(.secondary) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #526c48;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 form,
 label {
   display: grid;
@@ -302,4 +344,8 @@ button:disabled {
   color: rgba(251, 248, 239, 0.58);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.another-entry {
+  margin-top: 20px;
 }
