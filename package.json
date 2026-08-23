@@ -1,0 +1,16 @@
+{
+  "name": "lexync",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "build": "pnpm --filter @lexync/web build",
+    "check": "pnpm --filter @lexync/web check && tsc --noEmit -p tsconfig.tests.json",
+    "dev": "pnpm --filter @lexync/web dev",
+    "test": "pnpm build && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.0",
+    "@types/node": "24.3.0",
+    "typescript": "5.9.2"
+  }
+}
