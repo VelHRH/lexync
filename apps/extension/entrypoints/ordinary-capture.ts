@@ -1,6 +1,8 @@
-import { resolveStudyPair, studyPairLabel } from '@lexync/domain';
-import { type PairRow, toStudyPair } from '../lib/study-pairs';
-import { supabase } from '../lib/supabase';
+import { studyPairLabel } from '@lexync/domain';
+import type {
+  LoadOrdinaryCaptureResponse,
+  SaveOrdinaryCaptureResponse,
+} from '../lib/ordinary-capture-messages';
 
 type CaptureScope = typeof globalThis & {
   __lexyncActivateOrdinaryCapture?: () => void;
@@ -11,10 +13,6 @@ type CapturedText = {
   range: Range;
   source: Element;
 };
-
-function rememberedStudyPairKey(origin: string): string {
-  return `lexync.websiteStudyPair.${origin}`;
-}
 
 export default defineUnlistedScript(() => {
   const scope = globalThis as CaptureScope;
@@ -183,42 +181,30 @@ export default defineUnlistedScript(() => {
   }
 
   async function loadStudyPairs() {
-    const { data, error } = await supabase
-      .from('study_pairs')
-      .select('id, is_primary, target_language_tag, reference_language_tag')
-      .order('created_at');
+    const response = await browser.runtime.sendMessage({
+      detectedTargetLanguageTag: document.documentElement.lang,
+      origin: location.origin,
+      type: 'ordinary-capture:load',
+    }) as LoadOrdinaryCaptureResponse;
 
-    if (error) {
-      throw error;
+    if (response.error) {
+      throw new Error(response.error);
     }
-
-    const pairs = (data as PairRow[]).map(toStudyPair);
-    const rememberedKey = rememberedStudyPairKey(location.origin);
-    const stored = await browser.storage.local.get(rememberedKey);
-    const rememberedStudyPairId = typeof stored[rememberedKey] === 'string'
-      ? stored[rememberedKey]
-      : undefined;
-    const detectedTargetLanguageTag = document.documentElement.lang;
-    const resolution = resolveStudyPair(pairs, {
-      detectedTargetLanguageTag,
-      detectionReliable: Boolean(detectedTargetLanguageTag),
-      rememberedStudyPairId,
-    });
 
     pairSelect.replaceChildren();
 
-    if (resolution.kind === 'choice-required') {
+    if (!response.selectedStudyPairId) {
       const placeholder = document.createElement('option');
       placeholder.value = '';
       placeholder.textContent = 'Choose a Study Pair';
       pairSelect.append(placeholder);
     }
 
-    for (const pair of pairs) {
+    for (const pair of response.pairs) {
       const option = document.createElement('option');
       option.value = pair.id;
       option.textContent = studyPairLabel(pair);
-      option.selected = resolution.kind === 'resolved' && pair.id === resolution.studyPair.id;
+      option.selected = pair.id === response.selectedStudyPairId;
       pairSelect.append(option);
     }
   }
@@ -316,25 +302,27 @@ export default defineUnlistedScript(() => {
 
     const submitButton = root.querySelector<HTMLButtonElement>('button[type="submit"]')!;
     submitButton.disabled = true;
-    const { error } = await supabase.rpc('capture_manual_entry', {
-      p_example: exampleInput.value || null,
-      p_expression: currentExpression,
-      p_study_pair_id: studyPairId,
-      p_translation: translation,
-    });
+    const response = await browser.runtime.sendMessage({
+      example: exampleInput.value || null,
+      expression: currentExpression,
+      origin: location.origin,
+      studyPairId,
+      translation,
+      type: 'ordinary-capture:save',
+    }) as SaveOrdinaryCaptureResponse;
     submitButton.disabled = false;
 
-    if (error) {
-      prompt.textContent = error.message;
+    if (response.error) {
+      prompt.textContent = response.error;
       dialog.hidden = true;
       prompt.hidden = false;
       return;
     }
 
-    await browser.storage.local.set({ [rememberedStudyPairKey(location.origin)]: studyPairId });
     dialog.hidden = true;
-    prompt.textContent = 'Vocabulary Entry saved.';
+    prompt.textContent = 'Vocabulary Entry saved. Click another word or select a phrase.';
     prompt.hidden = false;
+    active = true;
   });
 
   cancelButton.addEventListener('click', deactivate);

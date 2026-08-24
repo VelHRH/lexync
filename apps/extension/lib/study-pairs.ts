@@ -15,3 +15,7 @@ export function toStudyPair(row: PairRow): StudyPair {
     targetLanguageTag: row.target_language_tag,
   };
 }
+
+export function websiteStudyPairKey(origin: string): string {
+  return `lexync.websiteStudyPair.${origin}`;
+}

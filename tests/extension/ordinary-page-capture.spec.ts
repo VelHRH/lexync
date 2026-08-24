@@ -41,7 +41,7 @@ async function openControlledPage(context: BrowserContext): Promise<Page> {
       <html lang="it">
         <head><title>Private reading notes</title></head>
         <body>
-          <p id="word-sentence">Ogni <span id="word">scoperta</span> cambia il viaggio. Never upload this neighboring sentence.</p>
+          <p id="word-sentence">Ogni <span id="word">scoperta</span> cambia il <span id="second-word">viaggio</span>. Never upload this neighboring sentence.</p>
           <p id="phrase-sentence">La <span id="phrase">strada maestra</span> attraversa il borgo.</p>
           <p id="unrelated">This unrelated private paragraph must never leave the page.</p>
         </body>
@@ -54,7 +54,7 @@ async function openControlledPage(context: BrowserContext): Promise<Page> {
 }
 
 test.describe('ordinary webpage capture', () => {
-  test('captures an exact clicked word into a changed Study Pair with an edited Example', async ({
+  test('captures consecutive exact words into a changed Study Pair with an edited Example', async ({
     extensionContext,
     extensionPage,
     learnerClient,
@@ -82,7 +82,14 @@ test.describe('ordinary webpage capture', () => {
     await capture.getByLabel('Example').fill('Una scoperta cambia il viaggio.');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 
-    await expect(page.getByRole('status')).toHaveText('Vocabulary Entry saved.');
+    await expect(page.getByRole('status')).toHaveText('Vocabulary Entry saved. Click another word or select a phrase.');
+    await page.locator('#second-word').click();
+    await expect(capture.getByLabel('Expression')).toHaveValue('viaggio');
+    await expect(capture.getByLabel('Active Study Pair')).toHaveValue(ukrainianPair.id);
+    await capture.getByLabel('Translation').fill('подорож');
+    await capture.getByLabel('Example').fill('');
+    await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    await expect(page.getByRole('status')).toHaveText('Vocabulary Entry saved. Click another word or select a phrase.');
     const { data } = await learnerClient
       .from('vocabulary_entries')
       .select('expression, study_pair_id, senses(translations(text), examples(text))')
@@ -92,6 +99,16 @@ test.describe('ordinary webpage capture', () => {
       expression: 'scoperta',
       study_pair_id: ukrainianPair.id,
       senses: [{ translations: [{ text: 'відкриття' }], examples: [{ text: 'Una scoperta cambia il viaggio.' }] }],
+    });
+    const { data: secondCapture } = await learnerClient
+      .from('vocabulary_entries')
+      .select('expression, study_pair_id, senses(translations(text), examples(text))')
+      .eq('expression_identity', 'viaggio')
+      .single();
+    expect(secondCapture).toEqual({
+      expression: 'viaggio',
+      study_pair_id: ukrainianPair.id,
+      senses: [{ translations: [{ text: 'подорож' }], examples: [] }],
     });
     expect(Object.keys(captureRequest ?? {}).sort()).toEqual([
       'p_example',
@@ -125,7 +142,7 @@ test.describe('ordinary webpage capture', () => {
     await capture.getByLabel('Example').fill('');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 
-    await expect(page.getByRole('status')).toHaveText('Vocabulary Entry saved.');
+    await expect(page.getByRole('status')).toHaveText('Vocabulary Entry saved. Click another word or select a phrase.');
     const { data } = await learnerClient
       .from('vocabulary_entries')
       .select('expression, study_pair_id, senses(translations(text), examples(text))')

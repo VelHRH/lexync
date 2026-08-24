@@ -23,3 +23,11 @@ test('client bundles contain no secret or service-role credential', async () => 
     expect(bundle).not.toContain(process.env.SUPABASE_SERVICE_ROLE_KEY);
   }
 });
+
+test('injected ordinary-page capture does not contact Supabase directly', async () => {
+  const bundle = await readFile('apps/extension/.output/chrome-mv3/ordinary-capture.js', 'utf8');
+
+  expect(bundle).not.toContain('capture_manual_entry');
+  expect(bundle).not.toContain('/rest/v1');
+  expect(bundle).not.toContain('127.0.0.1:54321');
+});
