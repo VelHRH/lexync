@@ -155,6 +155,27 @@ test.describe('ordinary webpage capture', () => {
     });
   });
 
+  test('keeps capture active after cancelling the current word', async ({
+    extensionContext,
+    extensionPage,
+    learnerClient,
+  }) => {
+    await createStudyPair(learnerClient, 'it', 'en');
+    await extensionPage.close();
+    const page = await openControlledPage(extensionContext);
+
+    await openCapturePopup(extensionContext, page);
+    await page.locator('#word').click();
+    const capture = page.getByRole('dialog', { name: 'Capture Expression' });
+    await capture.getByRole('button', { name: 'Cancel' }).click();
+
+    await expect(page.getByRole('status')).toHaveText('Click a word or select a phrase. Press Escape to cancel.');
+    await page.locator('#second-word').click();
+    await expect(capture.getByLabel('Expression')).toHaveValue('viaggio');
+    const { count } = await learnerClient.from('vocabulary_entries').select('*', { count: 'exact', head: true });
+    expect(count).toBe(0);
+  });
+
   test('blocks capture until a translation is provided', async ({
     extensionContext,
     extensionPage,

@@ -325,7 +325,7 @@ export default defineUnlistedScript(() => {
     active = true;
   });
 
-  cancelButton.addEventListener('click', deactivate);
+  cancelButton.addEventListener('click', activate);
   scope.__lexyncActivateOrdinaryCapture = activate;
   activate();
 });
