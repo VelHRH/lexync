@@ -31,3 +31,16 @@ test('injected ordinary-page capture does not contact Supabase directly', async 
   expect(bundle).not.toContain('/rest/v1');
   expect(bundle).not.toContain('127.0.0.1:54321');
 });
+
+test('Learning Mode page access is optional and its injected bundle has no backend access', async () => {
+  const manifest = JSON.parse(await readFile('apps/extension/.output/chrome-mv3/manifest.json', 'utf8')) as {
+    host_permissions?: string[];
+    optional_host_permissions?: string[];
+  };
+  const bundle = await readFile('apps/extension/.output/chrome-mv3/learning-mode.js', 'utf8');
+
+  expect(manifest.host_permissions ?? []).not.toEqual(expect.arrayContaining(['http://*/*', 'https://*/*', '<all_urls>']));
+  expect(manifest.optional_host_permissions).toEqual(expect.arrayContaining(['http://*/*', 'https://*/*']));
+  expect(bundle).not.toContain('/rest/v1');
+  expect(bundle).not.toContain('127.0.0.1:54321');
+});

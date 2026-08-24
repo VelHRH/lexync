@@ -10,6 +10,7 @@ export default defineConfig({
       description: 'Deliberately capture private language-learning material.',
       permissions: ['activeTab', 'scripting', 'storage', 'tabs'],
       host_permissions: supabaseUrl ? [`${new URL(supabaseUrl).origin}/*`] : [],
+      optional_host_permissions: ['http://*/*', 'https://*/*'],
       web_accessible_resources: [
         {
           resources: ['auth-callback.html'],
