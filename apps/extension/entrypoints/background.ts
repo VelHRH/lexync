@@ -39,7 +39,10 @@ async function loadOrdinaryCapture(message: LoadOrdinaryCaptureMessage): Promise
   };
 }
 
-async function saveOrdinaryCapture(message: SaveOrdinaryCaptureMessage): Promise<SaveOrdinaryCaptureResponse> {
+async function saveOrdinaryCapture(
+  message: SaveOrdinaryCaptureMessage,
+  sender: { tab?: { id?: number } },
+): Promise<SaveOrdinaryCaptureResponse> {
   const { error } = await supabase.rpc('capture_manual_entry', {
     p_example: message.example,
     p_expression: message.expression,
@@ -52,14 +55,21 @@ async function saveOrdinaryCapture(message: SaveOrdinaryCaptureMessage): Promise
   }
 
   await browser.storage.local.set({ [websiteStudyPairKey(message.origin)]: message.studyPairId });
-  await syncExpressionSnapshot(message.studyPairId);
+  const entries = await syncExpressionSnapshot(message.studyPairId);
+
+  if (sender.tab?.id) {
+    await browser.tabs.sendMessage(sender.tab.id, {
+      entries,
+      type: 'learning-mode:index-updated',
+    }).catch(() => undefined);
+  }
   return {};
 }
 
-async function handleOrdinaryCapture(message: OrdinaryCaptureMessage) {
+async function handleOrdinaryCapture(message: OrdinaryCaptureMessage, sender: { tab?: { id?: number } }) {
   return message.type === 'ordinary-capture:load'
     ? loadOrdinaryCapture(message)
-    : saveOrdinaryCapture(message);
+    : saveOrdinaryCapture(message, sender);
 }
 
 type EntryRow = {
@@ -279,7 +289,7 @@ async function handleLearningMode(message: LearningModeMessage, sender: { tab?: 
     return {};
   }
 
-  if (message.type === 'learning-mode:disable') {
+  if (message.type === 'learning-mode:disable' || message.type === 'learning-mode:index-updated') {
     return {};
   }
 
@@ -301,7 +311,7 @@ export default defineBackground(() => {
     }
 
     const operation = isOrdinaryCaptureMessage(message)
-      ? handleOrdinaryCapture(message)
+      ? handleOrdinaryCapture(message, sender)
       : isLearningModeMessage(message)
         ? handleLearningMode(message, sender)
         : undefined;

@@ -145,7 +145,7 @@ export default defineUnlistedScript(async () => {
     const parent = node.parentElement;
     return Boolean(parent
       && node.textContent?.trim()
-      && !parent.closest('script, style, textarea, input, select, option, button, [contenteditable="true"], #lexync-learning-mode, #lexync-ordinary-capture'));
+      && !parent.closest('script, style, textarea, input, select, option, button, [contenteditable="true"], [data-lexync-saved="true"], #lexync-learning-mode, #lexync-ordinary-capture'));
   }
 
   function wordAtPoint(event: MouseEvent) {
@@ -358,8 +358,17 @@ export default defineUnlistedScript(async () => {
   }
 
   browser.runtime.onMessage.addListener((message) => {
-    if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'learning-mode:disable') {
+    if (typeof message !== 'object' || message === null || !('type' in message)) {
+      return;
+    }
+
+    if (message.type === 'learning-mode:disable') {
       teardown();
+    }
+
+    if (message.type === 'learning-mode:index-updated' && 'entries' in message && Array.isArray(message.entries)) {
+      entries = message.entries as LearningModeEntry[];
+      markSavedExpressions();
     }
   });
 

@@ -155,11 +155,12 @@ test.describe('Learning Mode', () => {
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await capture.getByLabel('Translation').fill('wonder');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    await expect(page.locator('[data-lexync-saved="true"]', { hasText: 'meraviglia' })).toBeVisible();
     await page.locator('#second-unknown').hover();
     await page.getByRole('button', { name: 'Add cammino' }).click();
     await capture.getByRole('button', { name: 'Cancel' }).click();
-    await page.locator('#unknown').hover();
-    await expect(page.getByRole('button', { name: 'Add meraviglia' })).toBeVisible();
+    await page.locator('#plain-sentence').hover({ position: { x: 20, y: 10 } });
+    await expect(page.getByRole('button', { name: 'Add curiosità' })).toBeVisible();
 
     const popup = await extensionContext.newPage();
     const id = await extensionId(extensionContext);
