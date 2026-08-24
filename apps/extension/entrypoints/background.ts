@@ -1,4 +1,4 @@
-import { resolveStudyPair } from '@lexync/domain';
+import { resolveStudyPair, type StudyPair } from '@lexync/domain';
 import { readExpressionSnapshot, writeExpressionSnapshot } from '../lib/learning-mode-index';
 import {
   isLearningModeMessage,
@@ -19,26 +19,19 @@ import { learningModeSiteKey, type PairRow, toStudyPair, websiteStudyPairKey } f
 import { supabase } from '../lib/supabase';
 
 async function loadOrdinaryCapture(message: LoadOrdinaryCaptureMessage): Promise<LoadOrdinaryCaptureResponse> {
-  const { data, error } = await supabase
-    .from('study_pairs')
-    .select('id, is_primary, target_language_tag, reference_language_tag')
-    .order('created_at');
+  let pairs: StudyPair[];
 
-  if (error) {
-    return { error: error.message, pairs: [] };
+  try {
+    pairs = await loadPairs();
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Study Pairs could not be loaded.', pairs: [] };
   }
-
-  const pairs = (data as PairRow[]).map(toStudyPair);
   const rememberedKey = websiteStudyPairKey(message.origin);
   const stored = await browser.storage.local.get(rememberedKey);
   const rememberedStudyPairId = typeof stored[rememberedKey] === 'string'
     ? stored[rememberedKey]
     : undefined;
-  const resolution = resolveStudyPair(pairs, {
-    detectedTargetLanguageTag: message.detectedTargetLanguageTag,
-    detectionReliable: Boolean(message.detectedTargetLanguageTag),
-    rememberedStudyPairId,
-  });
+  const resolution = resolveDetectedStudyPair(pairs, message.detectedTargetLanguageTag, rememberedStudyPairId);
 
   return {
     pairs,
@@ -101,6 +94,18 @@ async function loadPairs() {
   return (data as PairRow[]).map(toStudyPair);
 }
 
+function resolveDetectedStudyPair(
+  pairs: StudyPair[],
+  detectedTargetLanguageTag: string,
+  rememberedStudyPairId?: string,
+) {
+  return resolveStudyPair(pairs, {
+    detectedTargetLanguageTag,
+    detectionReliable: Boolean(detectedTargetLanguageTag && detectedTargetLanguageTag !== 'und'),
+    rememberedStudyPairId,
+  });
+}
+
 async function siteChoice(origin: string): Promise<{ choice?: SiteChoice; decided: boolean }> {
   const key = learningModeSiteKey(origin);
   const stored = await browser.storage.local.get(key);
@@ -140,11 +145,7 @@ async function resolveSiteState(origin: string, detectedTargetLanguageTag: strin
   const storedPairKey = websiteStudyPairKey(origin);
   const stored = await browser.storage.local.get(storedPairKey);
   const rememberedStudyPairId = typeof stored[storedPairKey] === 'string' ? stored[storedPairKey] : undefined;
-  const resolution = resolveStudyPair(pairs, {
-    detectedTargetLanguageTag,
-    detectionReliable: Boolean(detectedTargetLanguageTag && detectedTargetLanguageTag !== 'und'),
-    rememberedStudyPairId,
-  });
+  const resolution = resolveDetectedStudyPair(pairs, detectedTargetLanguageTag, rememberedStudyPairId);
   const selectedStudyPairId = choice?.studyPairId
     ?? (resolution.kind === 'resolved' ? resolution.studyPair.id : undefined);
   const permitted = await browser.permissions.contains({ origins: [originPattern(origin)] });
@@ -231,10 +232,7 @@ async function refreshAction(tabId: number): Promise<void> {
 
   try {
     const pairs = await loadPairs();
-    const resolution = resolveStudyPair(pairs, {
-      detectedTargetLanguageTag,
-      detectionReliable: Boolean(detectedTargetLanguageTag && detectedTargetLanguageTag !== 'und'),
-    });
+    const resolution = resolveDetectedStudyPair(pairs, detectedTargetLanguageTag);
     const available = resolution.kind === 'resolved';
     await browser.action.setBadgeText({ tabId, text: available ? 'NEW' : '' });
     await browser.action.setTitle({ tabId, title: available ? 'Learning Mode is available' : 'Lexync' });
@@ -261,6 +259,13 @@ async function handleLearningMode(message: LearningModeMessage, sender: { tab?: 
     });
     await updateLearningModeRegistration(message.origin, message.enabled);
 
+    if (!message.enabled) {
+      const tabs = await browser.tabs.query({ url: originPattern(message.origin) });
+      await Promise.all(tabs.map((tab) => tab.id
+        ? browser.tabs.sendMessage(tab.id, { type: 'learning-mode:disable' }).catch(() => undefined)
+        : undefined));
+    }
+
     if (message.enabled && message.studyPairId) {
       await syncExpressionSnapshot(message.studyPairId).catch(() => undefined);
     }
@@ -274,7 +279,14 @@ async function handleLearningMode(message: LearningModeMessage, sender: { tab?: 
     return {};
   }
 
-  const state = await resolveSiteState(message.origin, message.detectedTargetLanguageTag);
+  if (message.type === 'learning-mode:disable') {
+    return {};
+  }
+
+  const detectedTargetLanguageTag = sender.tab?.id
+    ? await browser.tabs.detectLanguage(sender.tab.id).catch(() => message.detectedTargetLanguageTag)
+    : message.detectedTargetLanguageTag;
+  const state = await resolveSiteState(message.origin, detectedTargetLanguageTag);
   const entries = state.enabled && state.selectedStudyPairId
     ? await readExpressionSnapshot(state.selectedStudyPairId)
     : [];

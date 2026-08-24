@@ -28,6 +28,7 @@ export type LearningModeMessage =
   | { origin: string; tabId: number; type: 'learning-mode:permission-granted' }
   | { detectedTargetLanguageTag: string; origin: string; type: 'learning-mode:load' }
   | { enabled: boolean; origin: string; studyPairId?: string; type: 'learning-mode:set-site' }
+  | { type: 'learning-mode:disable' }
   | { type: 'learning-mode:start-capture' };
 
 export type LearningModeLoadResponse = LearningModeSiteState & {

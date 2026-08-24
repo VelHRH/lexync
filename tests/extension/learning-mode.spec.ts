@@ -38,10 +38,11 @@ async function openReadingPage(context: BrowserContext, path = '/reading', origi
   await context.route(`${origin}${path}`, (route) => route.fulfill({
     body: `<!doctype html>
       <html lang="it">
-        <head><title>Italian reading</title></head>
+        <head><meta charset="utf-8"><title>Italian reading</title></head>
         <body>
           <p>La scoperta apre una strada nuova. Ogni scoperta cambia il viaggio e rende la giornata interessante.</p>
           <p><span id="unknown">meraviglia</span> accompagna il <span id="second-unknown">cammino</span> ogni giorno.</p>
+          <p id="plain-sentence">curiosità accompagna ogni lettore lungo questa strada.</p>
         </body>
       </html>`,
     contentType: 'text/html',
@@ -113,6 +114,28 @@ test.describe('Learning Mode', () => {
     await expect(page.locator('#second-unknown')).not.toHaveAttribute('data-lexync-unknown');
     await page.locator('#second-unknown').hover();
     await expect(page.locator('#unknown')).not.toHaveAttribute('data-lexync-hover');
+    await page.locator('#plain-sentence').hover({ position: { x: 20, y: 10 } });
+    await expect(page.getByRole('button', { name: 'Add curiosità' })).toBeVisible();
+  });
+
+  test('remembers Not now and can be enabled later from the popup', async ({
+    extensionContext,
+    extensionPage,
+    learnerClient,
+  }) => {
+    await createStudyPair(learnerClient);
+    const page = await openReadingPage(extensionContext, '/decline');
+    const prompt = page.getByRole('dialog', { name: 'Learning Mode' });
+
+    await prompt.getByRole('button', { name: 'Not now' }).click();
+    await page.reload();
+    await expect(prompt).toHaveCount(0);
+    await page.bringToFront();
+    await extensionPage.bringToFront();
+    await extensionPage.reload();
+    await extensionPage.getByRole('button', { name: 'Enable Learning Mode' }).click();
+    await page.bringToFront();
+    await expect(page.getByRole('status')).toHaveText('Learning Mode is on');
   });
 
   test('remains active after cancel and uses its local index when the backend is offline', async ({
@@ -129,21 +152,34 @@ test.describe('Learning Mode', () => {
       .toEqual(expect.arrayContaining([expect.objectContaining({ matches: ['http://127.0.0.1:54321/*'] })]));
     await page.locator('#unknown').hover();
     await page.getByRole('button', { name: 'Add meraviglia' }).click();
-    await page.getByRole('dialog', { name: 'Capture Expression' }).getByRole('button', { name: 'Cancel' }).click();
+    const capture = page.getByRole('dialog', { name: 'Capture Expression' });
+    await capture.getByLabel('Translation').fill('wonder');
+    await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await page.locator('#second-unknown').hover();
-    await expect(page.getByRole('button', { name: 'Add cammino' })).toBeVisible();
+    await page.getByRole('button', { name: 'Add cammino' }).click();
+    await capture.getByRole('button', { name: 'Cancel' }).click();
+    await page.locator('#unknown').hover();
+    await expect(page.getByRole('button', { name: 'Add meraviglia' })).toBeVisible();
+
+    const popup = await extensionContext.newPage();
+    const id = await extensionId(extensionContext);
+    await popup.goto(`chrome-extension://${id}/popup.html`);
+    await popup.getByRole('button', { name: 'Disable Learning Mode' }).click();
+    await expect(page.locator('[data-lexync-saved="true"]')).toHaveCount(0);
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await popup.getByRole('button', { name: 'Enable Learning Mode' }).click();
+    await expect(page.getByRole('status')).toHaveText('Learning Mode is on');
 
     await extensionContext.route('http://127.0.0.1:54321/rest/v1/**', (route) => route.abort());
     await page.reload();
     await expect(page.getByRole('status')).toHaveText('Learning Mode is on');
     await expect(page.locator('[data-lexync-saved="true"]').first()).toHaveText('scoperta');
 
-    const popup = await extensionContext.newPage();
-    const id = await extensionId(extensionContext);
-    await popup.goto(`chrome-extension://${id}/popup.html`);
+    await popup.reload();
     await popup.getByRole('button', { name: 'Disable Learning Mode' }).click();
-    await page.reload();
     await expect(page.locator('[data-lexync-saved="true"]')).toHaveCount(0);
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await page.reload();
     await expect(page.getByRole('button', { name: /Add / })).toHaveCount(0);
   });
 });

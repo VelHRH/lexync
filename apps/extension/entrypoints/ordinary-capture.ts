@@ -6,6 +6,7 @@ import type {
 
 type CaptureScope = typeof globalThis & {
   __lexyncActivateOrdinaryCapture?: () => void;
+  __lexyncDeactivateOrdinaryCapture?: () => void;
   __lexyncOpenOrdinaryCapture?: (expression: string, example: string) => void;
 };
 
@@ -253,8 +254,13 @@ export default defineUnlistedScript(() => {
     active = true;
   }
 
+  function isLexyncUi(event: Event) {
+    return event.composedPath().some((target) => target instanceof Element
+      && (target.id === 'lexync-ordinary-capture' || target.id === 'lexync-learning-mode'));
+  }
+
   document.addEventListener('mouseup', (event) => {
-    if (!active || event.composedPath().includes(host)) {
+    if (!active || isLexyncUi(event)) {
       return;
     }
 
@@ -270,7 +276,7 @@ export default defineUnlistedScript(() => {
   }, true);
 
   document.addEventListener('click', (event) => {
-    if (!active || event.composedPath().includes(host)) {
+    if (!active || isLexyncUi(event)) {
       return;
     }
 
@@ -335,6 +341,7 @@ export default defineUnlistedScript(() => {
 
   cancelButton.addEventListener('click', activate);
   scope.__lexyncActivateOrdinaryCapture = activate;
+  scope.__lexyncDeactivateOrdinaryCapture = deactivate;
   scope.__lexyncOpenOrdinaryCapture = (expression, example) => void openCaptureValues(expression, example);
   activate();
 });

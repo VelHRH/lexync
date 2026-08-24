@@ -3,6 +3,7 @@ import type { LearningModeEntry, LearningModeLoadResponse } from '../lib/learnin
 
 type LearningScope = typeof globalThis & {
   __lexyncLearningMode?: boolean;
+  __lexyncDeactivateOrdinaryCapture?: () => void;
   __lexyncOpenOrdinaryCapture?: (expression: string, example: string) => void;
 };
 
@@ -21,6 +22,7 @@ export default defineUnlistedScript(async () => {
   }) as LearningModeLoadResponse;
 
   if (!response.permitted || (response.decided && !response.enabled)) {
+    scope.__lexyncLearningMode = false;
     return;
   }
 
@@ -100,7 +102,8 @@ export default defineUnlistedScript(async () => {
   const status = root.querySelector<HTMLElement>('.mode-status')!;
   const addButton = root.querySelector<HTMLButtonElement>('.add')!;
   const details = root.querySelector<HTMLElement>('.details')!;
-  let hoveredElement: Element | null = null;
+  let hoverMark: HTMLElement | null = null;
+  let hoveredSource: Element | null = null;
   let hoveredExpression = '';
   let entries = response.entries;
   let modeEnabled = response.enabled;
@@ -143,6 +146,43 @@ export default defineUnlistedScript(async () => {
     return Boolean(parent
       && node.textContent?.trim()
       && !parent.closest('script, style, textarea, input, select, option, button, [contenteditable="true"], #lexync-learning-mode, #lexync-ordinary-capture'));
+  }
+
+  function wordAtPoint(event: MouseEvent) {
+    const documentWithCaret = document as Document & {
+      caretPositionFromPoint?: (x: number, y: number) => { offset: number; offsetNode: Node } | null;
+      caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    };
+    const position = documentWithCaret.caretPositionFromPoint?.(event.clientX, event.clientY);
+    const fallback = documentWithCaret.caretRangeFromPoint?.(event.clientX, event.clientY);
+    const node = position?.offsetNode ?? fallback?.startContainer;
+    const offset = position?.offset ?? fallback?.startOffset;
+
+    if (node?.nodeType !== Node.TEXT_NODE || offset === undefined) {
+      return undefined;
+    }
+
+    const source = node.parentElement;
+
+    if (!source || source.closest('[data-lexync-saved="true"], #lexync-learning-mode, #lexync-ordinary-capture')) {
+      return undefined;
+    }
+
+    const text = node.textContent ?? '';
+
+    for (const word of text.matchAll(/[\p{L}\p{M}\p{N}]+(?:['’\-‐][\p{L}\p{M}\p{N}]+)*/gu)) {
+      const start = word.index;
+      const end = start + word[0].length;
+
+      if (offset >= start && offset <= end) {
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, end);
+        return { expression: word[0], range, source };
+      }
+    }
+
+    return undefined;
   }
 
   function markSavedExpressions() {
@@ -236,62 +276,91 @@ export default defineUnlistedScript(async () => {
 
   enableButton.addEventListener('click', () => void enable());
   declineButton.addEventListener('click', () => {
-    void browser.runtime.sendMessage({ enabled: false, origin: location.origin, type: 'learning-mode:set-site' });
-    host.remove();
+    void browser.runtime.sendMessage({
+      enabled: false,
+      origin: location.origin,
+      studyPairId: pairSelect.value || response.selectedStudyPairId,
+      type: 'learning-mode:set-site',
+    });
+    teardown();
   });
 
-  document.addEventListener('mouseover', (event) => {
+  document.addEventListener('mousemove', (event) => {
     if (!modeEnabled || event.composedPath().includes(host)) {
       return;
     }
 
-    const element = event.target instanceof Element ? event.target : null;
-    const expression = element?.textContent?.trim() ?? '';
+    const hoveredWord = wordAtPoint(event);
 
-    if (!element || !/^[\p{L}\p{M}\p{N}]+(?:['’\-‐][\p{L}\p{M}\p{N}]+)*$/u.test(expression)
-      || element.closest('[data-lexync-saved="true"]')) {
+    if (!hoveredWord) {
+      hoverTimeout = window.setTimeout(clearHover, 120);
       return;
     }
 
-    const rect = element.getBoundingClientRect();
-    hoveredElement?.removeAttribute('data-lexync-hover');
-    hoveredElement = element;
-    hoveredExpression = expression;
-    element.setAttribute('data-lexync-hover', 'true');
-    addButton.textContent = `Add ${expression}`;
-    addButton.setAttribute('aria-label', `Add ${expression}`);
+    window.clearTimeout(hoverTimeout);
+
+    if (hoverMark?.contains(hoveredWord.range.startContainer)) {
+      return;
+    }
+
+    clearHover();
+    const rect = hoveredWord.range.getBoundingClientRect();
+    hoverMark = document.createElement('span');
+    hoverMark.dataset.lexyncHover = 'true';
+    hoveredWord.range.surroundContents(hoverMark);
+    hoveredSource = hoveredWord.source;
+    hoveredExpression = hoveredWord.expression;
+    addButton.textContent = `Add ${hoveredWord.expression}`;
+    addButton.setAttribute('aria-label', `Add ${hoveredWord.expression}`);
     addButton.style.left = `${Math.min(rect.left, innerWidth - 130)}px`;
     addButton.style.top = `${Math.max(8, rect.top - 32)}px`;
     addButton.hidden = false;
   }, true);
 
   function clearHover() {
-    hoveredElement?.removeAttribute('data-lexync-hover');
-    hoveredElement = null;
+    const parent = hoverMark?.parentElement;
+    hoverMark?.replaceWith(hoverMark.textContent ?? '');
+    parent?.normalize();
+    hoverMark = null;
+    hoveredSource = null;
     hoveredExpression = '';
     addButton.hidden = true;
   }
-
-  document.addEventListener('mouseout', (event) => {
-    if (event.target !== hoveredElement) {
-      return;
-    }
-
-    hoverTimeout = window.setTimeout(clearHover, 120);
-  }, true);
 
   addButton.addEventListener('mouseenter', () => window.clearTimeout(hoverTimeout));
   addButton.addEventListener('mouseleave', clearHover);
 
   addButton.addEventListener('click', async () => {
-    if (!hoveredElement || !hoveredExpression) {
+    if (!hoveredSource || !hoveredExpression) {
       return;
     }
 
-    const example = hoveredElement.closest('p, li, blockquote, figcaption, td, th, div, article, section')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    const example = hoveredSource.closest('p, li, blockquote, figcaption, td, th, div, article, section')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     await browser.runtime.sendMessage({ type: 'learning-mode:start-capture' });
     scope.__lexyncOpenOrdinaryCapture?.(hoveredExpression, example);
     clearHover();
+  });
+
+  function teardown() {
+    modeEnabled = false;
+    clearHover();
+
+    for (const mark of document.querySelectorAll<HTMLElement>('[data-lexync-saved="true"]')) {
+      const parent = mark.parentElement;
+      mark.replaceWith(mark.textContent ?? '');
+      parent?.normalize();
+    }
+
+    host.remove();
+    hoverStyle.remove();
+    scope.__lexyncDeactivateOrdinaryCapture?.();
+    scope.__lexyncLearningMode = false;
+  }
+
+  browser.runtime.onMessage.addListener((message) => {
+    if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'learning-mode:disable') {
+      teardown();
+    }
   });
 
   if (response.enabled) {
