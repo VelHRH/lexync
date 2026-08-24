@@ -284,6 +284,32 @@ export function App() {
     setSavedCapture(data as ManualCapture);
   }
 
+  async function startOrdinaryCapture() {
+    setNotice('');
+    const tabs = await browser.tabs.query({ currentWindow: true });
+    const candidates = tabs
+      .filter((tab) => /^https?:\/\//.test(tab.url ?? ''))
+      .sort((first, second) => (second.lastAccessed ?? 0) - (first.lastAccessed ?? 0));
+    const tab = candidates.find((candidate) => candidate.active) ?? candidates[0];
+
+    if (!tab?.id) {
+      setNoticeTone('error');
+      setNotice('Open an ordinary webpage before starting capture.');
+      return;
+    }
+
+    try {
+      await browser.scripting.executeScript({
+        files: ['/ordinary-capture.js'],
+        target: { tabId: tab.id },
+      });
+      window.close();
+    } catch {
+      setNoticeTone('error');
+      setNotice('Lexync cannot capture from this page.');
+    }
+  }
+
   if (loading) {
     return <main className="shell"><p className="status">Opening your private library…</p></main>;
   }
@@ -467,6 +493,12 @@ export function App() {
           </form>
         )}
       </section>
+
+      {studyPairs.length > 0 && (
+        <button className="primary page-capture" type="button" onClick={() => void startOrdinaryCapture()}>
+          Capture from this page
+        </button>
+      )}
 
       {studyPairs.length > 0 && (
         <section className="panel capture-panel">
