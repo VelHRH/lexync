@@ -8,7 +8,7 @@ export default defineConfig({
     return {
       name: 'Lexync',
       description: 'Deliberately capture private language-learning material.',
-      permissions: ['storage', 'tabs'],
+      permissions: ['activeTab', 'scripting', 'storage', 'tabs'],
       host_permissions: supabaseUrl ? [`${new URL(supabaseUrl).origin}/*`] : [],
       web_accessible_resources: [
         {

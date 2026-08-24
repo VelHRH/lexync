@@ -1,25 +1,10 @@
 import { canonicalLanguageTag, studyPairLabel, type ManualCapture, type StudyPair } from '@lexync/domain';
 import type { Session } from '@supabase/supabase-js';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type PairRow, toStudyPair } from '../../lib/study-pairs';
 import { supabase } from '../../lib/supabase';
 
-type PairRow = {
-  id: string;
-  is_primary: boolean;
-  reference_language_tag: string;
-  target_language_tag: string;
-};
-
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
-
-function toStudyPair(row: PairRow): StudyPair {
-  return {
-    id: row.id,
-    isPrimary: row.is_primary,
-    referenceLanguageTag: row.reference_language_tag,
-    targetLanguageTag: row.target_language_tag,
-  };
-}
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -284,6 +269,32 @@ export function App() {
     setSavedCapture(data as ManualCapture);
   }
 
+  async function startOrdinaryCapture() {
+    setNotice('');
+    const tabs = await browser.tabs.query({ currentWindow: true });
+    const candidates = tabs
+      .filter((tab) => /^https?:\/\//.test(tab.url ?? ''))
+      .sort((first, second) => (second.lastAccessed ?? 0) - (first.lastAccessed ?? 0));
+    const tab = candidates.find((candidate) => candidate.active) ?? candidates[0];
+
+    if (!tab?.id) {
+      setNoticeTone('error');
+      setNotice('Open an ordinary webpage before starting capture.');
+      return;
+    }
+
+    try {
+      await browser.scripting.executeScript({
+        files: ['/ordinary-capture.js'],
+        target: { tabId: tab.id },
+      });
+      window.close();
+    } catch {
+      setNoticeTone('error');
+      setNotice('Lexync cannot capture from this page.');
+    }
+  }
+
   if (loading) {
     return <main className="shell"><p className="status">Opening your private library…</p></main>;
   }
@@ -467,6 +478,12 @@ export function App() {
           </form>
         )}
       </section>
+
+      {studyPairs.length > 0 && (
+        <button className="primary page-capture" type="button" onClick={() => void startOrdinaryCapture()}>
+          Capture from this page
+        </button>
+      )}
 
       {studyPairs.length > 0 && (
         <section className="panel capture-panel">
