@@ -355,9 +355,10 @@ export default defineUnlistedScript(async () => {
     hoverStyle.remove();
     scope.__lexyncDeactivateOrdinaryCapture?.();
     scope.__lexyncLearningMode = false;
+    browser.runtime.onMessage.removeListener(receiveLearningModeMessage);
   }
 
-  browser.runtime.onMessage.addListener((message) => {
+  function receiveLearningModeMessage(message: unknown) {
     if (typeof message !== 'object' || message === null || !('type' in message)) {
       return;
     }
@@ -370,7 +371,9 @@ export default defineUnlistedScript(async () => {
       entries = message.entries as LearningModeEntry[];
       markSavedExpressions();
     }
-  });
+  }
+
+  browser.runtime.onMessage.addListener(receiveLearningModeMessage);
 
   if (response.enabled) {
     startMode(response.entries);
