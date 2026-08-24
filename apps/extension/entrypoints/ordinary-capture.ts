@@ -1,24 +1,19 @@
-import { resolveStudyPair, studyPairLabel, type StudyPair } from '@lexync/domain';
+import { resolveStudyPair, studyPairLabel } from '@lexync/domain';
+import { type PairRow, toStudyPair } from '../lib/study-pairs';
 import { supabase } from '../lib/supabase';
-
-type PairRow = {
-  id: string;
-  is_primary: boolean;
-  reference_language_tag: string;
-  target_language_tag: string;
-};
 
 type CaptureScope = typeof globalThis & {
   __lexyncActivateOrdinaryCapture?: () => void;
 };
 
-function toStudyPair(row: PairRow): StudyPair {
-  return {
-    id: row.id,
-    isPrimary: row.is_primary,
-    referenceLanguageTag: row.reference_language_tag,
-    targetLanguageTag: row.target_language_tag,
-  };
+type CapturedText = {
+  expression: string;
+  range: Range;
+  source: Element;
+};
+
+function rememberedStudyPairKey(origin: string): string {
+  return `lexync.websiteStudyPair.${origin}`;
 }
 
 export default defineUnlistedScript(() => {
@@ -130,12 +125,31 @@ export default defineUnlistedScript(() => {
     return value?.replace(/\s+/g, ' ').trim() ?? '';
   }
 
-  function sentenceFor(element: Element): string {
-    const container = element.closest('p, li, blockquote, figcaption, td, th, div, article, section') ?? element;
-    return normalizedText(container.textContent);
+  function sentenceFor(range: Range, source: Element): string {
+    const container = source.closest('p, li, blockquote, figcaption, td, th, div, article, section') ?? source;
+    const text = container.textContent ?? '';
+    const prefix = document.createRange();
+    prefix.selectNodeContents(container);
+
+    try {
+      prefix.setEnd(range.startContainer, range.startOffset);
+    } catch {
+      return normalizedText(text);
+    }
+
+    const expressionOffset = prefix.toString().length;
+    const locale = document.documentElement.lang || undefined;
+
+    for (const sentence of new Intl.Segmenter(locale, { granularity: 'sentence' }).segment(text)) {
+      if (expressionOffset >= sentence.index && expressionOffset < sentence.index + sentence.segment.length) {
+        return normalizedText(sentence.segment);
+      }
+    }
+
+    return normalizedText(text);
   }
 
-  function wordAtPoint(event: MouseEvent): string | null {
+  function wordAtPoint(event: MouseEvent): CapturedText | null {
     const documentWithCaret = document as Document & {
       caretPositionFromPoint?: (x: number, y: number) => { offset: number; offsetNode: Node } | null;
       caretRangeFromPoint?: (x: number, y: number) => Range | null;
@@ -157,7 +171,11 @@ export default defineUnlistedScript(() => {
       const end = start + word[0].length;
 
       if (offset >= start && offset <= end) {
-        return word[0];
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, end);
+        const source = node.parentElement;
+        return source ? { expression: word[0], range, source } : null;
       }
     }
 
@@ -175,7 +193,7 @@ export default defineUnlistedScript(() => {
     }
 
     const pairs = (data as PairRow[]).map(toStudyPair);
-    const rememberedKey = `lexync.websiteStudyPair.${location.origin}`;
+    const rememberedKey = rememberedStudyPairKey(location.origin);
     const stored = await browser.storage.local.get(rememberedKey);
     const rememberedStudyPairId = typeof stored[rememberedKey] === 'string'
       ? stored[rememberedKey]
@@ -205,14 +223,14 @@ export default defineUnlistedScript(() => {
     }
   }
 
-  async function openCapture(expression: string, source: Element) {
+  async function openCapture(capturedText: CapturedText) {
     active = false;
-    currentExpression = expression.trim();
+    currentExpression = capturedText.expression.trim();
     prompt.hidden = true;
     dialog.hidden = false;
     expressionInput.value = currentExpression;
     translationInput.value = '';
-    exampleInput.value = sentenceFor(source);
+    exampleInput.value = sentenceFor(capturedText.range, capturedText.source);
     pairError.hidden = true;
     translationError.hidden = true;
 
@@ -248,11 +266,12 @@ export default defineUnlistedScript(() => {
 
     const selection = document.getSelection();
     const expression = selection && !selection.isCollapsed ? selection.toString().trim() : '';
-    const sourceNode = selection?.rangeCount ? selection.getRangeAt(0).commonAncestorContainer : null;
+    const range = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+    const sourceNode = range?.commonAncestorContainer ?? null;
     const source = sourceNode instanceof Element ? sourceNode : sourceNode?.parentElement;
 
-    if (expression && source) {
-      void openCapture(expression, source);
+    if (expression && range && source) {
+      void openCapture({ expression, range, source });
     }
   }, true);
 
@@ -267,13 +286,12 @@ export default defineUnlistedScript(() => {
       return;
     }
 
-    const source = event.target instanceof Element ? event.target : null;
-    const expression = wordAtPoint(event);
+    const capturedText = wordAtPoint(event);
 
-    if (source && expression) {
+    if (capturedText) {
       event.preventDefault();
       event.stopPropagation();
-      void openCapture(expression, source);
+      void openCapture(capturedText);
     }
   }, true);
 
@@ -313,7 +331,7 @@ export default defineUnlistedScript(() => {
       return;
     }
 
-    await browser.storage.local.set({ [`lexync.websiteStudyPair.${location.origin}`]: studyPairId });
+    await browser.storage.local.set({ [rememberedStudyPairKey(location.origin)]: studyPairId });
     dialog.hidden = true;
     prompt.textContent = 'Vocabulary Entry saved.';
     prompt.hidden = false;

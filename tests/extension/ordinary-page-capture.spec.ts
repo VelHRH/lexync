@@ -41,7 +41,7 @@ async function openControlledPage(context: BrowserContext): Promise<Page> {
       <html lang="it">
         <head><title>Private reading notes</title></head>
         <body>
-          <p id="word-sentence">Ogni <span id="word">scoperta</span> cambia il viaggio.</p>
+          <p id="word-sentence">Ogni <span id="word">scoperta</span> cambia il viaggio. Never upload this neighboring sentence.</p>
           <p id="phrase-sentence">La <span id="phrase">strada maestra</span> attraversa il borgo.</p>
           <p id="unrelated">This unrelated private paragraph must never leave the page.</p>
         </body>
@@ -101,6 +101,7 @@ test.describe('ordinary webpage capture', () => {
     ]);
     expect(JSON.stringify(captureRequest)).not.toContain('Private reading notes');
     expect(JSON.stringify(captureRequest)).not.toContain('unrelated private paragraph');
+    expect(JSON.stringify(captureRequest)).not.toContain('neighboring sentence');
     expect(JSON.stringify(captureRequest)).not.toContain('ordinary-capture-fixture');
   });
 

@@ -1,25 +1,10 @@
 import { canonicalLanguageTag, studyPairLabel, type ManualCapture, type StudyPair } from '@lexync/domain';
 import type { Session } from '@supabase/supabase-js';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type PairRow, toStudyPair } from '../../lib/study-pairs';
 import { supabase } from '../../lib/supabase';
 
-type PairRow = {
-  id: string;
-  is_primary: boolean;
-  reference_language_tag: string;
-  target_language_tag: string;
-};
-
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
-
-function toStudyPair(row: PairRow): StudyPair {
-  return {
-    id: row.id,
-    isPrimary: row.is_primary,
-    referenceLanguageTag: row.reference_language_tag,
-    targetLanguageTag: row.target_language_tag,
-  };
-}
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
