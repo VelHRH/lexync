@@ -1,0 +1,61 @@
+name: Lexync
+options:
+  bundleIdPrefix: app.lexync
+  deploymentTarget:
+    iOS: "16.0"
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    exactVersion: 7.11.1
+  Supabase:
+    url: https://github.com/supabase/supabase-swift.git
+    exactVersion: 2.54.0
+targets:
+  Lexync:
+    type: application
+    platform: iOS
+    sources: [Lexync]
+    info:
+      path: Lexync/Info.plist
+    configFiles:
+      Debug: Config/Shared.xcconfig
+      Release: Config/Shared.xcconfig
+    settings:
+      base:
+        CODE_SIGN_STYLE: Automatic
+        PRODUCT_BUNDLE_IDENTIFIER: app.lexync.iphone
+        SWIFT_VERSION: 6.0
+    dependencies:
+      - package: GRDB
+        product: GRDB
+      - package: Supabase
+        product: Supabase
+  LexyncTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [LexyncTests]
+    dependencies:
+      - target: Lexync
+  LexyncUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [LexyncUITests]
+    dependencies:
+      - target: Lexync
+      - package: Supabase
+        product: Supabase
+schemes:
+  Lexync:
+    build:
+      targets:
+        Lexync: all
+        LexyncTests: [test]
+        LexyncUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - LexyncTests
+        - LexyncUITests

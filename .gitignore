@@ -9,4 +9,5 @@ supabase/.branches
 supabase/.temp
 apps/extension/.output
 apps/extension/.wxt
+apps/ios/Config/Local.xcconfig
 packages/*/dist

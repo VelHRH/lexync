@@ -1,0 +1,2 @@
+LEXYNC_SUPABASE_URL = https:/$()/your-project.supabase.co
+LEXYNC_SUPABASE_PUBLISHABLE_KEY = your-publishable-key

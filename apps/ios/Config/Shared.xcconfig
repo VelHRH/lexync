@@ -1,0 +1,3 @@
+LEXYNC_SUPABASE_URL =
+LEXYNC_SUPABASE_PUBLISHABLE_KEY =
+#include? "Local.xcconfig"
