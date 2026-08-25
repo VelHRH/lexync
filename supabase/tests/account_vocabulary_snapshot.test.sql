@@ -41,14 +41,18 @@ select is(
   2,
   'the snapshot contains each Sense'
 );
-select is(
-  public.account_vocabulary_snapshot()->'studyPairs'->0->'vocabularyEntries'->0->'senses'->0->'translations'->0->>'text',
-  'to walk',
+select ok(
+  jsonb_path_exists(
+    public.account_vocabulary_snapshot(),
+    '$.studyPairs[*].vocabularyEntries[*].senses[*].translations[*] ? (@.text == "to walk")'
+  ),
   'the snapshot contains translations'
 );
-select is(
-  public.account_vocabulary_snapshot()->'studyPairs'->0->'vocabularyEntries'->0->'senses'->0->'examples'->0->>'text',
-  'Camino al trabajo cada mañana.',
+select ok(
+  jsonb_path_exists(
+    public.account_vocabulary_snapshot(),
+    '$.studyPairs[*].vocabularyEntries[*].senses[*].examples[*] ? (@.text == "Camino al trabajo cada mañana.")'
+  ),
   'the snapshot contains private Examples'
 );
 
