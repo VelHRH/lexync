@@ -106,14 +106,57 @@ async function loadPairs() {
 
 function resolveDetectedStudyPair(
   pairs: StudyPair[],
-  detectedTargetLanguageTag: string,
+  detectedTargetLanguageTags: string | string[],
   rememberedStudyPairId?: string,
 ) {
-  return resolveStudyPair(pairs, {
-    detectedTargetLanguageTag,
-    detectionReliable: Boolean(detectedTargetLanguageTag && detectedTargetLanguageTag !== 'und'),
-    rememberedStudyPairId,
+  const rememberedResolution = resolveStudyPair(pairs, { rememberedStudyPairId });
+
+  if (rememberedResolution.kind === 'resolved') {
+    return rememberedResolution;
+  }
+
+  for (const detectedTargetLanguageTag of [detectedTargetLanguageTags].flat()) {
+    const resolution = resolveStudyPair(pairs, {
+      detectedTargetLanguageTag,
+      detectionReliable: Boolean(detectedTargetLanguageTag && detectedTargetLanguageTag !== 'und'),
+    });
+
+    if (resolution.kind === 'resolved') {
+      return resolution;
+    }
+  }
+
+  return rememberedResolution;
+}
+
+async function detectTextLanguages(textSample: string): Promise<string[]> {
+  if (!textSample.trim()) {
+    return [];
+  }
+
+  const detection = await browser.i18n.detectLanguage(textSample).catch(() => undefined);
+
+  if (!detection?.isReliable) {
+    return [];
+  }
+
+  return detection.languages
+    .filter((language) => language.language !== 'und' && language.percentage > 0)
+    .sort((first, second) => second.percentage - first.percentage)
+    .map((language) => language.language);
+}
+
+async function pageTextSample(tabId: number): Promise<string> {
+  const [injection] = await browser.scripting.executeScript({
+    args: [20_000],
+    func: (maximumLength) => (document.body?.innerText ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, maximumLength),
+    target: { tabId },
   });
+
+  return typeof injection?.result === 'string' ? injection.result : '';
 }
 
 async function siteChoice(origin: string): Promise<{ choice?: SiteChoice; decided: boolean }> {
@@ -149,20 +192,22 @@ async function syncExpressionSnapshot(studyPairId: string): Promise<LearningMode
   return entries;
 }
 
-async function resolveSiteState(origin: string, detectedTargetLanguageTag: string): Promise<LearningModeSiteState> {
+async function resolveSiteState(origin: string, detectedTargetLanguageTags: string[]): Promise<LearningModeSiteState> {
   const { choice, decided } = await siteChoice(origin);
   const pairs = choice?.studyPairId ? [] : await loadPairs().catch(() => []);
   const storedPairKey = websiteStudyPairKey(origin);
   const stored = await browser.storage.local.get(storedPairKey);
   const rememberedStudyPairId = typeof stored[storedPairKey] === 'string' ? stored[storedPairKey] : undefined;
-  const resolution = resolveDetectedStudyPair(pairs, detectedTargetLanguageTag, rememberedStudyPairId);
+  const resolution = resolveDetectedStudyPair(pairs, detectedTargetLanguageTags, rememberedStudyPairId);
   const selectedStudyPairId = choice?.studyPairId
     ?? (resolution.kind === 'resolved' ? resolution.studyPair.id : undefined);
   const permitted = await browser.permissions.contains({ origins: [originPattern(origin)] });
 
   return {
     decided,
-    detectedTargetLanguageTag: detectedTargetLanguageTag || undefined,
+    detectedTargetLanguageTag: resolution.kind === 'resolved'
+      ? resolution.studyPair.targetLanguageTag
+      : detectedTargetLanguageTags[0],
     enabled: Boolean(choice?.enabled),
     origin,
     pairs,
@@ -186,8 +231,9 @@ async function popupState(): Promise<LearningModeSiteState> {
   }
 
   const origin = new URL(tab.url).origin;
-  const detectedTargetLanguageTag = await browser.tabs.detectLanguage(tab.id).catch(() => '');
-  return { ...await resolveSiteState(origin, detectedTargetLanguageTag), tabId: tab.id };
+  const textSample = await pageTextSample(tab.id).catch(() => '');
+  const detectedTargetLanguageTags = await detectTextLanguages(textSample);
+  return { ...await resolveSiteState(origin, detectedTargetLanguageTags), tabId: tab.id };
 }
 
 async function injectLearningMode(tabId: number): Promise<void> {
@@ -231,21 +277,33 @@ async function refreshAction(tabId: number): Promise<void> {
   }
 
   const origin = new URL(tab.url).origin;
-  const permitted = await browser.permissions.contains({ origins: [originPattern(origin)] });
+  const { choice, decided } = await siteChoice(origin);
 
-  if (permitted) {
+  if (choice?.enabled) {
+    await browser.action.setBadgeText({ tabId, text: '' });
     await injectLearningMode(tabId).catch(() => undefined);
     return;
   }
 
-  const detectedTargetLanguageTag = await browser.tabs.detectLanguage(tabId).catch(() => '');
+  if (decided) {
+    await browser.action.setBadgeText({ tabId, text: '' });
+    await browser.action.setTitle({ tabId, title: 'Lexync' });
+    return;
+  }
+
+  const textSample = await pageTextSample(tabId).catch(() => '');
+  const detectedTargetLanguageTags = await detectTextLanguages(textSample);
 
   try {
     const pairs = await loadPairs();
-    const resolution = resolveDetectedStudyPair(pairs, detectedTargetLanguageTag);
+    const resolution = resolveDetectedStudyPair(pairs, detectedTargetLanguageTags);
     const available = resolution.kind === 'resolved';
     await browser.action.setBadgeText({ tabId, text: available ? 'NEW' : '' });
     await browser.action.setTitle({ tabId, title: available ? 'Learning Mode is available' : 'Lexync' });
+
+    if (available) {
+      await injectLearningMode(tabId).catch(() => undefined);
+    }
   } catch {
     await browser.action.setBadgeText({ tabId, text: '' });
   }
@@ -293,10 +351,8 @@ async function handleLearningMode(message: LearningModeMessage, sender: { tab?: 
     return {};
   }
 
-  const detectedTargetLanguageTag = sender.tab?.id
-    ? await browser.tabs.detectLanguage(sender.tab.id).catch(() => message.detectedTargetLanguageTag)
-    : message.detectedTargetLanguageTag;
-  const state = await resolveSiteState(message.origin, detectedTargetLanguageTag);
+  const detectedTargetLanguageTags = await detectTextLanguages(message.textSample);
+  const state = await resolveSiteState(message.origin, detectedTargetLanguageTags);
   const entries = state.enabled && state.selectedStudyPairId
     ? await readExpressionSnapshot(state.selectedStudyPairId)
     : [];

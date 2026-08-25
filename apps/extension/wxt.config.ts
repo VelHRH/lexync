@@ -9,8 +9,11 @@ export default defineConfig({
       name: 'Lexync',
       description: 'Deliberately capture private language-learning material.',
       permissions: ['activeTab', 'scripting', 'storage', 'tabs'],
-      host_permissions: supabaseUrl ? [`${new URL(supabaseUrl).origin}/*`] : [],
-      optional_host_permissions: ['http://*/*', 'https://*/*'],
+      host_permissions: [
+        'http://*/*',
+        'https://*/*',
+        ...(supabaseUrl ? [`${new URL(supabaseUrl).origin}/*`] : []),
+      ],
       web_accessible_resources: [
         {
           resources: ['auth-callback.html'],

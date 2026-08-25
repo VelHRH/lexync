@@ -134,11 +134,6 @@ h1 {
   line-height: 1.5;
 }
 
-.page-capture {
-  width: 100%;
-  margin-top: 16px;
-}
-
 .primary-pairs {
   display: grid;
   gap: 8px;

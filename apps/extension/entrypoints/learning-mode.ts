@@ -15,13 +15,15 @@ export default defineUnlistedScript(async () => {
   }
 
   scope.__lexyncLearningMode = true;
+  const textSample = (document.body?.innerText ?? '').replace(/\s+/g, ' ').trim().slice(0, 20_000);
   const response = await browser.runtime.sendMessage({
-    detectedTargetLanguageTag: document.documentElement.lang,
     origin: location.origin,
+    textSample,
     type: 'learning-mode:load',
   }) as LearningModeLoadResponse;
 
-  if (!response.permitted || (response.decided && !response.enabled)) {
+  if (!response.permitted || (response.decided && !response.enabled)
+    || (!response.enabled && !response.selectedStudyPairId)) {
     scope.__lexyncLearningMode = false;
     return;
   }
@@ -70,11 +72,26 @@ export default defineUnlistedScript(async () => {
         position: fixed;
         z-index: 2147483647;
         padding: 5px 9px;
+        border-radius: 999px;
         background: #526c48;
         color: white;
         box-shadow: 0 7px 20px rgba(25, 37, 30, .22);
+        font: 700 13px Arial, sans-serif;
+        pointer-events: none;
       }
       .details { right: 20px; bottom: 58px; }
+      .translation-tooltip {
+        position: fixed;
+        z-index: 2147483647;
+        max-width: min(280px, calc(100vw - 16px));
+        padding: 7px 10px;
+        border-radius: 8px;
+        background: rgba(25, 37, 30, .94);
+        box-shadow: 0 8px 24px rgba(25, 37, 30, .22);
+        color: #fbf8ef;
+        font: 600 12px/1.4 Arial, Helvetica, sans-serif;
+        pointer-events: none;
+      }
       .sense { padding: 10px 0; border-top: 1px solid rgba(25, 37, 30, .12); }
       .sense strong, .sense span { display: block; }
       [hidden] { display: none !important; }
@@ -85,13 +102,14 @@ export default defineUnlistedScript(async () => {
       <label hidden>Study Pair<select></select></label>
       <div class="actions"><button class="primary enable">Enable</button><button class="secondary decline">Not now</button></div>
     </section>
-    <div class="mode-status" role="status" hidden>Learning Mode is on</div>
-    <button class="add" hidden></button>
+    <button class="mode-status" type="button" aria-label="Disable Learning Mode" title="Turn off Learning Mode" hidden>Learning Mode is on</button>
+    <div class="add" role="tooltip" hidden></div>
+    <div class="translation-tooltip" role="tooltip" hidden></div>
     <section class="details" role="dialog" aria-label="Saved expression" hidden></section>
   `;
   document.documentElement.append(host);
   const hoverStyle = document.createElement('style');
-  hoverStyle.textContent = '[data-lexync-hover="true"] { text-decoration: underline 1px rgba(82, 108, 72, .25) !important; text-underline-offset: 3px; }';
+  hoverStyle.textContent = '[data-lexync-hover="true"] { cursor: pointer !important; text-decoration: underline 1px rgba(82, 108, 72, .25) !important; text-underline-offset: 3px; }';
   document.documentElement.append(hoverStyle);
   const card = root.querySelector<HTMLElement>('.card')!;
   const proposal = root.querySelector<HTMLElement>('.proposal')!;
@@ -99,8 +117,9 @@ export default defineUnlistedScript(async () => {
   const pairSelect = root.querySelector<HTMLSelectElement>('select')!;
   const enableButton = root.querySelector<HTMLButtonElement>('.enable')!;
   const declineButton = root.querySelector<HTMLButtonElement>('.decline')!;
-  const status = root.querySelector<HTMLElement>('.mode-status')!;
-  const addButton = root.querySelector<HTMLButtonElement>('.add')!;
+  const status = root.querySelector<HTMLButtonElement>('.mode-status')!;
+  const addHint = root.querySelector<HTMLElement>('.add')!;
+  const translationTooltip = root.querySelector<HTMLElement>('.translation-tooltip')!;
   const details = root.querySelector<HTMLElement>('.details')!;
   let hoverMark: HTMLElement | null = null;
   let hoveredSource: Element | null = null;
@@ -122,6 +141,7 @@ export default defineUnlistedScript(async () => {
   }
 
   function showDetails(entry: LearningModeEntry) {
+    translationTooltip.hidden = true;
     const senses = entry.senses.map((sense) => `
       <div class="sense">
         ${sense.translations.map((translation) => `<strong>${escapeMarkup(translation)}</strong>`).join('')}
@@ -133,6 +153,22 @@ export default defineUnlistedScript(async () => {
     details.querySelector('button')?.addEventListener('click', () => {
       details.hidden = true;
     });
+  }
+
+  function showTranslationTooltip(entry: LearningModeEntry, mark: HTMLElement) {
+    const translations = [...new Set(entry.senses.flatMap((sense) => sense.translations))];
+    translationTooltip.textContent = translations.join(' · ');
+
+    if (!translationTooltip.textContent) {
+      return;
+    }
+
+    translationTooltip.hidden = false;
+    const rect = mark.getBoundingClientRect();
+    const left = Math.max(8, Math.min(rect.left, innerWidth - translationTooltip.offsetWidth - 8));
+    const top = rect.top - translationTooltip.offsetHeight - 8;
+    translationTooltip.style.left = `${left}px`;
+    translationTooltip.style.top = `${top >= 8 ? top : rect.bottom + 8}px`;
   }
 
   function escapeMarkup(value: string): string {
@@ -234,7 +270,15 @@ export default defineUnlistedScript(async () => {
         mark.style.textDecoration = 'underline 2px rgba(82, 108, 72, .85)';
         mark.style.textUnderlineOffset = '3px';
         mark.style.cursor = 'pointer';
-        mark.addEventListener('click', () => showDetails(match.entry));
+        mark.addEventListener('mouseenter', () => showTranslationTooltip(match.entry, mark));
+        mark.addEventListener('mouseleave', () => {
+          translationTooltip.hidden = true;
+        });
+        mark.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          showDetails(match.entry);
+        });
         fragment.append(mark);
         offset = match.end;
       }
@@ -267,8 +311,8 @@ export default defineUnlistedScript(async () => {
       type: 'learning-mode:set-site',
     });
     const next = await browser.runtime.sendMessage({
-      detectedTargetLanguageTag: document.documentElement.lang,
       origin: location.origin,
+      textSample,
       type: 'learning-mode:load',
     }) as LearningModeLoadResponse;
     startMode(next.entries);
@@ -283,6 +327,16 @@ export default defineUnlistedScript(async () => {
       type: 'learning-mode:set-site',
     });
     teardown();
+  });
+  status.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void browser.runtime.sendMessage({
+      enabled: false,
+      origin: location.origin,
+      studyPairId: response.selectedStudyPairId,
+      type: 'learning-mode:set-site',
+    }).then(teardown);
   });
 
   document.addEventListener('mousemove', (event) => {
@@ -310,11 +364,10 @@ export default defineUnlistedScript(async () => {
     hoveredWord.range.surroundContents(hoverMark);
     hoveredSource = hoveredWord.source;
     hoveredExpression = hoveredWord.expression;
-    addButton.textContent = `Add ${hoveredWord.expression}`;
-    addButton.setAttribute('aria-label', `Add ${hoveredWord.expression}`);
-    addButton.style.left = `${Math.min(rect.left, innerWidth - 130)}px`;
-    addButton.style.top = `${Math.max(8, rect.top - 32)}px`;
-    addButton.hidden = false;
+    addHint.textContent = `Click to add "${hoveredWord.expression}"`;
+    addHint.style.left = `${Math.min(rect.left, innerWidth - 180)}px`;
+    addHint.style.top = `${Math.max(8, rect.top - 32)}px`;
+    addHint.hidden = false;
   }, true);
 
   function clearHover() {
@@ -324,22 +377,38 @@ export default defineUnlistedScript(async () => {
     hoverMark = null;
     hoveredSource = null;
     hoveredExpression = '';
-    addButton.hidden = true;
+    addHint.hidden = true;
   }
 
-  addButton.addEventListener('mouseenter', () => window.clearTimeout(hoverTimeout));
-  addButton.addEventListener('mouseleave', clearHover);
+  function isHoveredWordEvent(event: Event) {
+    return Boolean(modeEnabled && hoverMark && event.composedPath().includes(hoverMark));
+  }
 
-  addButton.addEventListener('click', async () => {
-    if (!hoveredSource || !hoveredExpression) {
+  document.addEventListener('pointerdown', (event) => {
+    if (!isHoveredWordEvent(event)) {
       return;
     }
 
-    const example = hoveredSource.closest('p, li, blockquote, figcaption, td, th, div, article, section')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-    await browser.runtime.sendMessage({ type: 'learning-mode:start-capture' });
-    scope.__lexyncOpenOrdinaryCapture?.(hoveredExpression, example);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+
+  document.addEventListener('click', (event) => {
+    if (!isHoveredWordEvent(event) || !hoveredSource || !hoveredExpression) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const source = hoveredSource;
+    const expression = hoveredExpression;
+    const example = source.closest('p, li, blockquote, figcaption, td, th, div, article, section')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     clearHover();
-  });
+
+    void browser.runtime.sendMessage({ type: 'learning-mode:start-capture' }).then(() => {
+      scope.__lexyncOpenOrdinaryCapture?.(expression, example);
+    });
+  }, true);
 
   function teardown() {
     modeEnabled = false;

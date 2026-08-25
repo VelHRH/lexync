@@ -26,7 +26,7 @@ export type LearningModeSiteState = {
 export type LearningModeMessage =
   | { type: 'learning-mode:popup-state' }
   | { origin: string; tabId: number; type: 'learning-mode:permission-granted' }
-  | { detectedTargetLanguageTag: string; origin: string; type: 'learning-mode:load' }
+  | { origin: string; textSample: string; type: 'learning-mode:load' }
   | { enabled: boolean; origin: string; studyPairId?: string; type: 'learning-mode:set-site' }
   | { type: 'learning-mode:disable' }
   | { entries: LearningModeEntry[]; type: 'learning-mode:index-updated' }

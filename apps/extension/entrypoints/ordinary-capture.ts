@@ -256,7 +256,9 @@ export default defineUnlistedScript(() => {
 
   function isLexyncUi(event: Event) {
     return event.composedPath().some((target) => target instanceof Element
-      && (target.id === 'lexync-ordinary-capture' || target.id === 'lexync-learning-mode'));
+      && (target.id === 'lexync-ordinary-capture'
+        || target.id === 'lexync-learning-mode'
+        || target.matches('[data-lexync-saved="true"]')));
   }
 
   document.addEventListener('mouseup', (event) => {

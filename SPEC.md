@@ -118,7 +118,7 @@ Browser language detection is a hint and never creates a Study Pair automaticall
 ### 6.2 Learning Mode
 
 - Learning Mode is opt-in per website.
-- Site access is requested on demand rather than globally at extension installation.
+- The extension reads a bounded sample of visible page text to detect configured Target Languages automatically.
 - A saved Expression receives a subtle visual treatment and opens its personal details.
 - Hovering an unsaved word offers an Add action without permanently decorating every unknown word.
 - Clicking a word opens capture for that token.
