@@ -169,10 +169,20 @@ async function siteChoice(origin: string): Promise<{ choice?: SiteChoice; decide
 }
 
 async function syncExpressionSnapshot(studyPairId: string): Promise<LearningModeEntry[]> {
+  const pairs = await loadPairs();
+  const selectedPair = pairs.find((pair) => pair.id === studyPairId);
+
+  if (!selectedPair) {
+    throw new Error('Study Pair is unavailable.');
+  }
+
+  const targetStudyPairIds = pairs
+    .filter((pair) => pair.targetLanguageTag === selectedPair.targetLanguageTag)
+    .map((pair) => pair.id);
   const { data, error } = await supabase
     .from('vocabulary_entries')
     .select('id, expression, suspended, senses(translations(text), examples(text))')
-    .eq('study_pair_id', studyPairId)
+    .in('study_pair_id', targetStudyPairIds)
     .order('created_at');
 
   if (error) {
@@ -188,7 +198,9 @@ async function syncExpressionSnapshot(studyPairId: string): Promise<LearningMode
     })),
     suspended: entry.suspended,
   }));
-  await writeExpressionSnapshot(studyPairId, entries);
+  for (const pairId of targetStudyPairIds) {
+    await writeExpressionSnapshot(pairId, entries);
+  }
   return entries;
 }
 

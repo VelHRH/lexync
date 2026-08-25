@@ -2,9 +2,9 @@ import type { BrowserContext, Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { expect, extensionId, test } from './fixtures';
 
-async function createStudyPair(learnerClient: SupabaseClient, targetLanguageTag = 'it') {
+async function createStudyPair(learnerClient: SupabaseClient, targetLanguageTag = 'it', referenceLanguageTag = 'en') {
   const { data, error } = await learnerClient.rpc('create_study_pair', {
-    p_reference_language_tag: 'en',
+    p_reference_language_tag: referenceLanguageTag,
     p_target_language_tag: targetLanguageTag,
   });
 
@@ -142,6 +142,37 @@ test.describe('Learning Mode', () => {
     await expect(page.locator('#unknown')).not.toHaveAttribute('data-lexync-hover');
     await page.locator('#plain-sentence').hover({ position: { x: 20, y: 10 } });
     await expect(page.getByRole('tooltip')).toHaveText('Click to add "curiosità"');
+  });
+
+  test('treats an expression from another Study Pair for the same Target Language as saved', async ({
+    extensionContext,
+    extensionPage,
+    learnerClient,
+  }) => {
+    const primaryPair = await createStudyPair(learnerClient, 'it', 'en');
+    await saveExpression(learnerClient, primaryPair.id, 'viaggio', 'journey', 'Ogni viaggio apre una strada nuova.');
+    const page = await openReadingPage(extensionContext, '/cross-pair', 'http://127.0.0.1:54321', `
+      <p>La scoperta apre una strada nuova e cambia il modo in cui osserviamo il mondo.</p>
+      <p>Ogni scoperta accompagna il viaggio, rende interessante la giornata e invita a continuare.</p>
+      <p>Leggere, ascoltare e parlare ogni giorno aiuta a imparare nuove parole italiane.</p>`);
+
+    await enableOnPage(page);
+    const ukrainianPair = await createStudyPair(learnerClient, 'it', 'uk');
+    await saveExpression(learnerClient, ukrainianPair.id, 'Scoperta', 'відкриття', 'Una scoperta cambia il viaggio.');
+    await page.getByRole('button', { name: 'Disable Learning Mode' }).click();
+    await page.bringToFront();
+    await extensionPage.bringToFront();
+    await extensionPage.reload();
+    await extensionPage.getByRole('button', { name: 'Enable Learning Mode' }).click();
+    await page.bringToFront();
+    await expect(page.getByRole('button', { name: 'Disable Learning Mode' })).toBeVisible();
+    const saved = page.locator('[data-lexync-saved="true"]', { hasText: 'scoperta' }).first();
+    await expect(saved).toBeVisible();
+    await saved.hover();
+    await expect(page.getByRole('tooltip')).toContainText('відкриття');
+    await saved.click();
+    await expect(page.getByRole('dialog', { name: 'Saved expression' })).toContainText('відкриття');
+    await expect(page.getByRole('tooltip', { name: /Click to add/i })).toHaveCount(0);
   });
 
   test('remembers Not now and can be enabled later from the popup', async ({
