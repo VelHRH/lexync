@@ -19,3 +19,7 @@ export function toStudyPair(row: PairRow): StudyPair {
 export function websiteStudyPairKey(origin: string): string {
   return `lexync.websiteStudyPair.${origin}`;
 }
+
+export function learningModeSiteKey(origin: string): string {
+  return `lexync.learningMode.${origin}`;
+}

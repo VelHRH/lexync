@@ -116,9 +116,22 @@ h1 {
   margin-top: 16px;
 }
 
-.page-capture {
-  width: 100%;
+.learning-mode-panel {
   margin-top: 16px;
+}
+
+.learning-mode-panel h2 {
+  margin: 0 0 8px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.learning-mode-panel p:not(.eyebrow) {
+  margin: 0 0 14px;
+  color: rgba(25, 37, 30, 0.66);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .primary-pairs {

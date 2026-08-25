@@ -1,6 +1,7 @@
 import { canonicalLanguageTag, studyPairLabel, type ManualCapture, type StudyPair } from '@lexync/domain';
 import type { Session } from '@supabase/supabase-js';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import type { LearningModeSiteState } from '../../lib/learning-mode-messages';
 import { type PairRow, toStudyPair } from '../../lib/study-pairs';
 import { supabase } from '../../lib/supabase';
 
@@ -26,6 +27,7 @@ export function App() {
   const [noticeTone, setNoticeTone] = useState<'error' | 'success'>('error');
   const [savedCapture, setSavedCapture] = useState<ManualCapture | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [learningSite, setLearningSite] = useState<LearningModeSiteState | null>(null);
 
   const loadSession = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -50,6 +52,11 @@ export function App() {
     setShowPairForm(pairs.length === 0);
   }, []);
 
+  const loadLearningSite = useCallback(async () => {
+    const state = await browser.runtime.sendMessage({ type: 'learning-mode:popup-state' }) as LearningModeSiteState;
+    setLearningSite(state.origin ? state : null);
+  }, []);
+
   useEffect(() => {
     void loadSession();
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -72,8 +79,9 @@ export function App() {
   useEffect(() => {
     if (session) {
       void loadStudyPairs();
+      void loadLearningSite();
     }
-  }, [loadStudyPairs, session]);
+  }, [loadLearningSite, loadStudyPairs, session]);
 
   function authenticationCallback() {
     const callback = new URL('/auth/callback', import.meta.env.WXT_PUBLIC_WEB_URL);
@@ -269,30 +277,64 @@ export function App() {
     setSavedCapture(data as ManualCapture);
   }
 
-  async function startOrdinaryCapture() {
-    setNotice('');
-    const tabs = await browser.tabs.query({ currentWindow: true });
-    const candidates = tabs
-      .filter((tab) => /^https?:\/\//.test(tab.url ?? ''))
-      .sort((first, second) => (second.lastAccessed ?? 0) - (first.lastAccessed ?? 0));
-    const tab = candidates.find((candidate) => candidate.active) ?? candidates[0];
-
-    if (!tab?.id) {
-      setNoticeTone('error');
-      setNotice('Open an ordinary webpage before starting capture.');
+  async function setUpLearningMode() {
+    if (!learningSite?.origin || !learningSite.tabId) {
       return;
     }
 
-    try {
-      await browser.scripting.executeScript({
-        files: ['/ordinary-capture.js'],
-        target: { tabId: tab.id },
-      });
-      window.close();
-    } catch {
+    const granted = await browser.permissions.request({ origins: [`${learningSite.origin}/*`] });
+
+    if (!granted) {
       setNoticeTone('error');
-      setNotice('Lexync cannot capture from this page.');
+      setNotice('Site access was not granted.');
+      return;
     }
+
+    await browser.runtime.sendMessage({
+      origin: learningSite.origin,
+      tabId: learningSite.tabId,
+      type: 'learning-mode:permission-granted',
+    });
+    setLearningSite({ ...learningSite, permitted: true });
+    setNoticeTone('success');
+    setNotice('Site access granted');
+  }
+
+  async function disableLearningMode() {
+    if (!learningSite?.origin) {
+      return;
+    }
+
+    await browser.runtime.sendMessage({
+      enabled: false,
+      origin: learningSite.origin,
+      studyPairId: learningSite.selectedStudyPairId,
+      type: 'learning-mode:set-site',
+    });
+    setLearningSite({ ...learningSite, decided: true, enabled: false });
+    setNoticeTone('success');
+    setNotice('Learning Mode disabled for this site.');
+  }
+
+  async function enableLearningMode() {
+    if (!learningSite?.origin || !learningSite.selectedStudyPairId || !learningSite.tabId) {
+      return;
+    }
+
+    await browser.runtime.sendMessage({
+      enabled: true,
+      origin: learningSite.origin,
+      studyPairId: learningSite.selectedStudyPairId,
+      type: 'learning-mode:set-site',
+    });
+    await browser.runtime.sendMessage({
+      origin: learningSite.origin,
+      tabId: learningSite.tabId,
+      type: 'learning-mode:permission-granted',
+    });
+    setLearningSite({ ...learningSite, decided: true, enabled: true });
+    setNoticeTone('success');
+    setNotice('Learning Mode enabled for this site.');
   }
 
   if (loading) {
@@ -479,10 +521,31 @@ export function App() {
         )}
       </section>
 
-      {studyPairs.length > 0 && (
-        <button className="primary page-capture" type="button" onClick={() => void startOrdinaryCapture()}>
-          Capture from this page
-        </button>
+      {learningSite && (
+        <section className="panel learning-mode-panel">
+          <p className="eyebrow">Learning Mode</p>
+          <h2>{new URL(learningSite.origin!).hostname}</h2>
+          <p>
+            {learningSite.enabled
+              ? 'Saved expressions are highlighted and new words can be added while you read.'
+              : learningSite.permitted
+                ? 'Site access is ready. Return to the page to enable Learning Mode.'
+                : 'Lexync found a language that matches one of your Study Pairs.'}
+          </p>
+          {learningSite.enabled ? (
+            <button className="secondary" type="button" onClick={() => void disableLearningMode()}>
+              Disable Learning Mode
+            </button>
+          ) : !learningSite.permitted ? (
+            <button className="secondary" type="button" onClick={() => void setUpLearningMode()}>
+              Set up Learning Mode
+            </button>
+          ) : learningSite.selectedStudyPairId ? (
+            <button className="secondary" type="button" onClick={() => void enableLearningMode()}>
+              Enable Learning Mode
+            </button>
+          ) : null}
+        </section>
       )}
 
       {studyPairs.length > 0 && (

@@ -19,20 +19,13 @@ async function createStudyPair(
   return data;
 }
 
-async function openCapturePopup(context: BrowserContext, targetPage: Page): Promise<Page> {
-  const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
-  const id = new URL(worker.url()).host;
-  const popup = await context.newPage();
-  await popup.goto(`chrome-extension://${id}/popup.html`);
-  await popup.getByRole('button', { name: 'Capture from this page' }).click();
-  await targetPage.waitForTimeout(250);
-
-  if (await targetPage.getByRole('status').count() === 0 && !popup.isClosed()) {
-    throw new Error(await popup.getByRole('status').textContent() ?? 'Ordinary capture did not start.');
-  }
-
-  await expect(targetPage.getByRole('status')).toHaveText('Click a word or select a phrase. Press Escape to cancel.');
-  return popup;
+async function startCaptureFromLearningMode(page: Page): Promise<void> {
+  const prompt = page.getByRole('dialog', { name: 'Learning Mode' });
+  await prompt.getByRole('button', { name: 'Enable' }).click();
+  await page.locator('#word').hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Click to add "scoperta"');
+  await page.locator('#word').click();
+  await expect(page.getByRole('dialog', { name: 'Capture Expression' })).toBeVisible();
 }
 
 async function openControlledPage(context: BrowserContext): Promise<Page> {
@@ -53,7 +46,7 @@ async function openControlledPage(context: BrowserContext): Promise<Page> {
   return page;
 }
 
-test.describe('ordinary webpage capture', () => {
+test.describe('Learning Mode capture', () => {
   test('captures consecutive exact words into a changed Study Pair with an edited Example', async ({
     extensionContext,
     extensionPage,
@@ -70,26 +63,27 @@ test.describe('ordinary webpage capture', () => {
       }
     });
 
-    await openCapturePopup(extensionContext, page);
-    await page.locator('#word').click();
+    await startCaptureFromLearningMode(page);
 
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await expect(capture.getByLabel('Expression')).toHaveValue('scoperta');
     await expect(capture.getByLabel('Active Study Pair')).toContainText('Italian → English');
     await capture.getByLabel('Active Study Pair').selectOption(ukrainianPair.id);
     await capture.getByLabel('Translation').fill('відкриття');
-    await expect(capture.getByLabel('Example')).toHaveValue('Ogni scoperta cambia il viaggio.');
+    await expect(capture.getByLabel('Example')).toHaveValue('Ogni scoperta cambia il viaggio. Never upload this neighboring sentence.');
     await capture.getByLabel('Example').fill('Una scoperta cambia il viaggio.');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 
-    await expect(page.getByRole('status')).toHaveText('Vocabulary Entry saved. Click another word or select a phrase.');
+    await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
+    await page.locator('#second-word').hover();
+    await expect(page.getByRole('tooltip')).toHaveText('Click to add "viaggio"');
     await page.locator('#second-word').click();
     await expect(capture.getByLabel('Expression')).toHaveValue('viaggio');
     await expect(capture.getByLabel('Active Study Pair')).toHaveValue(ukrainianPair.id);
     await capture.getByLabel('Translation').fill('подорож');
     await capture.getByLabel('Example').fill('');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
-    await expect(page.getByRole('status')).toHaveText('Vocabulary Entry saved. Click another word or select a phrase.');
+    await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
     const { data } = await learnerClient
       .from('vocabulary_entries')
       .select('expression, study_pair_id, senses(translations(text), examples(text))')
@@ -131,7 +125,8 @@ test.describe('ordinary webpage capture', () => {
     await extensionPage.close();
     const page = await openControlledPage(extensionContext);
 
-    await openCapturePopup(extensionContext, page);
+    await startCaptureFromLearningMode(page);
+    await page.getByRole('dialog', { name: 'Capture Expression' }).getByRole('button', { name: 'Cancel' }).click();
     await page.locator('#phrase').selectText();
     await page.locator('#phrase').dispatchEvent('mouseup');
 
@@ -142,7 +137,7 @@ test.describe('ordinary webpage capture', () => {
     await capture.getByLabel('Example').fill('');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 
-    await expect(page.getByRole('status')).toHaveText('Vocabulary Entry saved. Click another word or select a phrase.');
+    await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
     const { data } = await learnerClient
       .from('vocabulary_entries')
       .select('expression, study_pair_id, senses(translations(text), examples(text))')
@@ -155,7 +150,7 @@ test.describe('ordinary webpage capture', () => {
     });
   });
 
-  test('keeps capture active after cancelling the current word', async ({
+  test('keeps Learning Mode active after cancelling the current word', async ({
     extensionContext,
     extensionPage,
     learnerClient,
@@ -164,12 +159,13 @@ test.describe('ordinary webpage capture', () => {
     await extensionPage.close();
     const page = await openControlledPage(extensionContext);
 
-    await openCapturePopup(extensionContext, page);
-    await page.locator('#word').click();
+    await startCaptureFromLearningMode(page);
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await capture.getByRole('button', { name: 'Cancel' }).click();
 
-    await expect(page.getByRole('status')).toHaveText('Click a word or select a phrase. Press Escape to cancel.');
+    await expect(page.getByText('Click a word or select a phrase. Press Escape to cancel.', { exact: true })).toBeVisible();
+    await page.locator('#second-word').hover();
+    await expect(page.getByRole('tooltip')).toHaveText('Click to add "viaggio"');
     await page.locator('#second-word').click();
     await expect(capture.getByLabel('Expression')).toHaveValue('viaggio');
     const { count } = await learnerClient.from('vocabulary_entries').select('*', { count: 'exact', head: true });
@@ -185,8 +181,7 @@ test.describe('ordinary webpage capture', () => {
     await extensionPage.close();
     const page = await openControlledPage(extensionContext);
 
-    await openCapturePopup(extensionContext, page);
-    await page.locator('#word').click();
+    await startCaptureFromLearningMode(page);
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 

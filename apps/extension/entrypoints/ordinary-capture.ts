@@ -6,6 +6,8 @@ import type {
 
 type CaptureScope = typeof globalThis & {
   __lexyncActivateOrdinaryCapture?: () => void;
+  __lexyncDeactivateOrdinaryCapture?: () => void;
+  __lexyncOpenOrdinaryCapture?: (expression: string, example: string) => void;
 };
 
 type CapturedText = {
@@ -209,14 +211,14 @@ export default defineUnlistedScript(() => {
     }
   }
 
-  async function openCapture(capturedText: CapturedText) {
+  async function openCaptureValues(expression: string, example: string) {
     active = false;
-    currentExpression = capturedText.expression.trim();
+    currentExpression = expression.trim();
     prompt.hidden = true;
     dialog.hidden = false;
     expressionInput.value = currentExpression;
     translationInput.value = '';
-    exampleInput.value = sentenceFor(capturedText.range, capturedText.source);
+    exampleInput.value = example;
     pairError.hidden = true;
     translationError.hidden = true;
 
@@ -228,6 +230,13 @@ export default defineUnlistedScript(() => {
       prompt.textContent = error instanceof Error ? error.message : 'Study Pairs could not be loaded.';
       prompt.hidden = false;
     }
+  }
+
+  async function openCapture(capturedText: CapturedText) {
+    await openCaptureValues(
+      capturedText.expression,
+      sentenceFor(capturedText.range, capturedText.source),
+    );
   }
 
   function deactivate() {
@@ -245,8 +254,15 @@ export default defineUnlistedScript(() => {
     active = true;
   }
 
+  function isLexyncUi(event: Event) {
+    return event.composedPath().some((target) => target instanceof Element
+      && (target.id === 'lexync-ordinary-capture'
+        || target.id === 'lexync-learning-mode'
+        || target.matches('[data-lexync-saved="true"]')));
+  }
+
   document.addEventListener('mouseup', (event) => {
-    if (!active || event.composedPath().includes(host)) {
+    if (!active || isLexyncUi(event)) {
       return;
     }
 
@@ -262,7 +278,7 @@ export default defineUnlistedScript(() => {
   }, true);
 
   document.addEventListener('click', (event) => {
-    if (!active || event.composedPath().includes(host)) {
+    if (!active || isLexyncUi(event)) {
       return;
     }
 
@@ -327,5 +343,7 @@ export default defineUnlistedScript(() => {
 
   cancelButton.addEventListener('click', activate);
   scope.__lexyncActivateOrdinaryCapture = activate;
+  scope.__lexyncDeactivateOrdinaryCapture = deactivate;
+  scope.__lexyncOpenOrdinaryCapture = (expression, example) => void openCaptureValues(expression, example);
   activate();
 });
