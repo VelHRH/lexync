@@ -1,12 +1,14 @@
 # Lexync
 
-Lexync is a private language-learning system for deliberate capture in a Chromium extension and offline practice on iPhone.
+Lexync is a private language-learning system for deliberate capture in a Chromium extension and offline practice on Android.
 
 ## Requirements
 
 - Node.js 22
 - pnpm 10.30.3
 - Docker
+- JDK 17
+- Android SDK 36
 
 ## Workspace commands
 
@@ -15,6 +17,8 @@ pnpm install
 pnpm check
 pnpm test
 pnpm build
+pnpm android:test
+pnpm android:build
 ```
 
 Run the web application locally with `pnpm dev`.
@@ -43,3 +47,27 @@ https://your-web-host/auth/callback
 ```
 
 Configure a production SMTP provider before sending confirmation and password recovery emails to real users.
+
+## Android
+
+The native Kotlin and Jetpack Compose application is in `apps/android`. Configure its browser-safe Supabase connection in `~/.gradle/gradle.properties`:
+
+```properties
+lexync.supabase.url=https://your-project.supabase.co
+lexync.supabase.publishableKey=your-publishable-key
+```
+
+For the local Supabase stack, use `http://10.0.2.2:54321` from the Android emulator and the publishable key printed by `pnpm backend:start`. Never configure a secret or service-role key in the Android build.
+
+Build the debug APK with `pnpm android:build`. Run the JVM contract tests with `pnpm android:test`. With an emulator running, compile and run the Room and Compose journeys with:
+
+```sh
+cd apps/android
+./gradlew connectedDebugAndroidTest \
+  -Plexync.supabase.url=http://10.0.2.2:54321 \
+  -Plexync.supabase.publishableKey=your-local-publishable-key \
+  -Pandroid.testInstrumentationRunnerArguments.lexyncTestEmail=learner@example.com \
+  -Pandroid.testInstrumentationRunnerArguments.lexyncTestPassword=your-test-password
+```
+
+The synchronized library is replaced in one Room transaction and remains available after an offline restart. Failed or invalid snapshots leave the previous complete library intact.

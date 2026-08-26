@@ -10,3 +10,6 @@ supabase/.temp
 apps/extension/.output
 apps/extension/.wxt
 packages/*/dist
+apps/android/.gradle/
+apps/android/local.properties
+apps/android/**/build/
