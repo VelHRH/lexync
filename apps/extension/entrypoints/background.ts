@@ -49,6 +49,19 @@ async function saveOrdinaryCapture(
   message: SaveOrdinaryCaptureMessage,
   sender: { tab?: { id?: number } },
 ): Promise<SaveOrdinaryCaptureResponse> {
+  return saveCapture(message, sender, message.origin);
+}
+
+async function saveCapture(
+  message: {
+    example: string | null;
+    expression: string;
+    studyPairId: string;
+    translation: string;
+  },
+  sender: { tab?: { id?: number } },
+  rememberedOrigin?: string,
+): Promise<SaveOrdinaryCaptureResponse> {
   const { error } = await supabase.rpc('capture_manual_entry', {
     p_example: message.example,
     p_expression: message.expression,
@@ -60,7 +73,9 @@ async function saveOrdinaryCapture(
     return { error: error.message };
   }
 
-  await browser.storage.local.set({ [websiteStudyPairKey(message.origin)]: message.studyPairId });
+  if (rememberedOrigin) {
+    await browser.storage.local.set({ [websiteStudyPairKey(rememberedOrigin)]: message.studyPairId });
+  }
   const entries = await syncExpressionSnapshot(message.studyPairId);
 
   if (sender.tab?.id) {
@@ -95,25 +110,7 @@ async function handleDuolingoCapture(
       : { error: 'Matching Study Pair is unavailable.' };
   }
 
-  const { error } = await supabase.rpc('capture_manual_entry', {
-    p_example: message.example,
-    p_expression: message.expression,
-    p_study_pair_id: message.studyPairId,
-    p_translation: message.translation,
-  });
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  const entries = await syncExpressionSnapshot(message.studyPairId);
-  if (sender.tab?.id) {
-    await browser.tabs.sendMessage(sender.tab.id, {
-      entries,
-      type: 'learning-mode:index-updated',
-    }).catch(() => undefined);
-  }
-  return {};
+  return saveCapture(message, sender);
 }
 
 type EntryRow = {
