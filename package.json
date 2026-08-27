@@ -3,6 +3,9 @@
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "scripts": {
+    "android:build": "apps/android/gradlew -p apps/android :app:assembleDebug :app:verifyNoServiceSecrets",
+    "android:seed": "node scripts/with-local-supabase.mjs node scripts/seed-android-test.mjs",
+    "android:test": "apps/android/gradlew -p apps/android :app:testDebugUnitTest",
     "backend:start": "pnpm dlx supabase@2.115.0 start",
     "backend:reset": "pnpm dlx supabase@2.115.0 db reset --local",
     "backend:stop": "pnpm dlx supabase@2.115.0 stop",
