@@ -9,8 +9,10 @@
     "backend:start": "pnpm dlx supabase@2.115.0 start",
     "backend:reset": "pnpm dlx supabase@2.115.0 db reset --local",
     "backend:stop": "pnpm dlx supabase@2.115.0 stop",
+    "brand:generate": "node scripts/generate-brand-assets.mjs",
+    "brand:validate": "node scripts/validate-brand-assets.mjs",
     "build": "pnpm --filter @lexync/domain build && pnpm --filter @lexync/web build && pnpm --filter @lexync/extension build",
-    "check": "pnpm -r check && tsc --noEmit -p tsconfig.tests.json",
+    "check": "pnpm brand:validate && pnpm -r check && tsc --noEmit -p tsconfig.tests.json",
     "dev": "pnpm --filter @lexync/web dev",
     "dev:extension": "pnpm --filter @lexync/extension dev",
     "test": "pnpm backend:start && pnpm backend:reset && pnpm test:db && node scripts/with-local-supabase.mjs pnpm run test:local",
@@ -22,6 +24,7 @@
     "@supabase/supabase-js": "2.112.3",
     "@types/chrome": "0.2.7",
     "@types/node": "24.3.0",
+    "sharp": "0.34.5",
     "typescript": "5.9.2"
   }
 }

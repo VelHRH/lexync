@@ -33,6 +33,10 @@ export default defineConfig({
       name: 'domain-contract',
       testMatch: /domain\/.*\.spec\.ts/,
     },
+    {
+      name: 'brand-assets',
+      testMatch: /brand-assets\.spec\.ts/,
+    },
   ],
   webServer: {
     command: 'pnpm --filter @lexync/web start',
