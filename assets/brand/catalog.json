@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "primaryIcon": "icon-primary-purple",
+  "primaryColor": "#6429f4",
+  "assets": [
+    {
+      "id": "icon-primary-purple",
+      "role": "primary-icon-source",
+      "intendedBackground": "platform-controlled",
+      "path": "masters/icon-primary-purple.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "ddfe3d4a5612110b2afd3db4f27e8e378f16558d033c53fdedf3c1af690ec849",
+      "master": true,
+      "alpha": false
+    },
+    {
+      "id": "mark-light-on-dark",
+      "role": "brand-mark",
+      "intendedBackground": "dark",
+      "path": "masters/mark-light-on-dark.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "c75cb21a1c225c40cab7e1b03fcfb66f144060147ab4725a19af3534dc029871",
+      "master": true,
+      "alpha": true
+    },
+    {
+      "id": "mark-dark-on-light",
+      "role": "brand-mark",
+      "intendedBackground": "light",
+      "path": "masters/mark-dark-on-light.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "cfe2486e0df5e8e9b759cdce4ede55fc46981127dba4e097f5ff0bb4285e758e",
+      "master": true,
+      "alpha": true
+    },
+    {
+      "id": "wordmark-dark-on-light",
+      "role": "brand-wordmark",
+      "intendedBackground": "light",
+      "path": "masters/wordmark-dark-on-light.png",
+      "width": 2172,
+      "height": 724,
+      "sha256": "5ff5ccdaad0ea3a2212bb9364dafff14c67ee04f369e75d9983c012001c5d1e9",
+      "master": true,
+      "alpha": true
+    },
+    {
+      "id": "wordmark-light-on-dark",
+      "role": "brand-wordmark",
+      "intendedBackground": "dark",
+      "path": "masters/wordmark-light-on-dark.png",
+      "width": 2172,
+      "height": 724,
+      "sha256": "6a64bbb858dbee1ff63e2c5b9a32c713d69ae610d61da135aed8aec1283ef9b3",
+      "master": true,
+      "alpha": true
+    },
+    {
+      "id": "chromium-icon-16",
+      "role": "browser-icon",
+      "intendedBackground": "browser-controlled",
+      "path": "platform/chromium/icon-16.png",
+      "platform": "chromium",
+      "width": 16,
+      "height": 16,
+      "sha256": "6028573d235696e4bc17aad3999edbe917e8953e955f03de4a48b5c90b9e99b5",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 16,
+        "height": 16
+      }
+    },
+    {
+      "id": "chromium-icon-24",
+      "role": "browser-icon",
+      "intendedBackground": "browser-controlled",
+      "path": "platform/chromium/icon-24.png",
+      "platform": "chromium",
+      "width": 24,
+      "height": 24,
+      "sha256": "c207385e44aad55e088088d608ad52eda0dfcdf35ed39827b127781fc473bc74",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 23
+      }
+    },
+    {
+      "id": "chromium-icon-32",
+      "role": "browser-icon",
+      "intendedBackground": "browser-controlled",
+      "path": "platform/chromium/icon-32.png",
+      "platform": "chromium",
+      "width": 32,
+      "height": 32,
+      "sha256": "c2465c71b67cdb5fd77afe031169a6cb005c34af29122d5851330b60e36a2952",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 32,
+        "height": 31
+      }
+    },
+    {
+      "id": "chromium-icon-48",
+      "role": "browser-icon",
+      "intendedBackground": "browser-controlled",
+      "path": "platform/chromium/icon-48.png",
+      "platform": "chromium",
+      "width": 48,
+      "height": 48,
+      "sha256": "5043bee811af51ac2429a9460f97f9e264319c3a044283fffb7f26b7d83ed92f",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 48,
+        "height": 47
+      }
+    },
+    {
+      "id": "chromium-icon-128",
+      "role": "browser-store-icon",
+      "intendedBackground": "browser-controlled",
+      "path": "platform/chromium/icon-128.png",
+      "platform": "chromium",
+      "width": 128,
+      "height": 128,
+      "sha256": "7149b7501fe5c1fbdeba19f7324d9ef003d43729655b46c4a969e5bf8fea66c5",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 16,
+        "y": 17,
+        "width": 96,
+        "height": 93
+      }
+    },
+    {
+      "id": "android-legacy-icon-48",
+      "role": "legacy-launcher-icon",
+      "intendedBackground": "launcher-controlled",
+      "path": "platform/android/legacy-icon-48.png",
+      "platform": "android",
+      "width": 48,
+      "height": 48,
+      "sha256": "5043bee811af51ac2429a9460f97f9e264319c3a044283fffb7f26b7d83ed92f",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 48,
+        "height": 47
+      }
+    },
+    {
+      "id": "android-legacy-icon-72",
+      "role": "legacy-launcher-icon",
+      "intendedBackground": "launcher-controlled",
+      "path": "platform/android/legacy-icon-72.png",
+      "platform": "android",
+      "width": 72,
+      "height": 72,
+      "sha256": "abe1e3a8fd8c38164090d6ebd0f9c06a48278e7e1f34719ee5b3f05e798dcd23",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 1,
+        "width": 72,
+        "height": 70
+      }
+    },
+    {
+      "id": "android-legacy-icon-96",
+      "role": "legacy-launcher-icon",
+      "intendedBackground": "launcher-controlled",
+      "path": "platform/android/legacy-icon-96.png",
+      "platform": "android",
+      "width": 96,
+      "height": 96,
+      "sha256": "342153cd256818dcba36b11f637f42c669e70904c430fe0999267eb579174434",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 1,
+        "width": 96,
+        "height": 93
+      }
+    },
+    {
+      "id": "android-legacy-icon-144",
+      "role": "legacy-launcher-icon",
+      "intendedBackground": "launcher-controlled",
+      "path": "platform/android/legacy-icon-144.png",
+      "platform": "android",
+      "width": 144,
+      "height": 144,
+      "sha256": "ac13f8eb96be800a4e1240b3e215b23f9b620cf0a1aaf6e1f78837cc9f3b763d",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 2,
+        "width": 144,
+        "height": 140
+      }
+    },
+    {
+      "id": "android-legacy-icon-192",
+      "role": "legacy-launcher-icon",
+      "intendedBackground": "launcher-controlled",
+      "path": "platform/android/legacy-icon-192.png",
+      "platform": "android",
+      "width": 192,
+      "height": 192,
+      "sha256": "3341ee60d3895258318559254219a63c5a57a90d0fc003672088bedb6c4e8f77",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 3,
+        "width": 192,
+        "height": 186
+      }
+    },
+    {
+      "id": "android-adaptive-foreground-432",
+      "role": "adaptive-icon-foreground",
+      "intendedBackground": "primary-purple",
+      "path": "platform/android/adaptive-foreground-432.png",
+      "platform": "android",
+      "width": 432,
+      "height": 432,
+      "sha256": "27e42e262892e9752e4faa776eca61fbd6d2471d852101d6a11af262bf410832",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 108,
+        "y": 84,
+        "width": 215,
+        "height": 264
+      }
+    },
+    {
+      "id": "android-adaptive-background-432",
+      "role": "adaptive-icon-background",
+      "intendedBackground": "mask-controlled",
+      "path": "platform/android/adaptive-background-432.png",
+      "platform": "android",
+      "width": 432,
+      "height": 432,
+      "sha256": "69b7ba979b889bdce355f74c992feefb94106516e9b537a223e490236b531cf4",
+      "master": false,
+      "alpha": false,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 432,
+        "height": 432
+      }
+    },
+    {
+      "id": "android-play-store-icon-512",
+      "role": "play-store-icon",
+      "intendedBackground": "store-controlled",
+      "path": "platform/android/play-store-icon-512.png",
+      "platform": "android",
+      "width": 512,
+      "height": 512,
+      "sha256": "734013053137a4cb3fe514ee9fac8d67a9eb843277d950af817698d8781272e6",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "id": "apple-app-icon-1024",
+      "role": "app-icon-source",
+      "intendedBackground": "system-mask-controlled",
+      "path": "platform/apple/app-icon-1024.png",
+      "platform": "apple",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "dcb786c07acb1e63e863c12c80b85af2ac5cb9a04f8b0b7598588204e85e9914",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 1024
+      }
+    }
+  ]
+}
