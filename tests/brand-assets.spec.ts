@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { expect, test, type Page } from '@playwright/test';
+import sharp from 'sharp';
 
 const execFileAsync = promisify(execFile);
 const brandRoot = path.resolve('assets/brand');
@@ -189,12 +190,19 @@ test.describe('canonical Lexync brand assets', () => {
       await expect(validate(fixtureRoot)).rejects.toMatchObject({ stderr: expect.stringContaining('Malformed PNG') });
 
       await writeFile(targetPath, original);
-      catalog.assets.find((asset) => asset.id === target!.id)!.width += 1;
+      const targetIndex = catalog.assets.findIndex((asset) => asset.id === target!.id);
+      const [removedTarget] = catalog.assets.splice(targetIndex, 1);
       await writeFile(path.join(fixtureRoot, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
+      await expect(validate(fixtureRoot)).rejects.toMatchObject({
+        stderr: expect.stringContaining('Missing required catalog entry'),
+      });
+
+      catalog.assets.splice(targetIndex, 0, removedTarget);
+      await writeFile(path.join(fixtureRoot, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
+      await sharp(original).resize(target!.width + 1, target!.height, { fit: 'fill' }).png().toFile(targetPath);
       await expect(validate(fixtureRoot)).rejects.toMatchObject({ stderr: expect.stringContaining('Incorrect dimensions') });
 
-      catalog.assets.find((asset) => asset.id === target!.id)!.width -= 1;
-      await writeFile(path.join(fixtureRoot, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
+      await writeFile(targetPath, original);
       const master = catalog.assets.find((asset) => asset.master)!;
       const masterPath = path.join(fixtureRoot, master.path);
       const altered = Buffer.concat([await readFile(masterPath), Buffer.from([0])]);

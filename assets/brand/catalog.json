@@ -282,9 +282,9 @@
       "platform": "android",
       "width": 512,
       "height": 512,
-      "sha256": "734013053137a4cb3fe514ee9fac8d67a9eb843277d950af817698d8781272e6",
+      "sha256": "2e6ea00161399a48aad704b9e4e7424344ce9231dd60ea03d4ecabd3f1991a1d",
       "master": false,
-      "alpha": true,
+      "alpha": false,
       "contentBox": {
         "x": 0,
         "y": 0,
@@ -300,9 +300,9 @@
       "platform": "apple",
       "width": 1024,
       "height": 1024,
-      "sha256": "dcb786c07acb1e63e863c12c80b85af2ac5cb9a04f8b0b7598588204e85e9914",
+      "sha256": "e00065ce3241b2405e5fe5170cb37cb7e0fa9a3701d2ea1444fe008d09f85fe7",
       "master": false,
-      "alpha": true,
+      "alpha": false,
       "contentBox": {
         "x": 0,
         "y": 0,

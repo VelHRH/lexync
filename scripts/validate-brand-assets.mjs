@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { alphaBounds, checksum, masters, requiredVariants } from './brand-asset-contract.mjs';
 
 const rootArgument = process.argv.indexOf('--root');
 const brandRoot = path.resolve(rootArgument === -1 ? 'assets/brand' : process.argv[rootArgument + 1]);
@@ -9,30 +9,6 @@ const brandRoot = path.resolve(rootArgument === -1 ? 'assets/brand' : process.ar
 function fail(message) {
   process.stderr.write(`${message}\n`);
   process.exit(1);
-}
-
-function checksum(buffer) {
-  return createHash('sha256').update(buffer).digest('hex');
-}
-
-function alphaBounds(data, width, height, channels) {
-  let minX = width;
-  let minY = height;
-  let maxX = -1;
-  let maxY = -1;
-
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      if (data[(y * width + x) * channels + channels - 1] > 0) {
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-      }
-    }
-  }
-
-  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }
 
 let catalog;
@@ -45,6 +21,24 @@ try {
 
 if (catalog.version !== 1 || catalog.primaryIcon !== 'icon-primary-purple' || !Array.isArray(catalog.assets)) {
   fail('Malformed catalog: required brand metadata is missing');
+}
+
+for (const expected of [...masters, ...requiredVariants]) {
+  const actual = catalog.assets.find((asset) => asset.id === expected.id);
+
+  if (!actual) {
+    fail(`Missing required catalog entry: ${expected.id}`);
+  }
+
+  for (const field of ['role', 'intendedBackground', 'path', 'width', 'height', 'master', 'platform', 'alpha']) {
+    if (actual[field] !== expected[field]) {
+      fail(`Incorrect required catalog entry: ${expected.id}`);
+    }
+  }
+
+  if (expected.sha256 && actual.sha256 !== expected.sha256) {
+    fail(`Incorrect required catalog entry: ${expected.id}`);
+  }
 }
 
 const ids = new Set();
