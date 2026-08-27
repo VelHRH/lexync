@@ -1,6 +1,12 @@
 import { resolveStudyPair, type StudyPair } from '@lexync/domain';
 import { readExpressionSnapshot, writeExpressionSnapshot } from '../lib/learning-mode-index';
 import {
+  isDuolingoCaptureMessage,
+  type DuolingoCaptureMessage,
+  type LoadDuolingoCaptureResponse,
+  type SaveDuolingoCaptureResponse,
+} from '../lib/duolingo-messages';
+import {
   isLearningModeMessage,
   type LearningModeEntry,
   type LearningModeLoadResponse,
@@ -70,6 +76,44 @@ async function handleOrdinaryCapture(message: OrdinaryCaptureMessage, sender: { 
   return message.type === 'ordinary-capture:load'
     ? loadOrdinaryCapture(message)
     : saveOrdinaryCapture(message, sender);
+}
+
+async function handleDuolingoCapture(
+  message: DuolingoCaptureMessage,
+  sender: { tab?: { id?: number } },
+): Promise<LoadDuolingoCaptureResponse | SaveDuolingoCaptureResponse> {
+  if (message.type === 'duolingo-capture:load') {
+    const pairs = await loadPairs();
+    const resolution = resolveStudyPair(pairs, {
+      adapterLanguages: {
+        referenceLanguageTag: message.referenceLanguageTag,
+        targetLanguageTag: message.targetLanguageTag,
+      },
+    });
+    return resolution.kind === 'resolved'
+      ? { studyPairId: resolution.studyPair.id }
+      : { error: 'Matching Study Pair is unavailable.' };
+  }
+
+  const { error } = await supabase.rpc('capture_manual_entry', {
+    p_example: message.example,
+    p_expression: message.expression,
+    p_study_pair_id: message.studyPairId,
+    p_translation: message.translation,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  const entries = await syncExpressionSnapshot(message.studyPairId);
+  if (sender.tab?.id) {
+    await browser.tabs.sendMessage(sender.tab.id, {
+      entries,
+      type: 'learning-mode:index-updated',
+    }).catch(() => undefined);
+  }
+  return {};
 }
 
 type EntryRow = {
@@ -288,7 +332,15 @@ async function refreshAction(tabId: number): Promise<void> {
     return;
   }
 
-  const origin = new URL(tab.url).origin;
+  const url = new URL(tab.url);
+  const origin = url.origin;
+
+  if (url.hostname === 'duolingo.com' || url.hostname.endsWith('.duolingo.com')) {
+    await browser.action.setBadgeText({ tabId, text: '' });
+    await browser.action.setTitle({ tabId, title: 'Lexync' });
+    return;
+  }
+
   const { choice, decided } = await siteChoice(origin);
 
   if (choice?.enabled) {
@@ -378,11 +430,13 @@ export default defineBackground(() => {
       return undefined;
     }
 
-    const operation = isOrdinaryCaptureMessage(message)
-      ? handleOrdinaryCapture(message, sender)
-      : isLearningModeMessage(message)
-        ? handleLearningMode(message, sender)
-        : undefined;
+    const operation = isDuolingoCaptureMessage(message)
+      ? handleDuolingoCapture(message, sender)
+      : isOrdinaryCaptureMessage(message)
+        ? handleOrdinaryCapture(message, sender)
+        : isLearningModeMessage(message)
+          ? handleLearningMode(message, sender)
+          : undefined;
 
     if (!operation) {
       return undefined;
@@ -391,7 +445,7 @@ export default defineBackground(() => {
     void operation
       .then(sendResponse)
       .catch((error) => sendResponse({
-        error: error instanceof Error ? error.message : 'Ordinary capture could not be completed.',
+        error: error instanceof Error ? error.message : 'Capture could not be completed.',
       }));
     return true;
   });

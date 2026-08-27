@@ -32,6 +32,14 @@ test('injected ordinary-page capture does not contact Supabase directly', async 
   expect(bundle).not.toContain('127.0.0.1:54321');
 });
 
+test('Duolingo adapter does not contact Supabase directly', async () => {
+  const bundle = await readFile('apps/extension/.output/chrome-mv3/content-scripts/duolingo.js', 'utf8');
+
+  expect(bundle).not.toContain('capture_manual_entry');
+  expect(bundle).not.toContain('/rest/v1');
+  expect(bundle).not.toContain('127.0.0.1:54321');
+});
+
 test('Learning Mode has page access for text detection and its injected bundle has no backend access', async () => {
   const manifest = JSON.parse(await readFile('apps/extension/.output/chrome-mv3/manifest.json', 'utf8')) as {
     host_permissions?: string[];
