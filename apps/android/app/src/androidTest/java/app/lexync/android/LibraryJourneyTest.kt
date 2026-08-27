@@ -74,6 +74,21 @@ class LibraryJourneyTest {
     }
 
     @Test
+    fun restoredCredentialsCanSynchronizeAfterRelaunch() {
+        launch(resetLocalData = true)
+        signIn()
+        compose.waitUntilAtLeastOneExists(hasText("Synchronization complete"), 15_000)
+        scenario?.close()
+
+        launch()
+        compose.waitUntilAtLeastOneExists(hasText(email), 10_000)
+        compose.onNodeWithText("Synchronize").performClick()
+
+        compose.waitUntilAtLeastOneExists(hasText("Synchronization complete"), 15_000)
+        compose.onNodeWithContentDescription("Open Vocabulary Entry caminar").assertIsDisplayed()
+    }
+
+    @Test
     fun laterSnapshotReplacesRemovedVocabularyWithoutDuplicates() = runBlocking {
         launch(resetLocalData = true)
         signIn()

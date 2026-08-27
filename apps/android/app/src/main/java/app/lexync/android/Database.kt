@@ -97,13 +97,13 @@ class LibraryStore(private val database: LexyncDatabase) {
             dao.insertVocabularyEntries(snapshot.studyPairs.flatMap { pair ->
                 pair.vocabularyEntries.mapIndexed { index, entry -> VocabularyEntryEntity(entry.id.toString(), pair.id.toString(), entry.expression, entry.suspended, index) }
             })
-            dao.insertSenses(snapshot.studyPairs.flatMap(StudyPair::vocabularyEntries).flatMap { entry ->
+            dao.insertSenses(snapshot.vocabularyEntries().flatMap { entry ->
                 entry.senses.mapIndexed { index, sense -> SenseEntity(sense.id.toString(), entry.id.toString(), index) }
             })
-            dao.insertTranslations(snapshot.studyPairs.flatMap(StudyPair::vocabularyEntries).flatMap(VocabularyEntry::senses).flatMap { sense ->
+            dao.insertTranslations(snapshot.senses().flatMap { sense ->
                 sense.translations.mapIndexed { index, translation -> TranslationEntity(translation.id.toString(), sense.id.toString(), translation.text, index) }
             })
-            dao.insertExamples(snapshot.studyPairs.flatMap(StudyPair::vocabularyEntries).flatMap(VocabularyEntry::senses).flatMap { sense ->
+            dao.insertExamples(snapshot.senses().flatMap { sense ->
                 sense.examples.mapIndexed { index, example -> ExampleEntity(example.id.toString(), sense.id.toString(), example.text, index) }
             })
         }

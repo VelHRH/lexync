@@ -67,3 +67,11 @@ data class StoredLibrary(
     val learnerId: UUID,
     val studyPairs: List<StudyPair>,
 )
+
+fun AccountVocabularySnapshot.vocabularyEntries(): List<VocabularyEntry> = studyPairs.flatMap(StudyPair::vocabularyEntries)
+
+fun AccountVocabularySnapshot.senses(): List<Sense> = vocabularyEntries().flatMap(VocabularyEntry::senses)
+
+fun AccountVocabularySnapshot.translations(): List<Translation> = senses().flatMap(Sense::translations)
+
+fun AccountVocabularySnapshot.examples(): List<Example> = senses().flatMap(Sense::examples)

@@ -1,7 +1,8 @@
 import org.gradle.api.DefaultTask
-import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.tasks.InputFile
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
+import java.util.Base64
 
 plugins {
     id("com.android.application")
@@ -11,8 +12,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-val supabaseUrl = providers.gradleProperty("lexync.supabase.url").orElse("")
-val supabasePublishableKey = providers.gradleProperty("lexync.supabase.publishableKey").orElse("")
+val supabaseUrl = providers.gradleProperty("lexync.supabase.url").orElse(providers.environmentVariable("LEXYNC_SUPABASE_URL")).orElse("")
+val supabasePublishableKey = providers.gradleProperty("lexync.supabase.publishableKey").orElse(providers.environmentVariable("LEXYNC_SUPABASE_PUBLISHABLE_KEY")).orElse("")
 
 android {
     namespace = "app.lexync.android"
@@ -79,21 +80,31 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.3")
 }
 
-abstract class VerifyNoServiceSecrets : DefaultTask() {
-    @get:InputFile
-    abstract val apk: RegularFileProperty
+abstract class ValidateClientCredential : DefaultTask() {
+    @get:Input
+    abstract val publishableKey: Property<String>
 
     @TaskAction
     fun verify() {
-        val forbidden = listOf("service_role", "SUPABASE_SERVICE_ROLE", "sb_secret_")
-        val contents = apk.get().asFile.readBytes().toString(Charsets.ISO_8859_1)
-        check(forbidden.none(contents::contains)) {
-            "A server-side Supabase credential marker was found in the Android APK"
+        val key = publishableKey.get()
+        val payload = key.split('.').getOrNull(1)?.let { encoded ->
+            runCatching { String(Base64.getUrlDecoder().decode(encoded)) }.getOrNull()
+        }
+        check(!key.startsWith("sb_secret_") && payload?.contains(Regex("\"role\"\\s*:\\s*\"service_role\"")) != true) {
+            "A server-side Supabase credential cannot be embedded in the Android application"
         }
     }
 }
 
-tasks.register<VerifyNoServiceSecrets>("verifyNoServiceSecrets") {
+val validateClientCredential = tasks.register<ValidateClientCredential>("validateClientCredential") {
+    publishableKey.set(supabasePublishableKey)
+}
+
+tasks.named("preBuild") {
+    dependsOn(validateClientCredential)
+}
+
+tasks.register("verifyNoServiceSecrets") {
     dependsOn("assembleDebug")
-    apk.set(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+    dependsOn(validateClientCredential)
 }

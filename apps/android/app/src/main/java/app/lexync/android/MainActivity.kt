@@ -48,10 +48,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val store = LibraryStore(LexyncDatabase.create(applicationContext))
+        val testControlsEnabled = BuildConfig.DEBUG
         val viewModel = ViewModelProvider(this, LibraryViewModel.factory(
             store,
-            intent.getBooleanExtra(DISABLE_NETWORK, false),
-            intent.getBooleanExtra(RESET_LOCAL_DATA, false),
+            testControlsEnabled && intent.getBooleanExtra(DISABLE_NETWORK, false),
+            testControlsEnabled && intent.getBooleanExtra(RESET_LOCAL_DATA, false),
         ))[LibraryViewModel::class.java]
         setContent {
             MaterialTheme {

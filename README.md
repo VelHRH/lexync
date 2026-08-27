@@ -59,15 +59,15 @@ lexync.supabase.publishableKey=your-publishable-key
 
 For the local Supabase stack, use `http://10.0.2.2:54321` from the Android emulator and the publishable key printed by `pnpm backend:start`. Never configure a secret or service-role key in the Android build.
 
-Build the debug APK with `pnpm android:build`. Run the JVM contract tests with `pnpm android:test`. With an emulator running, compile and run the Room and Compose journeys with:
+Build the debug APK with `pnpm android:build`. Run the JVM contract tests with `pnpm android:test`. Seed the local acceptance account with `pnpm android:seed`. With an emulator running, compile and run the Room and Compose journeys with:
 
 ```sh
 cd apps/android
 ./gradlew connectedDebugAndroidTest \
   -Plexync.supabase.url=http://10.0.2.2:54321 \
   -Plexync.supabase.publishableKey=your-local-publishable-key \
-  -Pandroid.testInstrumentationRunnerArguments.lexyncTestEmail=learner@example.com \
-  -Pandroid.testInstrumentationRunnerArguments.lexyncTestPassword=your-test-password
+  -Pandroid.testInstrumentationRunnerArguments.lexyncTestEmail=android-learner@example.test \
+  -Pandroid.testInstrumentationRunnerArguments.lexyncTestPassword=Lexync-Android-test-37
 ```
 
 The synchronized library is replaced in one Room transaction and remains available after an offline restart. Failed or invalid snapshots leave the previous complete library intact.
