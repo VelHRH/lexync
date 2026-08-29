@@ -1,10 +1,12 @@
 import { resolveStudyPair, type StudyPair } from '@lexync/domain';
 import { readExpressionSnapshot, writeExpressionSnapshot } from '../lib/learning-mode-index';
 import {
+  isClozemasterCaptureMessage,
+  type ClozemasterCaptureMessage,
+} from '../lib/clozemaster-messages';
+import {
   isDuolingoCaptureMessage,
   type DuolingoCaptureMessage,
-  type LoadDuolingoCaptureResponse,
-  type SaveDuolingoCaptureResponse,
 } from '../lib/duolingo-messages';
 import {
   isLearningModeMessage,
@@ -93,11 +95,11 @@ async function handleOrdinaryCapture(message: OrdinaryCaptureMessage, sender: { 
     : saveOrdinaryCapture(message, sender);
 }
 
-async function handleDuolingoCapture(
-  message: DuolingoCaptureMessage,
+async function handleAdapterCapture(
+  message: ClozemasterCaptureMessage | DuolingoCaptureMessage,
   sender: { tab?: { id?: number } },
-): Promise<LoadDuolingoCaptureResponse | SaveDuolingoCaptureResponse> {
-  if (message.type === 'duolingo-capture:load') {
+): Promise<{ error?: string; studyPairId?: string }> {
+  if ('referenceLanguageTag' in message) {
     const pairs = await loadPairs();
     const resolution = resolveStudyPair(pairs, {
       adapterLanguages: {
@@ -332,7 +334,10 @@ async function refreshAction(tabId: number): Promise<void> {
   const url = new URL(tab.url);
   const origin = url.origin;
 
-  if (url.hostname === 'duolingo.com' || url.hostname.endsWith('.duolingo.com')) {
+  if (url.hostname === 'duolingo.com'
+    || url.hostname.endsWith('.duolingo.com')
+    || url.hostname === 'clozemaster.com'
+    || url.hostname.endsWith('.clozemaster.com')) {
     await browser.action.setBadgeText({ tabId, text: '' });
     await browser.action.setTitle({ tabId, title: 'Lexync' });
     return;
@@ -427,13 +432,15 @@ export default defineBackground(() => {
       return undefined;
     }
 
-    const operation = isDuolingoCaptureMessage(message)
-      ? handleDuolingoCapture(message, sender)
-      : isOrdinaryCaptureMessage(message)
-        ? handleOrdinaryCapture(message, sender)
-        : isLearningModeMessage(message)
-          ? handleLearningMode(message, sender)
-          : undefined;
+    const operation = isClozemasterCaptureMessage(message)
+      ? handleAdapterCapture(message, sender)
+      : isDuolingoCaptureMessage(message)
+        ? handleAdapterCapture(message, sender)
+        : isOrdinaryCaptureMessage(message)
+          ? handleOrdinaryCapture(message, sender)
+          : isLearningModeMessage(message)
+            ? handleLearningMode(message, sender)
+            : undefined;
 
     if (!operation) {
       return undefined;
