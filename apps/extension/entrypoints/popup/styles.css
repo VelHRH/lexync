@@ -39,25 +39,18 @@ header {
 }
 
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  display: block;
+  height: auto;
+  object-fit: contain;
 }
 
-.brand span {
+.brand-mark {
   width: 32px;
   height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 52% 48% 45% 55%;
-  background: #19251e;
-  color: #fbf8ef;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 12px;
-  font-style: italic;
+}
+
+.brand-wordmark {
+  width: 150px;
 }
 
 .identity {
@@ -96,6 +89,17 @@ h1 {
 
 .signed-out .brand {
   margin-bottom: 38px;
+}
+
+.loading {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 20px;
+}
+
+.loading .status {
+  margin: 0;
 }
 
 .intro {
@@ -312,6 +316,11 @@ button:disabled {
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+.saved .brand {
+  align-self: center;
+  margin-bottom: 24px;
 }
 
 .success-mark {
