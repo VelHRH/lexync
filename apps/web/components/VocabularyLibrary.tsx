@@ -3,6 +3,7 @@
 import { studyPairLabel, type StudyPair } from '@lexync/domain';
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 
 type LibraryEntry = {
@@ -12,6 +13,7 @@ type LibraryEntry = {
 };
 
 export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
+  const searchParams = useSearchParams();
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [expression, setExpression] = useState('');
@@ -39,10 +41,15 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
       return;
     }
     const senseIds = (senses ?? []).map((sense) => sense.id);
-    const [{ data: translations }, { data: examples }] = await Promise.all([
-      senseIds.length ? supabase.from('translations').select('sense_id,text').in('sense_id', senseIds) : Promise.resolve({ data: [] }),
-      senseIds.length ? supabase.from('examples').select('sense_id,text').in('sense_id', senseIds) : Promise.resolve({ data: [] }),
+    const [{ data: translations, error: translationsError }, { data: examples, error: examplesError }] = await Promise.all([
+      supabase.from('translations').select('sense_id,text').in('sense_id', senseIds),
+      supabase.from('examples').select('sense_id,text').in('sense_id', senseIds),
     ]);
+    if (translationsError || examplesError) {
+      setNotice(translationsError?.message ?? examplesError?.message ?? 'Vocabulary details could not be loaded.');
+      setLoading(false);
+      return;
+    }
     setEntries((data ?? []).map((entry) => ({
       id: entry.id,
       expression: entry.expression,
@@ -59,7 +66,7 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
     queueMicrotask(() => {
       if (new URLSearchParams(window.location.search).get('add') === '1') setShowForm(true);
     });
-  }, [loadEntries]);
+  }, [loadEntries, searchParams]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -110,13 +117,16 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
       {loading && <p className="app-empty">Loading your vocabulary…</p>}
       {!loading && entries.length === 0 && <p className="app-empty">No vocabulary entries yet. Add your first one.</p>}
       <div className="vocabulary-entry-list">
-        {entries.map((entry) => <article className="vocabulary-entry" key={entry.id}>
-          <h3>{entry.expression}</h3>
-          {entry.senses.map((sense, index) => <div className="vocabulary-sense" key={`${entry.id}-${index}`}>
+        {entries.map((entry) => <details className="vocabulary-entry" key={entry.id}>
+          <summary>{entry.expression}</summary>
+          <div>
+            <h3>{entry.expression}</h3>
+            {entry.senses.map((sense, index) => <div className="vocabulary-sense" key={`${entry.id}-${index}`}>
             {sense.translations.map((item) => <p key={item.text}>{item.text}</p>)}
             {sense.examples.length ? sense.examples.map((item) => <p className="vocabulary-example" key={item.text}>{item.text}</p>) : <p className="app-empty">No Example added</p>}
-          </div>)}
-        </article>)}
+            </div>)}
+          </div>
+        </details>)}
       </div>
     </section>
   );

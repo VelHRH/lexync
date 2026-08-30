@@ -37,6 +37,7 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Translation').fill('to discover');
     await page.getByLabel('Example').fill('Quiero descubrir la ciudad.');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
     await expect(page.getByRole('heading', { name: 'descubrir' })).toBeVisible();
     await expect(page.getByText('to discover', { exact: true })).toBeVisible();
     await expect(page.getByText('Quiero descubrir la ciudad.')).toBeVisible();
@@ -56,12 +57,13 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Expression').fill('Casa');
     await page.getByLabel('Translation').fill('house');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
-    await expect(page.getByRole('heading', { name: 'Casa' })).toBeVisible();
+    await expect(page.locator('summary').filter({ hasText: 'Casa' })).toBeVisible();
     await page.getByRole('button', { name: 'Add vocabulary' }).click();
     await page.getByLabel('Expression').fill(' casa ');
     await page.getByLabel('Translation').fill('home');
     await page.getByLabel('Example').fill('Mi casa es pequeña.');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    await page.locator('summary').filter({ hasText: 'Casa' }).click();
     await expect(page.getByRole('heading', { name: 'Casa' })).toHaveCount(1);
     await expect(page.getByText('house', { exact: true })).toBeVisible();
     await expect(page.getByText('home', { exact: true })).toBeVisible();
@@ -80,7 +82,8 @@ test.describe('web Vocabulary Entry library', () => {
     if (error) throw error;
     await signIn(page, owner);
     await page.goto('/library');
-    await expect(page.getByText('biblioteca', { exact: true })).toBeVisible();
+    await page.locator('summary').filter({ hasText: 'biblioteca' }).click();
+    await expect(page.getByRole('heading', { name: 'biblioteca' })).toBeVisible();
     await expect(page.getByText('library', { exact: true })).toBeVisible();
 
     const other = credentials('web-other');
