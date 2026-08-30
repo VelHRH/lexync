@@ -5,9 +5,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: 'list',
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://127.0.0.1:3000',
+    screenshot: 'only-on-failure',
     trace: 'on-first-retry',
   },
   projects: [
@@ -36,6 +37,10 @@ export default defineConfig({
     {
       name: 'brand-assets',
       testMatch: /brand-assets\.spec\.ts/,
+    },
+    {
+      name: 'extension-release',
+      testMatch: /extension-release\.spec\.ts/,
     },
   ],
   webServer: {

@@ -1,0 +1,13 @@
+{
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "hostPermissions": [
+    "http://*/*",
+    "https://*/*",
+    "http://127.0.0.1:54321/*"
+  ]
+}

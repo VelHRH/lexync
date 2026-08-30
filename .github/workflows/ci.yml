@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  javascript:
+    name: JavaScript and browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 10.30.3
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm backend:start
+      - run: pnpm backend:reset
+      - run: pnpm test:db
+      - run: pnpm check
+      - run: node scripts/with-local-supabase.mjs pnpm build
+      - run: pnpm extension:package
+      - run: node scripts/with-local-supabase.mjs pnpm exec playwright test
+      - if: failure()
+        run: |
+          mkdir -p artifacts/supabase
+          pnpm dlx supabase@2.115.0 status > artifacts/supabase/status.txt 2>&1 || true
+          for container in $(docker ps --filter name=supabase --format '{{.Names}}'); do docker logs "$container" > "artifacts/supabase/$container.log" 2>&1 || true; done
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: browser-diagnostics
+          path: |
+            playwright-report
+            test-results
+            artifacts/supabase
+          if-no-files-found: ignore
+      - if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: lexync-chromium-extension
+          path: artifacts/lexync-chromium.zip
+          if-no-files-found: error
+      - if: always()
+        run: pnpm backend:stop
+
+  android:
+    name: Android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 10.30.3
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm backend:start
+      - run: pnpm backend:reset
+      - run: pnpm android:test
+      - run: pnpm android:build
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            mkdir -p artifacts/android
+            set +e
+            pnpm android:acceptance
+            status=$?
+            adb logcat -d > artifacts/android/logcat.txt
+            exit "$status"
+      - if: failure()
+        run: |
+          mkdir -p artifacts/supabase
+          pnpm dlx supabase@2.115.0 status > artifacts/supabase/status.txt 2>&1 || true
+          for container in $(docker ps --filter name=supabase --format '{{.Names}}'); do docker logs "$container" > "artifacts/supabase/$container.log" 2>&1 || true; done
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: android-diagnostics
+          path: |
+            artifacts/android
+            artifacts/supabase
+            apps/android/app/build/outputs/androidTest-results
+            apps/android/app/build/reports/androidTests
+            apps/android/app/build/reports/tests
+          if-no-files-found: ignore
+      - if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: lexync-android-debug-apk
+          path: apps/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - if: always()
+        run: pnpm backend:stop
+
+  aggregate:
+    name: Aggregate
+    if: ${{ !cancelled() }}
+    needs:
+      - javascript
+      - android
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          ANDROID_RESULT: ${{ needs.android.result }}
+          JAVASCRIPT_RESULT: ${{ needs.javascript.result }}
+        run: test "$ANDROID_RESULT" = success && test "$JAVASCRIPT_RESULT" = success
