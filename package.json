@@ -4,6 +4,7 @@
   "packageManager": "pnpm@10.30.3",
   "scripts": {
     "android:build": "apps/android/gradlew -p apps/android :app:assembleDebug :app:verifyNoServiceSecrets",
+    "android:acceptance": "node scripts/run-android-acceptance.mjs",
     "android:seed": "node scripts/with-local-supabase.mjs node scripts/seed-android-test.mjs",
     "android:test": "apps/android/gradlew -p apps/android :app:testDebugUnitTest",
     "backend:start": "pnpm dlx supabase@2.115.0 start",
@@ -15,6 +16,7 @@
     "check": "pnpm brand:validate && pnpm -r check && tsc --noEmit -p tsconfig.tests.json",
     "dev": "pnpm --filter @lexync/web dev",
     "dev:extension": "pnpm --filter @lexync/extension dev",
+    "extension:package": "node scripts/package-extension.mjs",
     "test": "pnpm backend:start && pnpm backend:reset && pnpm test:db && node scripts/with-local-supabase.mjs pnpm run test:local",
     "test:db": "pnpm dlx supabase@2.115.0 test db",
     "test:local": "pnpm build && playwright test"

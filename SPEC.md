@@ -6,6 +6,8 @@ Lexync is an offline-capable personal language-learning system. It lets a Learne
 
 Lexync is offline-first for lessons, not for authoring. Creating or changing vocabulary requires connectivity. An authenticated Learner can continue downloaded lessons indefinitely while offline, and review results synchronize after connectivity returns.
 
+iPhone delivery is paused while the Android client carries the active native-learning milestone. The iPhone requirements remain recorded in this specification, but Xcode builds and XCUITest do not run or block pull requests until the iPhone roadmap resumes.
+
 ## 2. Initial product surfaces
 
 ### 2.1 Browser extension
