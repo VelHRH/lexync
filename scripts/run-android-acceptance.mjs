@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 
 function run(command, args, environment = process.env) {
   const result = spawnSync(command, args, { env: environment, stdio: 'inherit' });
@@ -39,7 +41,7 @@ const environment = {
 };
 
 run(process.execPath, ['scripts/seed-android-test.mjs'], environment);
-run('apps/android/gradlew', [
+const acceptance = spawnSync('apps/android/gradlew', [
   '-p',
   'apps/android',
   ':app:connectedDebugAndroidTest',
@@ -47,4 +49,15 @@ run('apps/android/gradlew', [
   `-Plexync.supabase.publishableKey=${publishableKey}`,
   '-Pandroid.testInstrumentationRunnerArguments.lexyncTestEmail=android-learner@example.test',
   '-Pandroid.testInstrumentationRunnerArguments.lexyncTestPassword=Lexync-Android-test-37',
-]);
+], { stdio: 'inherit' });
+const diagnostics = path.resolve('artifacts/android');
+const logcat = spawnSync('adb', ['logcat', '-d'], { encoding: 'utf8' });
+
+mkdirSync(diagnostics, { recursive: true });
+writeFileSync(path.join(diagnostics, 'logcat.txt'), `${logcat.stdout ?? ''}${logcat.stderr ?? ''}`);
+
+if (acceptance.signal) {
+  process.kill(process.pid, acceptance.signal);
+}
+
+process.exit(acceptance.status ?? 1);

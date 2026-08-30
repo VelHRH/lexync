@@ -88,13 +88,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            mkdir -p artifacts/android
-            set +e
-            pnpm android:acceptance
-            status=$?
-            adb logcat -d > artifacts/android/logcat.txt
-            exit "$status"
+          script: pnpm android:acceptance
       - if: failure()
         run: node scripts/capture-supabase-diagnostics.mjs
       - if: failure()
