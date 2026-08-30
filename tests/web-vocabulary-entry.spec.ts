@@ -56,6 +56,7 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Expression').fill('Casa');
     await page.getByLabel('Translation').fill('house');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    await expect(page.getByRole('heading', { name: 'Casa' })).toBeVisible();
     await page.getByRole('button', { name: 'Add vocabulary' }).click();
     await page.getByLabel('Expression').fill(' casa ');
     await page.getByLabel('Translation').fill('home');
