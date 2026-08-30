@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { StudyPairOnboarding } from './StudyPairOnboarding';
+import { VocabularyLibrary } from './VocabularyLibrary';
 
 const destinations = [
   ['Home', '/'],
@@ -112,7 +113,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     <main className="app-shell">
       <header className="app-header">
         <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
-        <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
+        <div>
+          <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link>
+          <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
+        </div>
       </header>
       <div className="app-body">
         <nav className="app-navigation" aria-label="Main navigation">
@@ -122,6 +126,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
           <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>
+          {activeSection === 'Library' && <VocabularyLibrary pair={pairs.find((pair) => pair.id === activePairId) ?? pairs[0]} />}
           <label className="pair-selector-label" htmlFor="active-study-pair">Active Study Pair</label>
           <select id="active-study-pair" aria-label="Active Study Pair" value={activePairId} onChange={(event) => { setActivePairId(event.target.value); window.localStorage.setItem('lexync-active-study-pair', event.target.value); }}>
             {pairs.map((pair) => <option key={pair.id} value={pair.id}>{studyPairLabel(pair)}</option>)}
