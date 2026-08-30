@@ -11,7 +11,7 @@ function credentials() {
   };
 }
 
-async function registerLearner(email: string, password: string) {
+async function registerLearner(email: string, password: string, withPair = false) {
   if (!supabasePublishableKey) {
     throw new Error('LEXYNC_SUPABASE_PUBLISHABLE_KEY is required for web acceptance tests.');
   }
@@ -19,10 +19,14 @@ async function registerLearner(email: string, password: string) {
   const client = createClient(supabaseUrl, supabasePublishableKey, {
     auth: { persistSession: false },
   });
-  const { error } = await client.auth.signUp({ email, password });
+  const { data, error } = await client.auth.signUp({ email, password });
 
   if (error) {
     throw error;
+  }
+  if (withPair && data.session) {
+    const { error: pairError } = await client.rpc('create_study_pair', { p_target_language_tag: 'es', p_reference_language_tag: 'en' });
+    if (pairError) throw pairError;
   }
 }
 
@@ -60,6 +64,12 @@ test.describe('authenticated web learning client', () => {
     await page.getByLabel('Confirm password').fill(account.password);
     await page.getByRole('button', { name: 'Create account' }).click();
 
+    await expect(page).toHaveURL('/onboarding/study-pair');
+    await page.getByLabel('Target Language').fill('es');
+    await page.getByLabel('Reference Language').fill('en');
+    await page.getByRole('button', { name: 'Create Study Pair' }).click();
+    await expect(page.getByRole('heading', { name: 'Your Study Pair is ready' })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue to dashboard' }).click();
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
@@ -77,7 +87,7 @@ test.describe('authenticated web learning client', () => {
 
   test('signs in an existing learner and exposes responsive private navigation', async ({ page }) => {
     const account = credentials();
-    await registerLearner(account.email, account.password);
+    await registerLearner(account.email, account.password, true);
     await page.goto('/auth/sign-in');
     await page.getByLabel('Email').fill(account.email);
     await page.getByLabel('Password').fill(account.password);
