@@ -74,6 +74,6 @@ The synchronized library is replaced in one Room transaction and remains availab
 
 ## Continuous integration
 
-Pull requests and updates to `main` run the JavaScript, browser, Supabase, and Android validation lanes. Successful runs retain the deterministic Chromium extension ZIP and installable Android debug APK. Failed runs retain the available Playwright, emulator, and local Supabase diagnostics. The stable required check is `CI / Aggregate`.
+Pull requests and updates to `main` run the JavaScript, browser, Supabase, and Android validation lanes. Successful runs retain the deterministic Chromium extension ZIP and installable Android debug APK. Failed runs retain the available Playwright, emulator, and local Supabase diagnostics. The stable required check is `Aggregate`.
 
 The iPhone requirements remain in `SPEC.md`, but iPhone delivery is paused. Xcode builds and XCUITest do not run in continuous integration and do not block pull requests until that roadmap resumes.
