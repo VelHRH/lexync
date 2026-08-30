@@ -63,6 +63,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@lexync/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@supabase/supabase-js':
         specifier: 2.112.3
         version: 2.112.3

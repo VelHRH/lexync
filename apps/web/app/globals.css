@@ -183,6 +183,87 @@ footer {
   padding: clamp(3rem, 8vw, 8rem) clamp(1.25rem, 8vw, 8rem);
 }
 
+.pair-onboarding {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: clamp(3rem, 9vw, 8rem) 1.25rem;
+}
+
+.pair-onboarding h1 {
+  max-width: 35rem;
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.92;
+}
+
+.pair-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.pair-selector-label {
+  display: block;
+  margin-top: 2rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.app-content select {
+  width: min(100%, 24rem);
+  min-height: 2.8rem;
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--cream);
+  color: var(--ink);
+  font: inherit;
+}
+
+.pair-management {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.pair-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pair-row strong {
+  margin-left: 0.5rem;
+  color: var(--moss);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.text-button {
+  border: 0;
+  padding: 0.35rem;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.text-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.text-button.danger {
+  color: #9d482f;
+}
+
 @media (max-width: 700px) {
   .app-body {
     display: block;
