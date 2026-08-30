@@ -1,25 +1,5 @@
-import { expect, test, type Locator } from '@playwright/test';
-
-async function expectCompactBrand(link: Locator, assetName: string) {
-  const image = link.locator('img');
-
-  await expect(image).toBeVisible();
-  await expect(image).toHaveAttribute('alt', '');
-  await expect.poll(() => image.evaluate((element) => new URL((element as HTMLImageElement).currentSrc).pathname)).toBe(`/brand/${assetName}`);
-  const dimensions = await image.evaluate((element) => {
-    const brandImage = element as HTMLImageElement;
-
-    return {
-      naturalWidth: brandImage.naturalWidth,
-      naturalHeight: brandImage.naturalHeight,
-      width: brandImage.getBoundingClientRect().width,
-      height: brandImage.getBoundingClientRect().height,
-    };
-  });
-
-  expect(dimensions.naturalWidth).toBe(dimensions.naturalHeight);
-  expect(dimensions.width).toBeCloseTo(dimensions.height, 1);
-}
+import { expect, test } from '@playwright/test';
+import { expectBrandArtwork, expectBrandMetadata } from './landing-page-branding';
 
 test('keeps the public story usable on a mobile screen', async ({ page }) => {
   await page.goto('/');
@@ -34,6 +14,17 @@ test('keeps the public story usable on a mobile screen', async ({ page }) => {
 test('uses compact canonical fox marks on mobile surfaces', async ({ page }) => {
   await page.goto('/');
 
-  await expectCompactBrand(page.getByRole('link', { name: 'Lexync home' }), 'mark-dark-on-light.png');
-  await expectCompactBrand(page.getByRole('link', { name: 'Back to the top' }), 'mark-light-on-dark.png');
+  const lightDimensions = await expectBrandArtwork(page.getByRole('link', { name: 'Lexync home' }), 'mark-dark-on-light.png');
+  const darkDimensions = await expectBrandArtwork(page.getByRole('link', { name: 'Back to the top' }), 'mark-light-on-dark.png');
+
+  expect(lightDimensions.naturalWidth).toBe(lightDimensions.naturalHeight);
+  expect(lightDimensions.width).toBeCloseTo(lightDimensions.height, 1);
+  expect(darkDimensions.naturalWidth).toBe(darkDimensions.naturalHeight);
+  expect(darkDimensions.width).toBeCloseTo(darkDimensions.height, 1);
+});
+
+test('publishes canonical browser, touch, and social metadata on mobile', async ({ page }) => {
+  await page.goto('/');
+
+  await expectBrandMetadata(page);
 });
