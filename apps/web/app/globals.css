@@ -56,24 +56,17 @@ footer {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
   text-decoration: none;
 }
 
-.brand-mark {
-  width: 2.2rem;
-  height: 2.2rem;
-  display: grid;
-  place-items: center;
-  border-radius: 50% 50% 48% 52% / 54% 45% 55% 46%;
-  background: var(--ink);
-  color: var(--cream);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 0.9rem;
-  font-style: italic;
+.brand-artwork,
+.brand-artwork img {
+  display: block;
+}
+
+.brand-artwork img {
+  width: 7.5rem;
+  height: auto;
 }
 
 .hero {
@@ -446,11 +439,6 @@ footer {
   border-top: 1px solid rgba(251, 248, 239, 0.12);
 }
 
-.footer-brand .brand-mark {
-  background: var(--cream);
-  color: var(--ink);
-}
-
 footer > p {
   margin: 0;
   color: rgba(251, 248, 239, 0.48);
@@ -509,6 +497,10 @@ footer > p {
 
   .site-header > p {
     display: none;
+  }
+
+  .brand-artwork img {
+    width: 2.75rem;
   }
 
   .hero {

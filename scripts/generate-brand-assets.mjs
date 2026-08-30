@@ -1,9 +1,10 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import { alphaBounds, checksum, masters, requiredVariants } from './brand-asset-contract.mjs';
 
 const brandRoot = path.resolve('assets/brand');
+const webBrandRoot = path.resolve('apps/web/public/brand');
 const transparent = { r: 0, g: 0, b: 0, alpha: 0 };
 
 async function assertMasters() {
@@ -156,6 +157,19 @@ async function solidBackground(size, background) {
     .toBuffer();
 }
 
+async function socialPreview(wordmark, width, height, artworkWidth, background) {
+  const artwork = await sharp(wordmark)
+    .resize({ width: artworkWidth })
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
+    .toBuffer();
+
+  return sharp({ create: { width, height, channels: 3, background } })
+    .composite([{ input: artwork, gravity: 'centre' }])
+    .removeAlpha()
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
+    .toBuffer();
+}
+
 async function assetEntry(definition, buffer) {
   const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const metadata = await sharp(buffer).metadata();
@@ -186,6 +200,7 @@ await assertMasters();
 
 const primaryMaster = await readFile(path.join(brandRoot, 'masters/icon-primary-purple.png'));
 const lightMarkMaster = await readFile(path.join(brandRoot, 'masters/mark-light-on-dark.png'));
+const lightWordmarkMaster = await readFile(path.join(brandRoot, 'masters/wordmark-light-on-dark.png'));
 const cleanedPrimary = await cleanPrimary(primaryMaster);
 const croppedLightMark = await cropVisible(lightMarkMaster, 4);
 const purple = await primaryColor(primaryMaster);
@@ -202,6 +217,8 @@ for (const definition of requiredVariants) {
     buffer = await solidBackground(definition.width, purple);
   } else if (definition.render === 'opaque-mark') {
     buffer = await opaqueIcon(croppedLightMark, definition.width, definition.markRatio, purple);
+  } else if (definition.render === 'social-preview') {
+    buffer = await socialPreview(lightWordmarkMaster, definition.width, definition.height, definition.artworkWidth, purple);
   } else {
     throw new Error(`Unknown renderer: ${definition.render}`);
   }
@@ -217,4 +234,16 @@ const catalog = {
 };
 
 await writeFile(path.join(brandRoot, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
+
+await mkdir(webBrandRoot, { recursive: true });
+await Promise.all([
+  ['masters/mark-dark-on-light.png', 'mark-dark-on-light.png'],
+  ['masters/mark-light-on-dark.png', 'mark-light-on-dark.png'],
+  ['masters/wordmark-dark-on-light.png', 'wordmark-dark-on-light.png'],
+  ['masters/wordmark-light-on-dark.png', 'wordmark-light-on-dark.png'],
+  ['platform/web/favicon-48.png', 'favicon.png'],
+  ['platform/web/apple-touch-icon-180.png', 'apple-touch-icon.png'],
+  ['platform/web/social-preview-1200x630.png', 'social-preview.png'],
+].map(([source, destination]) => copyFile(path.join(brandRoot, source), path.join(webBrandRoot, destination))));
+
 console.log(`Generated ${generated.length} platform brand assets`);

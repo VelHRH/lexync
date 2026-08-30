@@ -18,13 +18,28 @@ const PhoneMark = () => (
   </svg>
 );
 
+const brandArtworkByBackground = {
+  dark: 'light-on-dark',
+  light: 'dark-on-light',
+} as const;
+
+const BrandArtwork = ({ background }: { background: keyof typeof brandArtworkByBackground }) => {
+  const artwork = brandArtworkByBackground[background];
+
+  return (
+    <picture className="brand-artwork">
+      <source media="(max-width: 560px)" srcSet={`/brand/mark-${artwork}.png`} />
+      <img alt="" height="724" src={`/brand/wordmark-${artwork}.png`} width="2172" />
+    </picture>
+  );
+};
+
 export default function Home() {
   return (
     <main>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Lexync home">
-          <span className="brand-mark">Lx</span>
-          <span>lexync</span>
+          <BrandArtwork background="light" />
         </a>
         <p>Private language learning</p>
       </header>
@@ -123,8 +138,7 @@ export default function Home() {
 
       <footer>
         <a className="brand footer-brand" href="#top" aria-label="Back to the top">
-          <span className="brand-mark">Lx</span>
-          <span>lexync</span>
+          <BrandArtwork background="dark" />
         </a>
         <p>Notice it. Keep it. Know it.</p>
       </footer>
