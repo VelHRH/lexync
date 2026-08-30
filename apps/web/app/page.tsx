@@ -18,13 +18,24 @@ const PhoneMark = () => (
   </svg>
 );
 
+const BrandArtwork = ({ surface }: { surface: 'dark' | 'light' }) => (
+  <picture className="brand-artwork">
+    <source media="(max-width: 560px)" srcSet={`/brand/mark-${surface === 'light' ? 'dark-on-light' : 'light-on-dark'}.png`} />
+    <img
+      alt=""
+      height="724"
+      src={`/brand/wordmark-${surface === 'light' ? 'dark-on-light' : 'light-on-dark'}.png`}
+      width="2172"
+    />
+  </picture>
+);
+
 export default function Home() {
   return (
     <main>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Lexync home">
-          <span className="brand-mark">Lx</span>
-          <span>lexync</span>
+          <BrandArtwork surface="light" />
         </a>
         <p>Private language learning</p>
       </header>
@@ -123,8 +134,7 @@ export default function Home() {
 
       <footer>
         <a className="brand footer-brand" href="#top" aria-label="Back to the top">
-          <span className="brand-mark">Lx</span>
-          <span>lexync</span>
+          <BrandArtwork surface="dark" />
         </a>
         <p>Notice it. Keep it. Know it.</p>
       </footer>

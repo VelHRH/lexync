@@ -309,6 +309,60 @@
         "width": 1024,
         "height": 1024
       }
+    },
+    {
+      "id": "web-favicon-48",
+      "role": "web-favicon",
+      "intendedBackground": "browser-controlled",
+      "path": "platform/web/favicon-48.png",
+      "platform": "web",
+      "width": 48,
+      "height": 48,
+      "sha256": "5043bee811af51ac2429a9460f97f9e264319c3a044283fffb7f26b7d83ed92f",
+      "master": false,
+      "alpha": true,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 48,
+        "height": 47
+      }
+    },
+    {
+      "id": "web-touch-icon-180",
+      "role": "web-touch-icon",
+      "intendedBackground": "system-mask-controlled",
+      "path": "platform/web/apple-touch-icon-180.png",
+      "platform": "web",
+      "width": 180,
+      "height": 180,
+      "sha256": "770e59c8fec3452c86c4a43216b344b4debd6048c60f83209a973f298ade21c4",
+      "master": false,
+      "alpha": false,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 180,
+        "height": 180
+      }
+    },
+    {
+      "id": "web-social-preview-1200x630",
+      "role": "social-sharing-image",
+      "intendedBackground": "social-card",
+      "path": "platform/web/social-preview-1200x630.png",
+      "platform": "web",
+      "width": 1200,
+      "height": 630,
+      "sha256": "739fa22e5a38a0811288a1af862e10021e9c47aa68949e092d2bc0f2999ec385",
+      "master": false,
+      "alpha": false,
+      "contentBox": {
+        "x": 0,
+        "y": 0,
+        "width": 1200,
+        "height": 630
+      }
     }
   ]
 }

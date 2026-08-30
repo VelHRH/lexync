@@ -151,7 +151,10 @@ test.describe('canonical Lexync brand assets', () => {
       const decoded = await decodeImage(page, path.join(brandRoot, asset.path));
       expect(decoded.width, asset.id).toBe(asset.width);
       expect(decoded.height, asset.id).toBe(asset.height);
-      expect(decoded.width, asset.id).toBe(decoded.height);
+
+      if (asset.role !== 'social-sharing-image') {
+        expect(decoded.width, asset.id).toBe(decoded.height);
+      }
 
       if (asset.platform === 'chromium') {
         expect(decoded.corners.every((corner) => corner.alpha === 0), asset.id).toBe(true);
