@@ -79,6 +79,7 @@ jobs:
       - run: pnpm backend:reset
       - run: pnpm android:test
       - run: pnpm android:build
+      - run: sudo chmod 666 /dev/kvm
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 36
