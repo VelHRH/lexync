@@ -23,7 +23,6 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -159,5 +158,5 @@ private data class CaptureParameters(
 
 @Serializable
 private data class CaptureResult(
-    @SerialName("vocabulary_entry_id") val vocabularyEntryId: String,
+    val vocabularyEntryId: String,
 )
