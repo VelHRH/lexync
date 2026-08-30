@@ -106,7 +106,7 @@ class LibraryJourneyTest {
         val capture = client.postgrest.rpc(
             "capture_manual_entry",
             CaptureParameters(null, expression, studyPair.id, "snapshot test"),
-        ).decodeSingle<CaptureResult>()
+        ).decodeAs<CaptureResult>()
 
         try {
             compose.onNodeWithText("Synchronize").performClick()
