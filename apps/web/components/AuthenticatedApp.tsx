@@ -50,7 +50,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }, [session]);
 
   useEffect(() => {
-    if (!forceOnboarding && !pairsLoading && session && pairs.length === 0 && section === 'Home') window.location.assign('/onboarding/study-pair');
+    if (!forceOnboarding && !pairsLoading && session && pairs.length === 0) window.location.assign('/onboarding/study-pair');
   }, [forceOnboarding, pairs.length, pairsLoading, section, session]);
 
   useEffect(() => {
