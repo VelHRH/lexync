@@ -9,5 +9,15 @@
     "http://*/*",
     "https://*/*",
     "http://127.0.0.1:54321/*"
-  ]
+  ],
+  "optionalPermissions": [],
+  "optionalHostPermissions": [],
+  "contentScriptMatches": [
+    "*://*.clozemaster.com/*",
+    "*://*.duolingo.com/*"
+  ],
+  "webAccessibleResourceMatches": [
+    "<all_urls>"
+  ],
+  "externallyConnectableMatches": []
 }

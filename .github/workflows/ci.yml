@@ -37,10 +37,7 @@ jobs:
       - run: pnpm extension:package
       - run: node scripts/with-local-supabase.mjs pnpm exec playwright test
       - if: failure()
-        run: |
-          mkdir -p artifacts/supabase
-          pnpm dlx supabase@2.115.0 status > artifacts/supabase/status.txt 2>&1 || true
-          for container in $(docker ps --filter name=supabase --format '{{.Names}}'); do docker logs "$container" > "artifacts/supabase/$container.log" 2>&1 || true; done
+        run: node scripts/capture-supabase-diagnostics.mjs
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -98,10 +95,7 @@ jobs:
             adb logcat -d > artifacts/android/logcat.txt
             exit "$status"
       - if: failure()
-        run: |
-          mkdir -p artifacts/supabase
-          pnpm dlx supabase@2.115.0 status > artifacts/supabase/status.txt 2>&1 || true
-          for container in $(docker ps --filter name=supabase --format '{{.Names}}'); do docker logs "$container" > "artifacts/supabase/$container.log" 2>&1 || true; done
+        run: node scripts/capture-supabase-diagnostics.mjs
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:

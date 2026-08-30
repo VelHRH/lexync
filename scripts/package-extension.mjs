@@ -32,6 +32,18 @@ function arraysMatch(left = [], right = []) {
   return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 }
 
+function manifestAccess(manifest) {
+  return {
+    permissions: manifest.permissions ?? [],
+    hostPermissions: manifest.host_permissions ?? [],
+    optionalPermissions: manifest.optional_permissions ?? [],
+    optionalHostPermissions: manifest.optional_host_permissions ?? [],
+    contentScriptMatches: manifest.content_scripts?.flatMap((entry) => entry.matches ?? []) ?? [],
+    webAccessibleResourceMatches: manifest.web_accessible_resources?.flatMap((entry) => entry.matches ?? []) ?? [],
+    externallyConnectableMatches: manifest.externally_connectable?.matches ?? [],
+  };
+}
+
 function validateVersion(version) {
   const components = typeof version === 'string' ? version.split('.') : [];
   const valid = components.length >= 1
@@ -98,9 +110,12 @@ async function validateBuild(source, permissionsPath) {
 
   validateVersion(manifest.version);
 
-  if (!arraysMatch(manifest.permissions, baseline.permissions)
-    || !arraysMatch(manifest.host_permissions, baseline.hostPermissions)) {
-    throw new Error('Manifest permissions differ from the approved baseline');
+  const access = manifestAccess(manifest);
+
+  for (const [surface, expected] of Object.entries(baseline)) {
+    if (!arraysMatch(access[surface], expected)) {
+      throw new Error('Manifest permissions differ from the approved baseline');
+    }
   }
 
   for (const asset of manifestAssets(manifest)) {

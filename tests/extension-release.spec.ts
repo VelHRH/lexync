@@ -30,6 +30,11 @@ async function createExtensionFixture() {
   await writeFile(baseline, `${JSON.stringify({
     permissions: ['activeTab', 'storage'],
     hostPermissions: ['https://example.supabase.co/*'],
+    optionalPermissions: [],
+    optionalHostPermissions: [],
+    contentScriptMatches: [],
+    webAccessibleResourceMatches: [],
+    externallyConnectableMatches: [],
   }, null, 2)}\n`);
 
   return { baseline, root, source };
@@ -76,6 +81,7 @@ test.describe('Chromium extension release artifact', () => {
       const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
         version: string;
         permissions: string[];
+        optional_host_permissions?: string[];
       };
 
       manifest.version = '1.02.3';
@@ -92,6 +98,13 @@ test.describe('Chromium extension release artifact', () => {
       });
 
       manifest.permissions.pop();
+      manifest.optional_host_permissions = ['https://unexpected.example/*'];
+      await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+      await expect(packageExtension(fixture.source, output, fixture.baseline)).rejects.toMatchObject({
+        stderr: expect.stringContaining('Manifest permissions differ'),
+      });
+
+      delete manifest.optional_host_permissions;
       await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
       await rm(path.join(fixture.source, 'icons/icon-16.png'));
       await expect(packageExtension(fixture.source, output, fixture.baseline)).rejects.toMatchObject({
