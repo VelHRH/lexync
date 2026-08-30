@@ -7,6 +7,16 @@ import { supabase } from '../../lib/supabase';
 
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
 
+function Brand({ compact = false }: { compact?: boolean }) {
+  return (
+    <img
+      alt="Lexync"
+      className={`brand ${compact ? 'brand-mark' : 'brand-wordmark'}`}
+      src={`/brand/${compact ? 'mark' : 'wordmark'}-dark-on-light.png`}
+    />
+  );
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -338,7 +348,12 @@ export function App() {
   }
 
   if (loading) {
-    return <main className="shell"><p className="status">Opening your private library…</p></main>;
+    return (
+      <main className="shell loading">
+        <Brand compact />
+        <p className="status">Opening your private library…</p>
+      </main>
+    );
   }
 
   if (!session) {
@@ -355,7 +370,7 @@ export function App() {
 
     return (
       <main className="shell signed-out">
-        <div className="brand"><span>Lx</span>lexync</div>
+        <Brand />
         <p className="eyebrow">Private by design</p>
         <h1>{heading}</h1>
         <p className="intro">
@@ -422,6 +437,7 @@ export function App() {
 
     return (
       <main className="shell saved">
+        <Brand compact />
         <div className="success-mark">✓</div>
         <p className="eyebrow">
           {savedCapture.vocabularyEntryCreated ? 'Vocabulary Entry saved' : 'Existing Vocabulary Entry used'}
@@ -452,7 +468,7 @@ export function App() {
   return (
     <main className="shell">
       <header>
-        <div className="brand"><span>Lx</span>lexync</div>
+        <Brand compact />
         <p className="identity">{session.user.email}</p>
       </header>
 
