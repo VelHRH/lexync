@@ -2,7 +2,7 @@
 
 import { studyPairLabel, type StudyPair } from '@lexync/domain';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
@@ -126,7 +126,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
           <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>
-          {activeSection === 'Library' && <VocabularyLibrary pair={pairs.find((pair) => pair.id === activePairId) ?? pairs[0]} />}
+          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary pair={pairs.find((pair) => pair.id === activePairId) ?? pairs[0]} /></Suspense>}
           <label className="pair-selector-label" htmlFor="active-study-pair">Active Study Pair</label>
           <select id="active-study-pair" aria-label="Active Study Pair" value={activePairId} onChange={(event) => { setActivePairId(event.target.value); window.localStorage.setItem('lexync-active-study-pair', event.target.value); }}>
             {pairs.map((pair) => <option key={pair.id} value={pair.id}>{studyPairLabel(pair)}</option>)}
