@@ -18,6 +18,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'web-authentication',
+      testMatch: /web-authentication\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-authentication-mobile',
+      testMatch: /web-authentication\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'mobile-chromium',
       testMatch: /landing-page\.mobile\.spec\.ts/,
       use: { ...devices['Pixel 7'] },
