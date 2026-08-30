@@ -33,6 +33,10 @@ test.describe('web Vocabulary Entry library', () => {
     await signIn(page, account);
     await page.goto('/library');
     await page.getByRole('button', { name: 'Add vocabulary' }).click();
+    if (test.info().project.name === 'web-vocabulary-mobile') {
+      await expect(page.getByLabel('Expression')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+    }
     await page.getByLabel('Expression').fill('descubrir');
     await page.getByLabel('Translation').fill('to discover');
     await page.getByLabel('Example').fill('Quiero descubrir la ciudad.');
@@ -43,6 +47,15 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(page.getByText('Quiero descubrir la ciudad.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Add vocabulary' }).click();
+    await page.route('**/rest/v1/rpc/capture_manual_entry', (route) => route.abort());
+    await page.getByLabel('Expression').fill('fallo');
+    await page.getByLabel('Translation').fill('failure');
+    await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    await expect(page.getByLabel('Expression')).toHaveValue('fallo');
+    await expect(page.getByLabel('Translation')).toHaveValue('failure');
+    await page.unroute('**/rest/v1/rpc/capture_manual_entry');
+    await page.getByLabel('Expression').fill('');
+    await page.getByLabel('Translation').fill('');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.getByRole('alert').filter({ hasText: 'Expression is required.' })).toBeVisible();
     await expect(page.getByRole('alert').filter({ hasText: 'Translation is required.' })).toBeVisible();
@@ -87,7 +100,9 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(page.getByText('library', { exact: true })).toBeVisible();
 
     const other = credentials('web-other');
-    await registerWithPair(other);
+    const { client: otherClient } = await registerWithPair(other);
+    const { error: ownershipError } = await otherClient.rpc('capture_manual_entry', { p_expression: 'intruso', p_study_pair_id: pair.id, p_translation: 'intruder' });
+    expect(ownershipError).toBeTruthy();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await signIn(page, other);
     await page.goto('/library');

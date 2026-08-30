@@ -64,7 +64,10 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
   useEffect(() => {
     queueMicrotask(() => void loadEntries());
     queueMicrotask(() => {
-      if (new URLSearchParams(window.location.search).get('add') === '1') setShowForm(true);
+      if (searchParams.get('add') === '1') {
+        setShowForm(true);
+        window.history.replaceState(null, '', '/library');
+      }
     });
   }, [loadEntries, searchParams]);
 
@@ -122,8 +125,8 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
           <div>
             <h3>{entry.expression}</h3>
             {entry.senses.map((sense, index) => <div className="vocabulary-sense" key={`${entry.id}-${index}`}>
-            {sense.translations.map((item) => <p key={item.text}>{item.text}</p>)}
-            {sense.examples.length ? sense.examples.map((item) => <p className="vocabulary-example" key={item.text}>{item.text}</p>) : <p className="app-empty">No Example added</p>}
+              {sense.translations.map((item) => <p key={item.text}>{item.text}</p>)}
+              {sense.examples.length ? sense.examples.map((item) => <p className="vocabulary-example" key={item.text}>{item.text}</p>) : <p className="app-empty">No Example added</p>}
             </div>)}
           </div>
         </details>)}
