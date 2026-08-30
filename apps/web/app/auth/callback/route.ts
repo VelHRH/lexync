@@ -5,7 +5,18 @@ export function GET(request: Request) {
   const extensionId = requestUrl.searchParams.get('extension_id');
 
   if (!extensionId || !extensionIdPattern.test(extensionId)) {
-    return new Response('The Lexync extension identity is invalid.', { status: 400 });
+    const code = requestUrl.searchParams.get('code');
+    const type = requestUrl.searchParams.get('type');
+    if (!code) {
+      if (!type || !['recovery', 'signup'].includes(type)) return new Response('The Lexync extension identity is invalid.', { status: 400 });
+      return new Response("<script>window.location.replace('/auth/complete' + window.location.search + window.location.hash)</script>", {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+    const callback = new URL('/auth/complete', requestUrl.origin);
+    callback.searchParams.set('code', code);
+    if (type && ['recovery', 'signup'].includes(type)) callback.searchParams.set('type', type);
+    return Response.redirect(callback);
   }
 
   const callback = new URL(`chrome-extension://${extensionId}/auth-callback.html`);

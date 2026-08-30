@@ -48,6 +48,8 @@ https://your-web-host/auth/callback
 
 Configure a production SMTP provider before sending confirmation and password recovery emails to real users.
 
+For the hosted web app, configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the deployment environment, using the same browser-safe Supabase values.
+
 ## Android
 
 The native Kotlin and Jetpack Compose application is in `apps/android`. Configure its browser-safe Supabase connection in `~/.gradle/gradle.properties`:

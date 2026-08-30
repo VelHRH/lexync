@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { AuthenticatedApp } from '../components/AuthenticatedApp';
+
 const Arrow = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24">
     <path d="M5 12h14M13 6l6 6-6 6" />
@@ -34,14 +37,17 @@ const BrandArtwork = ({ background }: { background: keyof typeof brandArtworkByB
   );
 };
 
-export default function Home() {
+export function PublicHome() {
   return (
     <main>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Lexync home">
           <BrandArtwork background="light" />
         </a>
-        <p>Private language learning</p>
+        <div className="site-header-actions">
+          <Link href="/auth/sign-in">Sign in</Link>
+          <Link className="header-action-primary" href="/auth/sign-up">Create account</Link>
+        </div>
       </header>
 
       <section className="hero" id="top">
@@ -144,4 +150,8 @@ export default function Home() {
       </footer>
     </main>
   );
+}
+
+export default function Home() {
+  return <AuthenticatedApp publicContent={<PublicHome />} />;
 }
