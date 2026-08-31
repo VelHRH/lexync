@@ -263,7 +263,25 @@ export default defineContentScript({
         syncCapture();
       });
     };
-    const observer = new MutationObserver(scheduleSync);
+    const relevantSelector = '.stage, .clozeable, [data-lexync-clozemaster-lesson], a[title="Exit"][href^="/l/"]';
+    const touchesCapture = (mutation: MutationRecord) => {
+      const target = mutation.target instanceof Element
+        ? mutation.target
+        : mutation.target.parentElement;
+
+      if (target?.closest(relevantSelector)) {
+        return true;
+      }
+
+      return [...mutation.addedNodes, ...mutation.removedNodes].some((node) =>
+        node instanceof Element
+        && (node.matches(relevantSelector) || node.querySelector(relevantSelector)));
+    };
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some(touchesCapture)) {
+        scheduleSync();
+      }
+    });
     observer.observe(document.documentElement, {
       attributeFilter: ['class', 'href', 'value'],
       attributes: true,
