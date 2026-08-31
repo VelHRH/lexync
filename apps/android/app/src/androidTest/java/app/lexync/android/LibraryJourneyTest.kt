@@ -106,6 +106,7 @@ class LibraryJourneyTest {
             "capture_manual_entry",
             CaptureParameters(null, expression, studyPair.id, "snapshot test"),
         ).decodeAs<CaptureResult>()
+        var entryDeleted = false
 
         try {
             compose.onNodeWithText("Synchronize").performClick()
@@ -114,6 +115,7 @@ class LibraryJourneyTest {
                 "delete_vocabulary_entry",
                 DeleteVocabularyEntryParameters(capture.vocabularyEntryId),
             )
+            entryDeleted = true
             compose.onNodeWithText("Synchronize").performClick()
             compose.waitUntil(15_000) {
                 compose.onAllNodes(hasText(expression)).fetchSemanticsNodes().isEmpty()
@@ -122,10 +124,12 @@ class LibraryJourneyTest {
             compose.onNodeWithText("1 Vocabulary Entry").assertIsDisplayed()
             assertEquals(1, compose.onAllNodes(hasText("caminar")).fetchSemanticsNodes().size)
         } finally {
-            client.postgrest.rpc(
-                "delete_vocabulary_entry",
-                DeleteVocabularyEntryParameters(capture.vocabularyEntryId),
-            )
+            if (!entryDeleted) {
+                client.postgrest.rpc(
+                    "delete_vocabulary_entry",
+                    DeleteVocabularyEntryParameters(capture.vocabularyEntryId),
+                )
+            }
             client.close()
         }
     }
