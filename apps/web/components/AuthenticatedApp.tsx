@@ -19,9 +19,16 @@ const destinations = [
 ] as const;
 
 type ManagedStudyPair = StudyPair & { entryCount: number };
+type StudyPairOverview = { entry_count: number; id: string; is_primary: boolean; reference_language_tag: string; target_language_tag: string };
 
-function countEntriesForPair(pairId: string, entries: Array<{ study_pair_id: string }>) {
-  return entries.filter((entry) => entry.study_pair_id === pairId).length;
+function toManagedStudyPair(pair: StudyPairOverview): ManagedStudyPair {
+  return {
+    entryCount: pair.entry_count,
+    id: pair.id,
+    isPrimary: pair.is_primary,
+    referenceLanguageTag: pair.reference_language_tag,
+    targetLanguageTag: pair.target_language_tag,
+  };
 }
 
 export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboarding = false }: { section?: string; publicContent?: ReactNode; forceOnboarding?: boolean }) {
@@ -53,22 +60,13 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
 
   useEffect(() => {
     if (!session) return;
-    void Promise.all([
-      supabase.from('study_pairs').select('id,is_primary,target_language_tag,reference_language_tag').order('created_at'),
-      supabase.from('vocabulary_entries').select('study_pair_id'),
-    ]).then(([pairResult, entryResult]) => {
-      if (pairResult.error || entryResult.error) {
-        setPairError(pairResult.error?.message ?? entryResult.error?.message ?? 'Study Pairs could not be loaded.');
+    void supabase.rpc('study_pair_overview').then(({ data, error }) => {
+      if (error) {
+        setPairError(error.message);
         setPairsLoading(false);
         return;
       }
-      const nextPairs = (pairResult.data ?? []).map((pair) => ({
-        entryCount: countEntriesForPair(pair.id, entryResult.data ?? []),
-        id: pair.id,
-        isPrimary: pair.is_primary,
-        referenceLanguageTag: pair.reference_language_tag,
-        targetLanguageTag: pair.target_language_tag,
-      }));
+      const nextPairs: ManagedStudyPair[] = (data ?? []).map((pair: StudyPairOverview) => toManagedStudyPair(pair));
       setPairs(nextPairs);
       const remembered = window.localStorage.getItem('lexync-active-study-pair');
       setActivePairId((current) => current || (remembered && nextPairs.some((pair) => pair.id === remembered) ? remembered : nextPairs[0]?.id || ''));
@@ -108,15 +106,12 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }
 
   async function refreshEntryCounts() {
-    const { data, error } = await supabase.from('vocabulary_entries').select('study_pair_id');
+    const { data, error } = await supabase.rpc('study_pair_overview');
     if (error) {
       setPairError(error.message);
       return;
     }
-    setPairs((current) => current.map((pair) => ({
-      ...pair,
-      entryCount: countEntriesForPair(pair.id, data ?? []),
-    })));
+    setPairs((data ?? []).map((pair: StudyPairOverview) => toManagedStudyPair(pair)));
   }
 
   function editPair(pair: ManagedStudyPair) {

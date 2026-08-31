@@ -21,6 +21,34 @@ create trigger protect_populated_study_pair_languages
 before update of target_language_tag, reference_language_tag on public.study_pairs
 for each row execute function public.protect_populated_study_pair_languages();
 
+create or replace function public.study_pair_overview()
+returns table (
+  id uuid,
+  is_primary boolean,
+  target_language_tag text,
+  reference_language_tag text,
+  entry_count bigint
+)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select
+    study_pairs.id,
+    study_pairs.is_primary,
+    study_pairs.target_language_tag,
+    study_pairs.reference_language_tag,
+    count(vocabulary_entries.id) as entry_count
+  from public.study_pairs
+  left join public.vocabulary_entries
+    on vocabulary_entries.study_pair_id = study_pairs.id
+    and vocabulary_entries.learner_id = study_pairs.learner_id
+  where study_pairs.learner_id = auth.uid()
+  group by study_pairs.id
+  order by study_pairs.created_at, study_pairs.id;
+$$;
+
 create or replace function public.update_empty_study_pair_languages(
   p_study_pair_id uuid,
   p_target_language_tag text,
@@ -324,6 +352,8 @@ alter function public.set_primary_study_pair(uuid) security definer;
 
 revoke all on function public.update_empty_study_pair_languages(uuid, text, text) from public;
 grant execute on function public.update_empty_study_pair_languages(uuid, text, text) to authenticated;
+revoke all on function public.study_pair_overview() from public;
+grant execute on function public.study_pair_overview() to authenticated;
 revoke all on function public.move_vocabulary_entries(uuid[], uuid) from public;
 grant execute on function public.move_vocabulary_entries(uuid[], uuid) to authenticated;
 revoke all on function public.delete_study_pair(uuid, text) from public;

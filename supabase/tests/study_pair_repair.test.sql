@@ -1,6 +1,6 @@
 begin;
 
-select plan(26);
+select plan(29);
 
 insert into auth.users (id)
 values
@@ -32,6 +32,22 @@ select public.capture_manual_entry(
   ' casa ',
   'house',
   null
+);
+
+select is(
+  (select count(*) from public.study_pair_overview()),
+  4::bigint,
+  'Study Pair overview returns only the Learner owned pairs'
+);
+select is(
+  (select entry_count from public.study_pair_overview() where target_language_tag = 'es' and reference_language_tag = 'en'),
+  2::bigint,
+  'Study Pair overview returns an exact populated source count'
+);
+select is(
+  (select entry_count from public.study_pair_overview() where target_language_tag = 'fr' and reference_language_tag = 'en'),
+  1::bigint,
+  'Study Pair overview returns an exact destination count'
 );
 
 select throws_ok(
