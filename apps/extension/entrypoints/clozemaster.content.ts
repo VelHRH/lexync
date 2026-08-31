@@ -16,7 +16,7 @@ function singleElement(container: ParentNode, selector: string): Element | undef
   return elements.length === 1 ? elements[0] : undefined;
 }
 
-function lessonMaterial(): LessonMaterial | undefined {
+function controlledLessonMaterial(): LessonMaterial | undefined {
   const lesson = singleElement(document, '[data-lexync-clozemaster-lesson]');
   const expression = lesson && singleElement(lesson, '[data-lexync-expression]')?.textContent?.trim();
   const translation = lesson && singleElement(lesson, '[data-lexync-translation]')?.textContent?.trim();
@@ -42,15 +42,68 @@ function lessonMaterial(): LessonMaterial | undefined {
   };
 }
 
+function courseLanguages(): Pick<LessonMaterial, 'referenceLanguageTag' | 'targetLanguageTag'> | undefined {
+  const exit = singleElement(document, 'a[title="Exit"][href^="/l/"]');
+  const paths = [location.pathname, exit?.getAttribute('href')];
+
+  for (const path of paths) {
+    const match = path?.match(/^\/l\/([a-z]{2,3})-([a-z]{2,3})(?:\/|$)/i);
+
+    if (match?.[1] && match[2]) {
+      return {
+        referenceLanguageTag: match[2],
+        targetLanguageTag: match[1],
+      };
+    }
+  }
+
+  return undefined;
+}
+
+function liveLessonMaterial(): LessonMaterial | undefined {
+  const lesson = singleElement(document, '.clozeable');
+  const sentence = lesson && singleElement(lesson, '.sentence.answered');
+  const expressionElement = sentence && singleElement(sentence, 'input[name="text_input_value"].correct');
+  const translation = lesson && singleElement(lesson, '.translation')?.textContent?.trim();
+  const pre = sentence && singleElement(sentence, ':scope > .pre')?.textContent;
+  const post = sentence && singleElement(sentence, ':scope > .post')?.textContent;
+  const languages = courseLanguages();
+
+  if (!(expressionElement instanceof HTMLInputElement)
+    || !translation
+    || pre === undefined
+    || post === undefined
+    || !languages) {
+    return undefined;
+  }
+
+  const expression = expressionElement.value.trim();
+  const example = `${pre}${expression}${post}`.replace(/\s+/g, ' ').trim();
+
+  if (!expression || !example) {
+    return undefined;
+  }
+
+  return {
+    example,
+    expression,
+    referenceLanguageTag: languages.referenceLanguageTag,
+    targetLanguageTag: languages.targetLanguageTag,
+    translation,
+  };
+}
+
+function lessonMaterial(): LessonMaterial | undefined {
+  return controlledLessonMaterial() ?? liveLessonMaterial();
+}
+
+function materialKey(material: LessonMaterial): string {
+  return JSON.stringify(material);
+}
+
 export default defineContentScript({
   matches: ['*://*.clozemaster.com/*'],
-  async main() {
-    const material = lessonMaterial();
-
-    if (!material) {
-      return;
-    }
-
+  main(ctx) {
     const host = document.createElement('div');
     host.id = 'lexync-clozemaster-capture';
     const root = host.attachShadow({ mode: 'open' });
@@ -86,18 +139,47 @@ export default defineContentScript({
         [role="status"]:empty { display: none; }
       </style>
       <div class="capture">
-        <button type="button">Save to Lexync</button>
+        <button type="button">Add to Lexync</button>
         <span role="status"></span>
       </div>`;
-    document.documentElement.append(host);
     const button = root.querySelector('button');
     const status = root.querySelector<HTMLElement>('[role="status"]');
+    let displayedMaterialKey = '';
+    let generation = 0;
+
+    const syncCapture = () => {
+      const material = lessonMaterial();
+
+      if (!material) {
+        displayedMaterialKey = '';
+        generation += 1;
+        host.remove();
+        return;
+      }
+
+      const nextMaterialKey = materialKey(material);
+
+      if (nextMaterialKey !== displayedMaterialKey) {
+        displayedMaterialKey = nextMaterialKey;
+        generation += 1;
+
+        if (button && status) {
+          button.disabled = false;
+          status.textContent = '';
+        }
+      }
+
+      if (!host.isConnected) {
+        document.documentElement.append(host);
+      }
+    };
 
     button?.addEventListener('click', () => {
       if (!button || !status) {
         return;
       }
 
+      syncCapture();
       const currentMaterial = lessonMaterial();
 
       if (!currentMaterial) {
@@ -105,6 +187,7 @@ export default defineContentScript({
         return;
       }
 
+      const savedGeneration = generation;
       button.disabled = true;
       status.textContent = 'Saving…';
       void browser.runtime.sendMessage({
@@ -124,6 +207,10 @@ export default defineContentScript({
           type: 'clozemaster-capture:save',
         }) as Promise<SaveClozemasterCaptureResponse>;
       }).then((response: SaveClozemasterCaptureResponse) => {
+        if (savedGeneration !== generation) {
+          return;
+        }
+
         if (response.error) {
           button.disabled = false;
           status.textContent = response.error;
@@ -131,7 +218,26 @@ export default defineContentScript({
         }
 
         status.textContent = 'Saved to Lexync.';
+      }).catch(() => {
+        if (savedGeneration === generation) {
+          button.disabled = false;
+          status.textContent = 'Capture could not be completed.';
+        }
       });
     });
+
+    const observer = new MutationObserver(syncCapture);
+    observer.observe(document.documentElement, {
+      attributeFilter: ['class', 'href', 'value'],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    ctx.addEventListener(window, 'wxt:locationchange', syncCapture);
+    ctx.onInvalidated(() => {
+      observer.disconnect();
+      host.remove();
+    });
+    syncCapture();
   },
 });
