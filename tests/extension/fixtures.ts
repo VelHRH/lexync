@@ -67,7 +67,15 @@ export const test = base.extend<Fixtures>({
   learnerClient: async ({}, use) => {
     const { client } = await createLearner();
     await use(client);
-    await client.from('study_pairs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    const { data: pairs, error } = await client.from('study_pairs').select('id,target_language_tag,reference_language_tag');
+    if (error) throw error;
+    for (const pair of pairs) {
+      const deletion = await client.rpc('delete_study_pair', {
+        p_confirmation: `${pair.target_language_tag} → ${pair.reference_language_tag}`,
+        p_study_pair_id: pair.id,
+      });
+      if (deletion.error) throw deletion.error;
+    }
     await client.auth.signOut();
   },
   extensionPage: async ({ extensionContext, learnerClient }, use) => {

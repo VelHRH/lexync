@@ -23,9 +23,18 @@ if (!signUp.data.session) {
   }
 }
 
-const existingPairs = await client.from('study_pairs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+const existingPairs = await client.from('study_pairs').select('id,target_language_tag,reference_language_tag');
 if (existingPairs.error) {
   throw existingPairs.error;
+}
+for (const pair of existingPairs.data) {
+  const deletion = await client.rpc('delete_study_pair', {
+    p_confirmation: `${pair.target_language_tag} → ${pair.reference_language_tag}`,
+    p_study_pair_id: pair.id,
+  });
+  if (deletion.error) {
+    throw deletion.error;
+  }
 }
 
 const studyPair = await client.rpc('create_study_pair', {
