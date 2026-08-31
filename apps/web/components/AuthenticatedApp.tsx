@@ -20,6 +20,10 @@ const destinations = [
 
 type ManagedStudyPair = StudyPair & { entryCount: number };
 
+function countEntriesForPair(pairId: string, entries: Array<{ study_pair_id: string }>) {
+  return entries.filter((entry) => entry.study_pair_id === pairId).length;
+}
+
 export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboarding = false }: { section?: string; publicContent?: ReactNode; forceOnboarding?: boolean }) {
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +63,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
         return;
       }
       const nextPairs = (pairResult.data ?? []).map((pair) => ({
-        entryCount: (entryResult.data ?? []).filter((entry) => entry.study_pair_id === pair.id).length,
+        entryCount: countEntriesForPair(pair.id, entryResult.data ?? []),
         id: pair.id,
         isPrimary: pair.is_primary,
         referenceLanguageTag: pair.reference_language_tag,
@@ -111,7 +115,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     }
     setPairs((current) => current.map((pair) => ({
       ...pair,
-      entryCount: (data ?? []).filter((entry) => entry.study_pair_id === pair.id).length,
+      entryCount: countEntriesForPair(pair.id, data ?? []),
     })));
   }
 
@@ -239,7 +243,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
               </form> : <div className="pair-row-actions">
                 <button className="text-button" type="button" onClick={() => editPair(pair)} disabled={!online || pair.entryCount > 0}>Edit languages for {studyPairLabel(pair)}</button>
                 <button className="text-button" type="button" onClick={() => void setPrimary(pair.id)} disabled={!online || pair.isPrimary}>Make primary {studyPairLabel(pair)}</button>
-                <button className="text-button danger" type="button" onClick={() => pair.entryCount > 0 ? beginDeletePair(pair.id) : void deletePair(pair, studyPairLabel(pair))} disabled={!online || pairs.length === 1}>Delete {studyPairLabel(pair)}</button>
+                <button className="text-button danger" type="button" onClick={() => beginDeletePair(pair.id)} disabled={!online || pairs.length === 1}>Delete {studyPairLabel(pair)}</button>
               </div>}
             </div>)}
           </div>

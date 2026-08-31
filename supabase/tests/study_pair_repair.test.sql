@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(26);
 
 insert into auth.users (id)
 values
@@ -183,6 +183,25 @@ select is(
   ),
   1::bigint,
   'a rejected batch preserves an earlier valid source aggregate'
+);
+select is(
+  (
+    select count(*)
+    from public.vocabulary_entries
+    where expression in ('uno', 'dos')
+      and study_pair_id = (select id from public.study_pairs where target_language_tag = 'es' and reference_language_tag = 'en')
+  ),
+  2::bigint,
+  'a rejected batch preserves every selected source aggregate'
+);
+select is(
+  (
+    select count(*)
+    from public.vocabulary_entries
+    where study_pair_id = (select id from public.study_pairs where target_language_tag = 'fr' and reference_language_tag = 'en')
+  ),
+  2::bigint,
+  'a rejected batch leaves the destination unchanged'
 );
 
 select set_config('request.jwt.claim.sub', '88888888-8888-8888-8888-888888888888', true);
