@@ -249,6 +249,84 @@ footer {
   text-transform: uppercase;
 }
 
+.pair-row-heading {
+  min-width: min(100%, 19rem);
+}
+
+.pair-row-heading p {
+  max-width: 28rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+}
+
+.pair-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.pair-language-form,
+.pair-delete-dialog,
+.vocabulary-move-panel {
+  display: grid;
+  width: 100%;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--cream);
+}
+
+.pair-language-form label,
+.pair-delete-dialog label,
+.vocabulary-move-panel label {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.pair-language-form input,
+.pair-delete-dialog input,
+.vocabulary-move-panel select {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+.pair-delete-dialog {
+  position: fixed;
+  z-index: 2;
+  inset: 50% auto auto 50%;
+  width: min(calc(100% - 2rem), 34rem);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1.5rem;
+  box-shadow: 0 2rem 5rem rgba(25, 37, 30, 0.24);
+  transform: translate(-50%, -50%);
+}
+
+.pair-delete-dialog h2,
+.vocabulary-move-panel h3,
+.vocabulary-move-panel p {
+  margin: 0;
+}
+
+.pair-delete-dialog > div,
+.vocabulary-move-panel {
+  align-items: start;
+}
+
+.pair-delete-dialog > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .text-button {
   border: 0;
   padding: 0.35rem;
@@ -296,6 +374,34 @@ footer {
   display: grid;
   gap: 0.8rem;
   margin-top: 1.5rem;
+}
+
+.vocabulary-move-panel {
+  margin-top: 1.5rem;
+}
+
+.vocabulary-move-panel select {
+  max-width: 28rem;
+  margin: 0;
+}
+
+.vocabulary-entry-item {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.vocabulary-entry-selection {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.vocabulary-entry-selection input {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .vocabulary-entry {
@@ -446,6 +552,13 @@ summary:focus-visible {
   .library-toolbar,
   .vocabulary-entry-actions,
   .vocabulary-editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pair-row,
+  .pair-row-actions,
+  .pair-delete-dialog > div {
     align-items: stretch;
     flex-direction: column;
   }

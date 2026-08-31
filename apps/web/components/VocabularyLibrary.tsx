@@ -1,6 +1,6 @@
 'use client';
 
-import { studyPairLabel, type StudyPair } from '@lexync/domain';
+import { languageName, studyPairLabel, type StudyPair } from '@lexync/domain';
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -32,7 +32,7 @@ function toDraft(entry: LibraryEntry): EntryDraft {
   };
 }
 
-export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
+export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntriesChanged: () => Promise<void>; pair: StudyPair; pairs: StudyPair[] }) {
   const searchParams = useSearchParams();
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -43,6 +43,11 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EntryDraft | null>(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  const [moveDestinationId, setMoveDestinationId] = useState('');
+  const [moveNotice, setMoveNotice] = useState('');
+  const [moveError, setMoveError] = useState('');
+  const [moving, setMoving] = useState(false);
   const online = useOnlineStatus();
 
   const loadEntries = useCallback(async () => {
@@ -121,6 +126,7 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
     setExample('');
     setShowForm(false);
     await loadEntries();
+    await onEntriesChanged();
   }
 
   function updateSense(index: number, update: (sense: DraftSense) => DraftSense) {
@@ -230,6 +236,37 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
     }
     setDraft(null);
     await loadEntries();
+    await onEntriesChanged();
+  }
+
+  function toggleEntry(entryId: string, selected: boolean) {
+    setSelectedEntryIds((current) => selected ? [...current, entryId] : current.filter((id) => id !== entryId));
+    setMoveNotice('');
+    setMoveError('');
+  }
+
+  async function moveEntries() {
+    if (!selectedEntryIds.length || !moveDestinationId) return;
+    const destination = pairs.find((candidate) => candidate.id === moveDestinationId);
+    if (!destination) return;
+    setMoving(true);
+    setMoveNotice('');
+    setMoveError('');
+    const { error } = await supabase.rpc('move_vocabulary_entries', {
+      p_destination_study_pair_id: destination.id,
+      p_vocabulary_entry_ids: selectedEntryIds,
+    });
+    setMoving(false);
+    if (error) {
+      setMoveError(`Vocabulary Entries could not be moved. ${error.message}`);
+      return;
+    }
+    const movedCount = selectedEntryIds.length;
+    setSelectedEntryIds([]);
+    setMoveDestinationId('');
+    setMoveNotice(`Moved ${movedCount} Vocabulary ${movedCount === 1 ? 'Entry' : 'Entries'} to ${studyPairLabel(destination)}.`);
+    await loadEntries();
+    await onEntriesChanged();
   }
 
   const draftExamples = draft?.senses.flatMap((sense) => sense.examples) ?? [];
@@ -256,10 +293,32 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
       </form>}
       {loading && <p className="app-empty">Loading your vocabulary…</p>}
       {!loading && entries.length === 0 && <p className="app-empty">No vocabulary entries yet. Add your first one.</p>}
+      {!loading && entries.length > 0 && <section className="vocabulary-move-panel" aria-labelledby="move-vocabulary-heading">
+        <h3 id="move-vocabulary-heading">Move selected Vocabulary Entries</h3>
+        <p>Moved entries keep {languageName(pair.referenceLanguageTag)} translations, so the destination must also use {languageName(pair.referenceLanguageTag)} as its Reference Language.</p>
+        <label htmlFor="move-vocabulary-destination">Move selected entries to</label>
+        <select id="move-vocabulary-destination" value={moveDestinationId} disabled={!online || !selectedEntryIds.length} onChange={(event) => setMoveDestinationId(event.target.value)}>
+          <option value="">Choose a destination Study Pair</option>
+          {pairs.filter((candidate) => candidate.id !== pair.id).map((candidate) => {
+            const compatible = candidate.referenceLanguageTag === pair.referenceLanguageTag;
+            return <option key={candidate.id} value={candidate.id} disabled={!compatible}>{studyPairLabel(candidate)}{compatible ? '' : ' · incompatible Reference Language'}</option>;
+          })}
+        </select>
+        <button className="secondary-button" type="button" disabled={!online || moving || !selectedEntryIds.length || !moveDestinationId} onClick={() => void moveEntries()}>
+          {moving ? 'Moving…' : `Move ${selectedEntryIds.length} Vocabulary ${selectedEntryIds.length === 1 ? 'Entry' : 'Entries'}`}
+        </button>
+      </section>}
+      {moveNotice && <p className="form-notice" role="status">{moveNotice}</p>}
+      {moveError && <p className="form-notice error" role="alert">{moveError}</p>}
       <div className="vocabulary-entry-list">
-        {entries.map((entry) => <details className="vocabulary-entry" key={entry.id} open={draft?.id === entry.id || undefined}>
-          <summary>{entry.expression}</summary>
-          <div>
+        {entries.map((entry) => <article className="vocabulary-entry-item" key={entry.id}>
+          <label className="vocabulary-entry-selection">
+            <input type="checkbox" checked={selectedEntryIds.includes(entry.id)} disabled={!online || moving} onChange={(event) => toggleEntry(entry.id, event.target.checked)} />
+            Select {entry.expression}
+          </label>
+          <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>
+            <summary>{entry.expression}</summary>
+            <div>
             {draft?.id === entry.id ? <form className="vocabulary-editor" onSubmit={saveDraft}>
               <label htmlFor={`edit-expression-${entry.id}`}>Expression</label>
               <input id={`edit-expression-${entry.id}`} value={draft.expression} disabled={!online} onChange={(event) => setDraft({ ...draft, expression: event.target.value })} />
@@ -304,8 +363,9 @@ export function VocabularyLibrary({ pair }: { pair: StudyPair }) {
                 <button className="secondary-button danger" type="button" disabled={!online} onClick={() => void deleteEntry(entry)}>Delete {entry.expression}</button>
               </div>
             </>}
-          </div>
-        </details>)}
+            </div>
+          </details>
+        </article>)}
       </div>
     </section>
   );
