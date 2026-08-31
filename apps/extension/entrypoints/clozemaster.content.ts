@@ -65,20 +65,20 @@ function liveLessonMaterial(): LessonMaterial | undefined {
   const sentence = lesson && singleElement(lesson, '.sentence.answered');
   const expressionElement = sentence && singleElement(sentence, 'input[name="text_input_value"].correct');
   const translation = lesson && singleElement(lesson, '.translation')?.textContent?.trim();
-  const pre = sentence && singleElement(sentence, ':scope > .pre')?.textContent;
-  const post = sentence && singleElement(sentence, ':scope > .post')?.textContent;
+  const leadingText = sentence && singleElement(sentence, ':scope > .pre')?.textContent;
+  const trailingText = sentence && singleElement(sentence, ':scope > .post')?.textContent;
   const languages = courseLanguages();
 
   if (!(expressionElement instanceof HTMLInputElement)
     || !translation
-    || pre === undefined
-    || post === undefined
+    || leadingText === undefined
+    || trailingText === undefined
     || !languages) {
     return undefined;
   }
 
   const expression = expressionElement.value.trim();
-  const example = `${pre}${expression}${post}`.replace(/\s+/g, ' ').trim();
+  const example = `${leadingText}${expression}${trailingText}`.replace(/\s+/g, ' ').trim();
 
   if (!expression || !example) {
     return undefined;
@@ -99,6 +99,17 @@ function lessonMaterial(): LessonMaterial | undefined {
 
 function materialKey(material: LessonMaterial): string {
   return JSON.stringify(material);
+}
+
+function lessonIdentity(): Element | undefined {
+  const controlledLesson = singleElement(document, '[data-lexync-clozemaster-lesson]');
+
+  if (controlledLesson) {
+    return controlledLesson;
+  }
+
+  const liveLesson = singleElement(document, '.clozeable');
+  return liveLesson && singleElement(liveLesson, '.sentence.answered');
 }
 
 export default defineContentScript({
@@ -145,6 +156,7 @@ export default defineContentScript({
     const button = root.querySelector('button');
     const status = root.querySelector<HTMLElement>('[role="status"]');
     let displayedMaterialKey = '';
+    let displayedLesson: Element | undefined;
     let generation = 0;
 
     const syncCapture = () => {
@@ -152,15 +164,18 @@ export default defineContentScript({
 
       if (!material) {
         displayedMaterialKey = '';
+        displayedLesson = undefined;
         generation += 1;
         host.remove();
         return;
       }
 
       const nextMaterialKey = materialKey(material);
+      const nextLesson = lessonIdentity();
 
-      if (nextMaterialKey !== displayedMaterialKey) {
+      if (nextMaterialKey !== displayedMaterialKey || nextLesson !== displayedLesson) {
         displayedMaterialKey = nextMaterialKey;
+        displayedLesson = nextLesson;
         generation += 1;
 
         if (button && status) {
@@ -188,6 +203,7 @@ export default defineContentScript({
       }
 
       const savedGeneration = generation;
+      const savedMaterialKey = materialKey(currentMaterial);
       button.disabled = true;
       status.textContent = 'Saving…';
       void browser.runtime.sendMessage({
@@ -199,6 +215,15 @@ export default defineContentScript({
           return loadResponse;
         }
 
+        syncCapture();
+        const latestMaterial = lessonMaterial();
+
+        if (savedGeneration !== generation
+          || !latestMaterial
+          || materialKey(latestMaterial) !== savedMaterialKey) {
+          return undefined;
+        }
+
         return browser.runtime.sendMessage({
           example: currentMaterial.example,
           expression: currentMaterial.expression,
@@ -206,8 +231,8 @@ export default defineContentScript({
           translation: currentMaterial.translation,
           type: 'clozemaster-capture:save',
         }) as Promise<SaveClozemasterCaptureResponse>;
-      }).then((response: SaveClozemasterCaptureResponse) => {
-        if (savedGeneration !== generation) {
+      }).then((response: SaveClozemasterCaptureResponse | LoadClozemasterCaptureResponse | undefined) => {
+        if (!response || savedGeneration !== generation) {
           return;
         }
 
@@ -226,14 +251,28 @@ export default defineContentScript({
       });
     });
 
-    const observer = new MutationObserver(syncCapture);
+    let syncPending = false;
+    const scheduleSync = () => {
+      if (syncPending) {
+        return;
+      }
+
+      syncPending = true;
+      ctx.requestAnimationFrame(() => {
+        syncPending = false;
+        syncCapture();
+      });
+    };
+    const observer = new MutationObserver(scheduleSync);
     observer.observe(document.documentElement, {
       attributeFilter: ['class', 'href', 'value'],
       attributes: true,
+      characterData: true,
       childList: true,
       subtree: true,
     });
-    ctx.addEventListener(window, 'wxt:locationchange', syncCapture);
+    ctx.addEventListener(document, 'input', scheduleSync, true);
+    ctx.addEventListener(window, 'wxt:locationchange', scheduleSync);
     ctx.onInvalidated(() => {
       observer.disconnect();
       host.remove();

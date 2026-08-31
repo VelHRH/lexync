@@ -50,6 +50,7 @@ function liveLessonMarkup({
   return `<!doctype html>
     <html>
       <body>
+        <a href="/l/lit-eng" title="Exit">×</a>
         <main class="stage">
           <div class="clozeable">
             <div class="sentence answered">
@@ -64,35 +65,29 @@ function liveLessonMarkup({
     </html>`;
 }
 
-async function openClozemasterFixture(context: BrowserContext, body: string): Promise<Page> {
-  await context.route('https://www.clozemaster.com/l/controlled', (route) => route.fulfill({
+async function openClozemasterFixture(
+  context: BrowserContext,
+  body: string,
+  url = 'https://www.clozemaster.com/l/controlled',
+): Promise<Page> {
+  await context.route(url, (route) => route.fulfill({
     body,
     contentType: 'text/html',
   }));
   const page = await context.newPage();
-  await page.goto('https://www.clozemaster.com/l/controlled');
-  return page;
-}
-
-async function openLiveClozemasterFixture(context: BrowserContext, body: string): Promise<Page> {
-  await context.route('https://www.clozemaster.com/l/lit-eng', (route) => route.fulfill({
-    body,
-    contentType: 'text/html',
-  }));
-  const page = await context.newPage();
-  await page.goto('https://www.clozemaster.com/l/lit-eng');
+  await page.goto(url);
   return page;
 }
 
 test.describe('Clozemaster lesson capture', () => {
-  test('saves an answered live lesson to the URL course Study Pair', async ({
+  test('saves an answered live lesson to the Exit course Study Pair', async ({
     extensionContext,
     extensionPage,
     learnerClient,
   }) => {
     const coursePair = await createStudyPair(learnerClient, 'lt', 'en');
     await extensionPage.close();
-    const page = await openLiveClozemasterFixture(extensionContext, liveLessonMarkup());
+    const page = await openClozemasterFixture(extensionContext, liveLessonMarkup(), 'https://www.clozemaster.com/play');
 
     await page.getByRole('button', { name: 'Add to Lexync' }).click();
 
@@ -118,7 +113,7 @@ test.describe('Clozemaster lesson capture', () => {
   }) => {
     await createStudyPair(learnerClient, 'lt', 'en');
     await extensionPage.close();
-    const page = await openLiveClozemasterFixture(extensionContext, '<!doctype html><html><body><main class="stage"></main></body></html>');
+    const page = await openClozemasterFixture(extensionContext, '<!doctype html><html><body><a href="/l/lit-eng" title="Exit">×</a><main class="stage"></main></body></html>', 'https://www.clozemaster.com/play');
     const save = page.getByRole('button', { name: 'Add to Lexync' });
     await expect(save).toHaveCount(0);
     await page.locator('.stage').evaluate((stage) => {
@@ -156,6 +151,53 @@ test.describe('Clozemaster lesson capture', () => {
         translations: [{ text: 'This is my house.' }],
       }],
     });
+  });
+
+  test('does not persist a lesson replaced during Study Pair resolution', async ({
+    extensionContext,
+    extensionPage,
+    learnerClient,
+  }) => {
+    await createStudyPair(learnerClient, 'lt', 'en');
+    await extensionPage.close();
+    let resolveLookupStarted!: () => void;
+    let releaseLookup!: () => void;
+    const lookupStarted = new Promise<void>((resolve) => { resolveLookupStarted = resolve; });
+    const lookupReleased = new Promise<void>((resolve) => { releaseLookup = resolve; });
+    await extensionContext.route('http://127.0.0.1:54321/rest/v1/study_pairs*', async (route) => {
+      resolveLookupStarted();
+      await lookupReleased;
+      await route.continue();
+    });
+    const page = await openClozemasterFixture(extensionContext, liveLessonMarkup(), 'https://www.clozemaster.com/play');
+    const save = page.getByRole('button', { name: 'Add to Lexync' });
+
+    await save.click();
+    await lookupStarted;
+    await page.locator('.clozeable').evaluate((lesson) => {
+      lesson.innerHTML = `
+        <div class="sentence answered">
+          <span class="pre">Tai yra mano </span>
+          <input class="input correct" name="text_input_value" value="namas">
+          <span class="post">.</span>
+        </div>
+        <div class="translation font-size-1x">This is my house.</div>`;
+    });
+    await expect(save).toBeEnabled();
+    releaseLookup();
+    await save.click();
+
+    await expect(page.getByRole('status')).toHaveText('Saved to Lexync.');
+    const { data } = await learnerClient
+      .from('vocabulary_entries')
+      .select('expression, senses(translations(text), examples(text))');
+    expect(data).toEqual([{
+      expression: 'namas',
+      senses: [{
+        examples: [{ text: 'Tai yra mano namas.' }],
+        translations: [{ text: 'This is my house.' }],
+      }],
+    }]);
   });
 
   test('deliberately saves displayed material to the course Study Pair', async ({
