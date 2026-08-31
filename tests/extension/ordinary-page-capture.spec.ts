@@ -22,6 +22,7 @@ async function createStudyPair(
 async function startCaptureFromLearningMode(page: Page): Promise<void> {
   const prompt = page.getByRole('dialog', { name: 'Learning Mode' });
   await prompt.getByRole('button', { name: 'Enable' }).click();
+  await expect(page.getByRole('button', { name: 'Disable Learning Mode' })).toHaveText('Learning Mode is on');
   await page.locator('#word').hover();
   await expect(page.getByRole('tooltip')).toHaveText('Click to add "scoperta"');
   await page.locator('#word').click();
