@@ -6,6 +6,7 @@ import { Suspense, type ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { StudyPairOnboarding } from './StudyPairOnboarding';
 import { VocabularyLibrary } from './VocabularyLibrary';
 
@@ -26,6 +27,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const [activePairId, setActivePairId] = useState('');
   const [pairError, setPairError] = useState('');
   const [showPairForm, setShowPairForm] = useState(false);
+  const online = useOnlineStatus();
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -114,7 +116,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
       <header className="app-header">
         <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
         <div>
-          <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link>
+          {online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>}
           <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
         </div>
       </header>
