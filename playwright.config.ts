@@ -38,6 +38,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-vocabulary',
+      testMatch: /web-vocabulary-entry\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-vocabulary-mobile',
+      testMatch: /web-vocabulary-entry\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'mobile-chromium',
       testMatch: /landing-page\.mobile\.spec\.ts/,
       use: { ...devices['Pixel 7'] },
