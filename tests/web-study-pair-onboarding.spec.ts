@@ -88,6 +88,8 @@ test.describe('web Study Pair onboarding', () => {
     await expect(page.getByRole('button', { name: /Make primary German → Ukrainian/ })).toBeDisabled();
     await expect(page.locator('.pair-row strong')).toHaveCount(1);
     await page.getByRole('button', { name: /Delete German → English/ }).click();
+    await page.getByLabel('Type German → English to confirm').fill('German → English');
+    await page.getByRole('dialog', { name: 'Delete German → English' }).getByRole('button', { name: 'Delete Study Pair' }).click();
     await expect(page.locator('.pair-row').filter({ hasText: 'German → English' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Delete German → Ukrainian/ })).toBeDisabled();
   });

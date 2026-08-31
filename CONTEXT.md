@@ -14,7 +14,7 @@ A language variety the Learner uses to understand a Target Language, identified 
 
 ## Study Pair
 
-The unique combination of one Target Language and one Reference Language belonging to a Learner. A Learner chooses one Study Pair as primary for each Target Language.
+The unique combination of one Target Language and one Reference Language belonging to a Learner. A Learner chooses one Study Pair as primary for each Target Language. Its Target Language and Reference Language cannot change after it owns a Vocabulary Entry.
 
 ## Expression
 
