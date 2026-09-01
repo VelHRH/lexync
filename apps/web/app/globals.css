@@ -356,6 +356,79 @@ footer {
   margin-top: 3rem;
 }
 
+.due-counts,
+.scheduled-recognition {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.due-count-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.due-count-row strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--moss);
+  font-size: 0.8rem;
+}
+
+.scheduled-recognition h2 {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+.recognition-expression {
+  margin: 1rem 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.5rem, 8vw, 5rem);
+}
+
+.recognition-answer {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--cream);
+  font-size: 1.2rem;
+}
+
+.recognition-answer p {
+  margin: 0.35rem 0;
+}
+
+.recognition-ratings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  border: 0;
+  padding: 0;
+}
+
+.recognition-ratings legend {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.recognition-ratings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.8rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--cream);
+}
+
 .library-toolbar,
 .vocabulary-entry-actions,
 .vocabulary-editor-actions {
