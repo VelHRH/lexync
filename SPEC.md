@@ -1,334 +1,132 @@
 # Lexync Product Specification
 
-## 1. Product vision
-
-Lexync is an offline-capable personal language-learning system. It lets a Learner capture words and phrases while browsing, synchronize them across devices, and practise them on an iPhone without an internet connection.
-
-Lexync is offline-first for lessons, not for authoring. Creating or changing vocabulary requires connectivity. An authenticated Learner can continue downloaded lessons indefinitely while offline, and review results synchronize after connectivity returns.
-
-iPhone delivery is paused while the Android client carries the active native-learning milestone. The iPhone requirements remain recorded in this specification, but Xcode builds and XCUITest do not run or block pull requests until the iPhone roadmap resumes.
-
-## 2. Initial product surfaces
-
-### 2.1 Browser extension
-
-The Chromium Manifest V3 extension is the primary vocabulary-capture surface. It supports:
-
-- manual entry;
-- capture from ordinary webpages;
-- an explicit Save action supplied by site-specific adapters;
-- local contextual assistance through Learning Mode;
-- local lookup of saved Expressions from a synchronized vocabulary index.
-
-The first release targets Chromium browsers, including Chrome, Edge, Brave, and Vivaldi. Firefox and Safari are outside the first-release scope.
-
-### 2.2 iPhone application
-
-The native iPhone application supports:
-
-- online manual vocabulary entry;
-- synchronization of learning material;
-- Scheduled Reviews;
-- Free Practice by Collection;
-- offline lesson sessions using previously synchronized data;
-- queued synchronization of offline review results.
-
-Offline vocabulary creation and editing are outside the first-release scope.
-
-### 2.3 Web application
-
-The Next.js application is not part of the Learner's core study workflow in the first release. It provides:
-
-- the public landing page;
-- authentication callbacks;
-- administration;
-- future trusted-contributor tooling.
-
-## 3. Accounts and local access
-
-- Email and password registration, sign-in, confirmation, and password recovery are the first-release authentication methods.
-- The same account is used by the extension and iPhone application.
-- After a successful login and synchronization, offline lessons remain available until the Learner logs out or removes the application.
-- Server-side revocation takes effect the next time the device connects.
-- Logging out erases local vocabulary, Examples, review history, and cached media for that account. Server data remains intact.
-
-## 4. Language organization
-
-- Languages and language variants use BCP 47 tags.
-- Variants such as `pt-BR`, `pt-PT`, `zh-Hans`, and `zh-Hant` are distinct for vocabulary matching.
-- A Learner may have multiple Study Pairs for one Target Language.
-- A Learner explicitly chooses the primary Study Pair for each Target Language.
-- A Study Pair is unique by Learner, Target Language, and Reference Language.
-- Material captured from multiple source applications feeds the same Study Pair when its two languages match.
-- Collections belong to exactly one Study Pair.
-
-## 5. Vocabulary domain
-
-### 5.1 Expression identity
-
-- An Expression is either a word or an exact multi-word phrase.
-- Lexync does not normalize an Expression to a lemma.
-- Inflected and conjugated forms are separate Expressions.
-- Expression matching preserves the captured spelling in Examples while deduplicating with language-aware case comparison, Unicode normalization, trimming, and insignificant-whitespace normalization.
-- A selected phrase is not decomposed automatically into individual words.
-
-### 5.2 Vocabulary Entries and duplicates
-
-- A Vocabulary Entry is unique by Learner, Study Pair, and Expression.
-- Capturing an existing Expression enriches the existing Vocabulary Entry rather than creating a duplicate.
-- A repeated capture may add an Example or a new Sense.
-- The same Expression may have separate Vocabulary Entries in different Study Pairs.
-- A suspended Vocabulary Entry still counts as saved in Learning Mode but produces no Scheduled Reviews.
-
-### 5.3 Senses and translations
-
-- A Vocabulary Entry may contain multiple Senses.
-- Senses and translations are private to the Learner and are not shared globally.
-- Each Sense owns one or more translations in the Study Pair's Reference Language.
-- Each Example attached to a Vocabulary Entry must be assigned to exactly one personal Sense.
-- For one-click application captures, an extracted translation is matched against existing Sense translations. A match enriches that Sense; otherwise Lexync creates a new Sense and attaches the Example to it.
-
-### 5.4 Examples
-
-- A Vocabulary Entry may have multiple Examples.
-- An Example contains the sentence text and may eventually reference optional audio.
-- The first release stores private Example text but no source URL, page title, source application, or capture provenance.
-- Capturing from a plain webpage pre-fills the locally detected surrounding sentence.
-- The Learner may edit or remove the pre-filled sentence before saving.
-- Only confirmed vocabulary data is sent to Supabase; Lexync does not upload the rest of the page.
-
-### 5.5 Collections
-
-- Collections are flat and do not support nesting.
-- A Vocabulary Entry may belong to multiple Collections in its Study Pair.
-- Collections cannot mix Vocabulary Entries from different Study Pairs.
-
-## 6. Capture workflows
-
-### 6.1 Study Pair resolution
-
-Lexync resolves a Study Pair in this order:
-
-1. A site-specific adapter supplies known course languages when available.
-2. Otherwise, the extension detects the page language.
-3. The detected Target Language maps to the Learner's primary Study Pair.
-4. If detection is unreliable or no configured Target Language matches, the Learner must choose a Study Pair.
-5. A manual choice is remembered for the current website and may be changed later.
-
-Browser language detection is a hint and never creates a Study Pair automatically.
-
-### 6.2 Learning Mode
-
-- Learning Mode is opt-in per website.
-- The extension reads a bounded sample of visible page text to detect configured Target Languages automatically.
-- Learning Mode treats an Expression saved in any Study Pair for the same Target Language as saved.
-- A saved Expression receives a subtle visual treatment and opens its personal details.
-- Hovering an unsaved word offers an Add action without permanently decorating every unknown word.
-- Clicking a word opens capture for that token.
-- Selecting multiple words opens capture for the exact selected phrase.
-
-### 6.3 Plain webpages
-
-- Capture from a plain webpage is not one-click.
-- The Learner must provide the translation before saving.
-- The surrounding sentence is offered as an editable private Example.
-- The active Study Pair remains visible and changeable before saving.
-
-### 6.4 Manual entry
-
-- Manual entry is available in the extension and, while online, on iPhone.
-- The Learner supplies the Expression, Study Pair, translation, and any optional Example.
-
-### 6.5 Duolingo and Clozemaster adapters
-
-- Adapters add an explicit Save action to supported lesson pages.
-- Save extracts the displayed Expression, translation, Example, and eventually any available audio.
-- Adapter capture is one-click because the source lesson already supplies a translation.
-- Adapters do not automatically import every encountered lesson item.
-- Adapter behavior is tested against controlled HTML fixtures rather than live third-party pages.
-- These adapters follow the private learning loop rather than blocking its first release.
-
-## 7. Practice and scheduling
-
-### 7.1 Card model
-
-- Each Sense produces separate recognition and recall Cards.
-- Recognition presents the Target Expression and asks for its translation.
-- Recall presents a translation and requires the Learner to type the Target Expression.
-- Each Card has independent learning progress.
-
-### 7.2 First-release exercises
-
-The first release contains two exercise types:
-
-1. Target Expression to translation recognition.
-2. Translation to typed Target Expression recall.
-
-Recognition uses multiple choice when good distractors exist among other active Senses in the same Study Pair. When there are insufficient distractors, it uses reveal and rating instead of inventing weak choices.
-
-Typed grading ignores surrounding whitespace, Unicode-equivalent representations, and configured punctuation or capitalization differences. It does not silently accept spelling changes. The Learner may override an incorrect automatic judgment.
-
-Cloze exercises and audio-based exercises are outside the first-release scope.
-
-### 7.3 Review ratings
-
-Every reviewed Card receives one of four ratings:
-
-- Again;
-- Hard;
-- Good;
-- Easy.
-
-The application preselects a rating from the exercise result, and the Learner may override it before continuing.
-
-### 7.4 Scheduling
-
-- Lexync uses FSRS for Scheduled Reviews.
-- Desired retention defaults to 90% and may become configurable.
-- Review attempts are durable chronological events, allowing schedules to be rebuilt after offline synchronization.
-- Only Scheduled Reviews update FSRS schedules.
-- Free Practice records session results but does not postpone Scheduled Reviews.
-
-### 7.5 Audio
-
-- Audio is optional pronunciation reference material, not an exercise input.
-- Missing audio never excludes a Card from practice.
-- Audio playback and reusable audio storage are deferred until after the private learning loop is stable.
-- The intended later model permits storing extractable audio in object storage and restricting playback to trusted users, but its publication, access, takedown, and copyright rules remain intentionally unresolved.
-
-## 8. Sharing roadmap
-
-Shared Examples are not required for the first private-learning release.
-
-The agreed direction for a later release is:
-
-- newly captured Examples are private by default;
-- only trusted contributors may explicitly publish Examples;
-- a published Example belongs to the Target-language Expression rather than a Study Pair;
-- an Example sentence and its audio may therefore be reused across Reference Languages;
-- any translated Example text remains Reference-language-specific;
-- published Examples form a candidate library and do not enter lessons automatically;
-- a Learner explicitly attaches a shared Example to a Vocabulary Entry and assigns it to one personal Sense;
-- deleting a contributor's personal Vocabulary Entry does not delete previously published shared material.
-
-Contributor withdrawal, moderation, takedown, and reusable-audio access policies are deferred.
-
-## 9. Offline behavior and synchronization
-
-- Supabase is the authoritative data store.
-- Vocabulary creation and editing require connectivity.
-- The extension maintains a local IndexedDB index for Learning Mode and offline lookup of synchronized Expressions.
-- The iPhone application stores synchronized learning material and schedules in SQLite.
-- Offline iPhone lessons append review events to a durable local queue.
-- On reconnection, the application uploads queued review events before downloading the current account snapshot and schedules.
-- Audio, when introduced, downloads separately and on demand.
-- The first release favors account snapshots over a general-purpose realtime synchronization engine.
-
-## 10. Data portability
-
-- The first release supports a portable JSON export.
-- Export contains Study Pairs, Vocabulary Entries, Senses, private Examples, Collections, and review history.
-- Import is outside the first-release scope because duplicate and conflict resolution require separate design.
-
-## 11. Technical architecture
-
-### 11.1 Repository
-
-Lexync uses one repository with this intended structure:
-
-```text
-apps/
-  extension/
-  ios/
-  web/
-packages/
-  domain/
-  supabase/
-```
-
-The pnpm workspace manages JavaScript and TypeScript packages. Xcode manages the native iOS project within the repository.
-
-### 11.2 Backend
-
-- Supabase provides email and password authentication, PostgreSQL, generated APIs, Row Level Security, Storage, database functions, and Edge Functions.
-- There is no separate Effect service.
-- Browser and native clients may call Supabase directly under Row Level Security.
-- Atomic or privileged operations use PostgreSQL functions or Supabase Edge Functions.
-- Secret or service-role credentials never ship in a client.
-
-### 11.3 Web and extension
-
-- Web: Next.js.
-- Extension: WXT, React, TypeScript, Supabase JS, and IndexedDB.
-- Shared TypeScript domain contracts live in a workspace package.
-
-### 11.4 iPhone
-
-- UI: SwiftUI.
-- Local persistence: GRDB over SQLite.
-- Backend client: Supabase Swift.
-- Offline synchronization is explicit application logic; Supabase Realtime is not treated as a durable offline queue.
-
-## 12. Security and privacy requirements
-
-- All private tables and Storage objects are protected by ownership-aware Row Level Security.
-- Shared and trusted-only content has explicit access policies separate from private Learner data.
-- Browser site access is requested on demand.
-- Plain-page processing occurs locally except for the data the Learner confirms for capture.
-- Logging out clears all local account data.
-- No secret or service-role key is present in extension, web-client, or iPhone bundles.
-
-## 13. Acceptance-test-first delivery
-
-No product feature is implemented before its user-facing acceptance criteria exist as an executable end-to-end scenario.
-
-### 13.1 First vertical slice
-
-The first acceptance scenario proves that:
-
-1. A test Learner signs in.
-2. The Learner creates a Study Pair.
-3. The Learner captures one Expression, translation, and optional Example from a controlled webpage through the extension.
-4. The Vocabulary Entry synchronizes to the iPhone application.
-5. The iPhone goes offline.
-6. The Learner completes a practice Card.
-7. The iPhone reconnects.
-8. The review event synchronizes and the resulting progress is visible.
-
-### 13.2 Test boundaries
-
-- JavaScript and TypeScript user journeys use Playwright Test.
-- Native iPhone journeys use an iPhone simulator and native UI tests.
-- CI runs against a local Supabase instance.
-- Webpage and language-application behavior uses controlled fixtures.
-- Email and password authentication is covered by deterministic CI scenarios; live Duolingo/Clozemaster integrations use separate smoke checks.
-
-## 14. First-release boundary
-
-The first usable release includes:
-
-- email and password registration, sign-in, and password recovery;
-- Study Pair management and explicit primary selection;
-- manual and plain-webpage extension capture;
-- online manual iPhone capture;
-- private Vocabulary Entries, Senses, Examples, and Collections;
-- Learning Mode;
-- synchronized iPhone data;
-- offline Scheduled Reviews and Free Practice;
-- FSRS scheduling;
-- suspension of Vocabulary Entries;
-- JSON export.
-
-The following are subsequent milestones:
-
-- Duolingo and Clozemaster adapters;
-- cloze exercises;
-- audio capture, storage, and playback;
-- trusted-contributor Example publishing;
-- shared Example discovery and attachment;
-- import;
-- Firefox, Safari, and additional mobile platforms.
-
-## 15. Working name
-
-The working product and repository name is **Lexync**. The name combines the ideas of a lexicon and synchronization. It has not undergone formal trademark, domain, package-name, or App Store clearance and may be changed before public release.
+## Problem Statement
+
+Lexync lets a Learner capture words and phrases while browsing, keep the resulting private vocabulary synchronized, and practise it across web and native clients. Its original Study Pair model makes the same Learning Language material into separate libraries whenever the Learner uses different Answer Languages. That division complicates onboarding, capture, navigation, Collections, and review, and prevents one Sense from naturally containing equivalent translations such as Spanish `casa`, English `house`, and Ukrainian `дім`.
+
+The current web and extension interfaces also do not express the purple identity of the supplied Lexync logo, and supported lesson adapters do not retain available pronunciation or sentence audio. Product specifications and client tickets still encode the older model inconsistently across web, extension, Android, and future iOS work.
+
+## Solution
+
+Lexync organizes all private learning material by Learning Language. The Learner chooses a first Learning Language during onboarding and can add, remove, or switch Learning Languages later. The Active Learning Language is synchronized account-wide and is always visible in client navigation.
+
+Translations declare their Answer Language inside a Sense. A Sense may contain multiple Answer Languages, while each corresponding recognition and recall Card retains an independent schedule. A session may mix Answer Languages but never Learning Languages. Language Pairs and the Preferred Answer Language are derived automatically from the Learner's translations rather than managed as primary product entities.
+
+Capture adapters save available pronunciation and sentence audio into learner-private object storage on explicit Save. Audio is optional, never autoplays, and never blocks capture or practice. Existing material and PR #78 review history are migrated without deletion.
+
+Web, extension, Android, and future iOS clients consume one semantic design contract based on the canonical `#6429f4` purple logo color, dark ink, white, and lavender neutrals. Web and extension are redesigned first in light mode using the project-pinned Impeccable and design-taste skills. Native clients use platform-appropriate adapters to the same semantics.
+
+## User Stories
+
+1. As a new Learner, I want onboarding to ask only which language I am learning, so that I can start without understanding Language Pairs.
+2. As a Learner, I want to add another Learning Language in Settings, so that I can study more than one language.
+3. As a Learner, I want to remove a Learning Language deliberately, so that its consequences are clear before any material is affected.
+4. As a Learner, I want my Active Learning Language visible beside my profile, so that I always know which library and session I am using.
+5. As a Learner, I want switching the Active Learning Language on one client to synchronize to the others, so that Lexync has one coherent current context.
+6. As a Learner, I want a capture from a known course in another Learning Language to switch the active context visibly, so that the saved material and current UI agree.
+7. As a Learner, I want sessions to contain only one Learning Language, so that unrelated languages never appear together.
+8. As a multilingual Learner, I want one Sense to contain translations in multiple Answer Languages, so that equivalent meanings are not duplicated.
+9. As a Learner, I want `casa → house` and `casa → дім` to coexist in one Sense, so that Spanish remains one library.
+10. As a Learner, I want Language Pairs to appear automatically when translations exist, so that I do not manage redundant containers.
+11. As a Learner, I want Lexync to infer my Preferred Answer Language from my vocabulary, so that common capture defaults remain convenient.
+12. As a Learner, I want the most recently used Answer Language to resolve a usage-count tie, so that the default follows my current behavior.
+13. As a Learner, I want each Translation to display its Answer Language when ambiguity matters, so that I know what a review expects.
+14. As a Learner, I want adapters to provide known Learning and Answer Languages, so that supported lesson capture remains one click.
+15. As a Learner, I want ordinary capture to detect Answer Language when reliable, so that common saves require no extra choice.
+16. As a Learner, I want an editable Answer Language chip when detection is uncertain, so that incorrect metadata is never silently saved.
+17. As a Learner, I want uncertain capture to preselect my Preferred Answer Language, so that confirmation is usually quick.
+18. As a Learner, I want manual entry scoped to the Active Learning Language, so that the entry lands in the expected library.
+19. As a Learner, I want repeated capture of an Expression to enrich the existing entry within its Learning Language, so that duplicates do not accumulate.
+20. As a Learner, I want a new Answer Language added to the sole existing Sense automatically, so that simple entries remain one-click.
+21. As a Learner, I want to choose a Sense or create one when an entry has multiple Senses, so that Lexync never invents semantic equivalence.
+22. As a Learner, I want matching based on confirmed meaning rather than spelling alone, so that homonyms remain distinct.
+23. As a Learner, I want Collections to group entries within one Learning Language, so that practice stays coherent.
+24. As a Learner, I want an entry in multiple Collections without duplicating it, so that organization does not fragment progress.
+25. As a Learner, I want recognition Cards scheduled per Sense and Answer Language, so that success in English does not falsely imply success in Ukrainian.
+26. As a Learner, I want recall Cards scheduled per Sense and Answer Language, so that each expected response has independent progress.
+27. As a Learner, I want one Scheduled Review to mix Answer Languages when their Cards are due, so that all due material for the Learning Language can be completed together.
+28. As a Learner, I want the expected Answer Language clearly indicated during a mixed session, so that I know which response to provide.
+29. As a Learner, I want Free Practice to stay inside its Collection and Learning Language, so that it never mixes unrelated study material.
+30. As a Learner, I want review events to synchronize durably after offline practice, so that no progress is lost.
+31. As a Learner, I want the recognition history created before this migration retained, so that the new model does not reset my progress.
+32. As a Learner, I want available pronunciation audio saved with a Vocabulary Entry, so that I can hear the Expression later.
+33. As a Learner, I want available sentence audio saved with an Example, so that I can hear the Expression in context.
+34. As a Learner, I want adapter audio copied only when I explicitly save the item, so that browsing does not create unwanted storage.
+35. As a Learner, I want saved audio stored privately under my account, so that other Learners cannot access it.
+36. As a Learner, I want later captures to preserve audio I already have, so that an automatic save never overwrites my chosen clip.
+37. As a Learner, I want to replace or remove audio explicitly, so that I control my private media.
+38. As a Learner, I want audio to play only when I press Play, so that it never surprises me.
+39. As a Learner, I want a clip cached after its first playback, so that I can replay it offline.
+40. As a Learner, I want capture and practice to work when audio is absent or fails, so that optional media never blocks learning.
+41. As a Learner, I want exports to include the new language structure, private audio, and review history, so that my account remains portable.
+42. As a Learner, I want sign-out and account cleanup to remove local cached media, so that private data does not remain on a shared device.
+43. As a Learner, I want the web and extension interfaces to feel like the purple Lexync logo, so that the product has one recognizable identity.
+44. As a Learner, I want extension controls injected into lesson pages to use the same semantic identity, so that capture feels like Lexync.
+45. As a Learner, I want platform-native Android and future iOS interfaces that share Lexync semantics, so that consistency does not erase native usability.
+46. As a keyboard or assistive-technology user, I want every capture, navigation, playback, and review control to expose clear focus, names, states, and errors, so that I can complete the same workflows.
+47. As a Learner with reduced-motion preferences, I want nonessential motion removed, so that the interface remains comfortable.
+48. As a Learner, I want existing Expressions, Senses, translations, Examples, Collections, suspension state, and review history preserved through migration, so that this redesign costs me no data.
+49. As a Learner, I want legacy duplicate Expressions consolidated conservatively, so that equivalent libraries join without unrelated Senses being merged.
+50. As a future iOS Learner, I want the same language and synchronization contracts documented now, so that the paused client can rejoin without another domain redesign.
+
+## Implementation Decisions
+
+- BCP 47 tags identify Learning and Answer Languages. Language variants remain distinct.
+- A Vocabulary Entry is unique by Learner, Learning Language, and normalized Expression identity. It owns Senses, Examples, Collection memberships, suspension state, optional pronunciation audio, and progress relationships.
+- A Translation belongs to exactly one Sense and one Answer Language. A Sense may contain Translations in one or more Answer Languages.
+- A Language Pair is derived from translations that exist for one Learning Language and Answer Language. It is not a user-managed ownership record and has no primary flag.
+- Preferred Answer Language is computed from the number of distinct Senses translated into each Answer Language. Most recent usage breaks a tie.
+- Active Learning Language is stored as synchronized account state and scopes current library, capture, Collections, Scheduled Review, and Free Practice across clients.
+- An intentional adapter capture may create a previously absent derived Language Pair and switch Active Learning Language. The client announces that switch.
+- Adapters provide language metadata when known. Other capture flows use detection only above an explicit confidence threshold; otherwise the Learner confirms an editable chip. Preferred Answer Language is the fallback selection.
+- If a matching Vocabulary Entry has exactly one Sense, a capture in a new Answer Language can attach its Translation to that Sense. If it has multiple Senses, the Learner chooses an existing Sense or creates one. Expression equality alone never proves Sense equality.
+- Each Card identity includes Sense, Answer Language, and direction. Recognition asks for the named Answer Language; recall asks for the Learning Language. Schedules remain independent.
+- Scheduled Review and Free Practice have exactly one Learning Language boundary. Scheduled Review may interleave Answer Languages and must display the expected language. No session may mix Learning Languages.
+- Existing FSRS behavior, four ratings, durable review events, and the distinction between Scheduled Review and Free Practice remain in force.
+- A Vocabulary Entry has at most one pronunciation Audio Clip. An Example has at most one sentence Audio Clip.
+- On explicit adapter Save, Lexync copies eligible audio bytes into learner-private object storage and does not retain the source URL. Later automatic capture neither adds nor replaces an existing clip. Explicit learner actions may replace or remove it.
+- Audio never autoplays. First playback may populate an account-scoped offline cache. Missing, expired, unsupported, or failed audio never blocks save, synchronization, or practice.
+- Audio ownership is enforced at storage and metadata layers. Synchronization, export, sign-out cleanup, deletion, and cache eviction include audio.
+- The migration follows expand-and-contract. Existing Study Pair data remains readable during rollout. Entries with the same normalized Expression are consolidated by Learning Language, but existing Senses remain separate unless equivalence is proven. No translations, Examples, Collections, audio, suspension state, Cards, review events, or schedules are deleted.
+- PR #78 is merged historical work. Its recognition schedule and events are migration inputs, not work to revert or discard.
+- Onboarding asks only for the first Learning Language. Add/remove management lives in Settings; the synchronized selector lives beside the profile in full clients and in a compact extension header.
+- Page-level Study Pair controls are removed as clients adopt the new model.
+- The canonical visual palette starts with logo purple `#6429f4`, dark ink, white, and lavender neutrals. Initial redesign is light mode. Dark mode is deferred.
+- The project-pinned Impeccable skill guides audit, interaction, accessibility, and platform adaptation. The project-pinned design-taste-frontend skill applies only to web-appropriate visual work. A semantic contract maps into CSS and Jetpack Compose now and SwiftUI later.
+- Supabase remains authoritative. Web and extension use the existing browser synchronization seams; Android uses its native local store and synchronization path; future iOS follows the documented contracts.
+- Portable JSON export describes Learning Languages, Translations with Answer Languages, Collections, audio manifests, Cards, and review history. Import remains separate work.
+
+## Testing Decisions
+
+- Tests assert externally visible behavior and durable contracts rather than component structure or private implementation details.
+- PostgreSQL migration and policy tests prove lossless conversion, compatibility reads, derived-language queries, account-wide Active Learning Language, private storage access, audio cleanup, and review-history preservation.
+- Playwright exercises onboarding, the synchronized Learning Language selector, multilingual capture, ambiguous Sense selection, mixed-Answer-Language review, audio playback behavior, and responsive/accessibility behavior across web and extension fixtures.
+- Adapter tests use controlled Duolingo and Clozemaster HTML/media fixtures; live third-party pages are not a deterministic test seam.
+- Domain tests prove normalization, Preferred Answer Language selection and tie-breaking, Card identity, session boundaries, and migration mappings.
+- Android emulator instrumentation covers synchronized language switching, library/session scoping, offline review queues, private audio playback, and semantic design adaptation.
+- Future iOS XCUITest scenarios mirror the same user-visible contracts when iOS delivery resumes; they do not block current CI.
+- Existing landing, authentication, extension capture, account snapshot, ownership-policy, vocabulary management, and scheduled-recognition tests are extended rather than replaced.
+- Accessibility acceptance includes keyboard completion, visible focus, semantic names and states, error association, status announcements, contrast, text scaling, touch targets, and reduced motion.
+- Destructive journeys verify retained or removed data, not merely confirmation-dialog presentation.
+
+## Out of Scope
+
+- Mixing different Learning Languages in one Scheduled Review or Free Practice session.
+- A user-managed primary Language Pair or onboarding choice of Answer Language.
+- Automatically merging existing Senses based only on matching Expression text.
+- Autoplay, audio-only exercises, speech recognition, recording, or audio publication.
+- Shared or published Examples, contributor workflows, moderation, or public learning material.
+- Dark appearance in the first visual redesign.
+- Offline vocabulary creation or editing.
+- Import and import-specific conflict resolution.
+- Paid subscriptions, social authentication, and administrative invitation systems.
+- Firefox and Safari extension delivery in the first release.
+- Active iOS implementation while the iPhone roadmap remains paused.
+
+## Further Notes
+
+- The domain vocabulary in `CONTEXT.md` is normative for issue and implementation language.
+- ADR 0001 records the hard-to-reverse language-boundary decision and the required lossless migration.
+- Closed Study Pair tickets remain historical evidence. They should receive supersession links rather than rewritten descriptions.
+- The authenticated web application is an active learning client; the older description of web as only a landing and administration surface is superseded.
+- Browser storage is less durable than native storage. Interfaces must communicate synchronization state honestly, and no local-only review event may be presented as safely synchronized.
