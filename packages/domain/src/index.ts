@@ -31,6 +31,11 @@ export type StudyPairResolution =
   | { kind: 'choice-required' }
   | { kind: 'resolved'; studyPair: StudyPair };
 
+export type LearningEligibleVocabularyEntry = {
+  studyPairId: string;
+  suspended: boolean;
+};
+
 export function canonicalLanguageTag(value: string): string | null {
   const trimmedValue = value.trim();
 
@@ -51,6 +56,10 @@ export function languageName(tag: string): string {
 
 export function studyPairLabel(pair: Pick<StudyPair, 'targetLanguageTag' | 'referenceLanguageTag'>): string {
   return `${languageName(pair.targetLanguageTag)} → ${languageName(pair.referenceLanguageTag)}`;
+}
+
+export function isVocabularyEntryLearningEligible(entry: LearningEligibleVocabularyEntry, activeStudyPairId: string): boolean {
+  return entry.studyPairId === activeStudyPairId && !entry.suspended;
 }
 
 function matchingLanguageTag(first: string, second: string): boolean {
