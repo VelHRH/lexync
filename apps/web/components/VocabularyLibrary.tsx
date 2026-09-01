@@ -10,7 +10,8 @@ import { supabase } from '../lib/supabase';
 type Translation = { id: string; text: string };
 type Example = { id: string; text: string };
 type Sense = { id: string; translations: Translation[]; examples: Example[] };
-type LibraryEntry = { id: string; expression: string; senses: Sense[] };
+type LibraryEntry = { id: string; expression: string; senses: Sense[]; suspended: boolean };
+type VocabularyStatus = 'active' | 'all' | 'suspended';
 type DraftItem = { id: string | null; key: string; text: string };
 type DraftSense = { id: string | null; key: string; translations: DraftItem[]; examples: DraftItem[] };
 type EntryDraft = { id: string; expression: string; senses: DraftSense[] };
@@ -48,11 +49,14 @@ export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntries
   const [moveNotice, setMoveNotice] = useState('');
   const [moveError, setMoveError] = useState('');
   const [moving, setMoving] = useState(false);
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<VocabularyStatus>('all');
+  const [suspensionNotice, setSuspensionNotice] = useState('');
   const online = useOnlineStatus();
 
   const loadEntries = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('vocabulary_entries').select('id,expression').eq('study_pair_id', pair.id).order('created_at');
+    const { data, error } = await supabase.from('vocabulary_entries').select('id,expression,suspended').eq('study_pair_id', pair.id).order('created_at');
     if (error) {
       setNotice(error.message);
       setLoading(false);
@@ -82,6 +86,7 @@ export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntries
     setEntries((data ?? []).map((entry) => ({
       id: entry.id,
       expression: entry.expression,
+      suspended: entry.suspended,
       senses: (senses ?? []).filter((sense) => sense.vocabulary_entry_id === entry.id).map((sense) => ({
         id: sense.id,
         translations: (translations ?? []).filter((item) => item.sense_id === sense.id),
@@ -239,6 +244,21 @@ export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntries
     await onEntriesChanged();
   }
 
+  async function setSuspended(entry: LibraryEntry, suspended: boolean) {
+    setNotice('');
+    setSuspensionNotice('');
+    const { error } = await supabase.rpc('set_vocabulary_entry_suspended', {
+      p_suspended: suspended,
+      p_vocabulary_entry_id: entry.id,
+    });
+    if (error) {
+      setNotice(`${entry.expression} could not be ${suspended ? 'suspended' : 'resumed'}. ${error.message}`);
+      return;
+    }
+    setEntries((current) => current.map((candidate) => candidate.id === entry.id ? { ...candidate, suspended } : candidate));
+    setSuspensionNotice(`${entry.expression} is ${suspended ? 'suspended' : 'active'}.`);
+  }
+
   function toggleEntry(entryId: string, selected: boolean) {
     setSelectedEntryIds((current) => selected ? [...current, entryId] : current.filter((id) => id !== entryId));
     setMoveNotice('');
@@ -270,6 +290,20 @@ export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntries
   }
 
   const draftExamples = draft?.senses.flatMap((sense) => sense.examples) ?? [];
+  const normalizedQuery = query.normalize('NFC').trim().toLocaleLowerCase();
+  const visibleEntries = entries.filter((entry) => {
+    const matchesStatus = status === 'all' || (status === 'suspended' ? entry.suspended : !entry.suspended);
+    const searchableText = [entry.expression, ...entry.senses.flatMap((sense) => sense.translations.map((item) => item.text))]
+      .join('\n')
+      .normalize('NFC')
+      .toLocaleLowerCase();
+    return matchesStatus && (!normalizedQuery || searchableText.includes(normalizedQuery));
+  });
+  const noResultsMessage = normalizedQuery
+    ? `No ${status === 'all' ? '' : `${status} `}Vocabulary Entries match “${query.trim()}”.`
+    : status === 'all' && entries.length === 0
+      ? 'No vocabulary entries yet. Add your first one.'
+      : `No ${status} Vocabulary Entries yet.`;
 
   return (
     <section className="vocabulary-library" aria-labelledby="library-heading">
@@ -281,6 +315,16 @@ export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntries
         <button className="primary-button" type="button" disabled={!online} onClick={() => { setNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
       </div>
       {!online && <p className="form-notice" role="status">You are offline. Vocabulary changes require a connection.</p>}
+      <div className="vocabulary-discovery-controls">
+        <label htmlFor="vocabulary-search">Search vocabulary</label>
+        <input id="vocabulary-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <label htmlFor="vocabulary-status">Vocabulary status</label>
+        <select id="vocabulary-status" value={status} onChange={(event) => setStatus(event.target.value as VocabularyStatus)}>
+          <option value="all">All entries</option>
+          <option value="active">Active entries</option>
+          <option value="suspended">Suspended entries</option>
+        </select>
+      </div>
       {showForm && <form className="web-auth-form vocabulary-form" onSubmit={save}>
         <label htmlFor="expression">Expression</label>
         <input id="expression" value={expression} disabled={!online} onChange={(event) => setExpression(event.target.value)} />
@@ -292,7 +336,7 @@ export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntries
         <button className="primary-button" type="submit" disabled={saving || !online}>{saving ? 'Saving…' : 'Save Vocabulary Entry'}</button>
       </form>}
       {loading && <p className="app-empty">Loading your vocabulary…</p>}
-      {!loading && entries.length === 0 && <p className="app-empty">No vocabulary entries yet. Add your first one.</p>}
+      {!loading && visibleEntries.length === 0 && <p className="app-empty" role="status">{noResultsMessage}</p>}
       {!loading && entries.length > 0 && <section className="vocabulary-move-panel" aria-labelledby="move-vocabulary-heading">
         <h3 id="move-vocabulary-heading">Move selected Vocabulary Entries</h3>
         <p>Moved entries keep {languageName(pair.referenceLanguageTag)} translations, so the destination must also use {languageName(pair.referenceLanguageTag)} as its Reference Language.</p>
@@ -310,14 +354,16 @@ export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntries
       </section>}
       {moveNotice && <p className="form-notice" role="status">{moveNotice}</p>}
       {moveError && <p className="form-notice error" role="alert">{moveError}</p>}
+      {suspensionNotice && <p className="form-notice" role="status">{suspensionNotice}</p>}
+      {notice && !showForm && !draft && <p className="form-notice error" role="alert">{notice}</p>}
       <div className="vocabulary-entry-list">
-        {entries.map((entry) => <article className="vocabulary-entry-item" key={entry.id}>
+        {visibleEntries.map((entry) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id}>
           <label className="vocabulary-entry-selection">
             <input type="checkbox" checked={selectedEntryIds.includes(entry.id)} disabled={!online || moving} onChange={(event) => toggleEntry(entry.id, event.target.checked)} />
             Select {entry.expression}
           </label>
           <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>
-            <summary>{entry.expression}</summary>
+            <summary><span>{entry.expression}</span>{entry.suspended && <span className="vocabulary-status-badge">Suspended</span>}</summary>
             <div>
             {draft?.id === entry.id ? <form className="vocabulary-editor" onSubmit={saveDraft}>
               <label htmlFor={`edit-expression-${entry.id}`}>Expression</label>
@@ -361,6 +407,7 @@ export function VocabularyLibrary({ onEntriesChanged, pair, pairs }: { onEntries
               <div className="vocabulary-entry-actions">
                 <button className="secondary-button" type="button" disabled={!online} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit {entry.expression}</button>
                 <button className="secondary-button danger" type="button" disabled={!online} onClick={() => void deleteEntry(entry)}>Delete {entry.expression}</button>
+                <button className="secondary-button" type="button" disabled={!online} onClick={() => void setSuspended(entry, !entry.suspended)}>{entry.suspended ? 'Resume' : 'Suspend'} {entry.expression}</button>
               </div>
             </>}
             </div>
