@@ -1,13 +1,14 @@
 'use client';
 
-import { canonicalLanguageTag, studyPairLabel, type StudyPair } from '@lexync/domain';
+import { canonicalLanguageTag, selectDueRecognitionCards, studyPairLabel, type RecognitionCard, type RecognitionReviewEvent, type StudyPair } from '@lexync/domain';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { Suspense, type ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { StudyPairOnboarding } from './StudyPairOnboarding';
+import { ScheduledRecognition } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
 
 const destinations = [
@@ -20,6 +21,18 @@ const destinations = [
 
 type ManagedStudyPair = StudyPair & { entryCount: number };
 type StudyPairOverview = { entry_count: number; id: string; is_primary: boolean; reference_language_tag: string; target_language_tag: string };
+type ScheduledReviewOverview = {
+  created_at: string;
+  events: RecognitionReviewEvent[];
+  expression: string;
+  id: string;
+  reference_language_tag: string;
+  sense_id: string;
+  study_pair_id: string;
+  suspended: boolean;
+  target_language_tag: string;
+  translations: string[];
+};
 
 function toManagedStudyPair(pair: StudyPairOverview): ManagedStudyPair {
   return {
@@ -28,6 +41,21 @@ function toManagedStudyPair(pair: StudyPairOverview): ManagedStudyPair {
     isPrimary: pair.is_primary,
     referenceLanguageTag: pair.reference_language_tag,
     targetLanguageTag: pair.target_language_tag,
+  };
+}
+
+function toRecognitionCard(card: ScheduledReviewOverview): RecognitionCard {
+  return {
+    createdAt: card.created_at,
+    events: card.events,
+    expression: card.expression,
+    id: card.id,
+    referenceLanguageTag: card.reference_language_tag,
+    senseId: card.sense_id,
+    studyPairId: card.study_pair_id,
+    suspended: card.suspended,
+    targetLanguageTag: card.target_language_tag,
+    translations: card.translations,
   };
 }
 
@@ -47,7 +75,25 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const [deletingPairId, setDeletingPairId] = useState('');
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [recognitionCards, setRecognitionCards] = useState<RecognitionCard[]>([]);
+  const [recognitionLoading, setRecognitionLoading] = useState(true);
+  const [recognitionError, setRecognitionError] = useState('');
   const online = useOnlineStatus();
+
+  const applyRecognitionOverview = useCallback(({ data, error }: { data: ScheduledReviewOverview[] | null; error: { message: string } | null }) => {
+    if (error) {
+      setRecognitionError(error.message);
+      setRecognitionLoading(false);
+      return;
+    }
+    setRecognitionError('');
+    setRecognitionCards((data ?? []).map((card: ScheduledReviewOverview) => toRecognitionCard(card)));
+    setRecognitionLoading(false);
+  }, []);
+
+  const refreshRecognitionCards = useCallback(async () => {
+    applyRecognitionOverview(await supabase.rpc('scheduled_review_overview'));
+  }, [applyRecognitionOverview]);
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -73,6 +119,11 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
       setPairsLoading(false);
     });
   }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    void supabase.rpc('scheduled_review_overview').then(applyRecognitionOverview);
+  }, [applyRecognitionOverview, session]);
 
   useEffect(() => {
     if (!forceOnboarding && !pairsLoading && session && pairs.length === 0) window.location.assign('/onboarding/study-pair');
@@ -106,12 +157,19 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }
 
   async function refreshEntryCounts() {
-    const { data, error } = await supabase.rpc('study_pair_overview');
+    const [{ data, error }] = await Promise.all([
+      supabase.rpc('study_pair_overview'),
+      refreshRecognitionCards(),
+    ]);
     if (error) {
       setPairError(error.message);
       return;
     }
     setPairs((data ?? []).map((pair: StudyPairOverview) => toManagedStudyPair(pair)));
+  }
+
+  function recordReview(cardId: string, event: RecognitionReviewEvent) {
+    setRecognitionCards((current) => current.map((card) => card.id === cardId ? { ...card, events: [...card.events, event] } : card));
   }
 
   function editPair(pair: ManagedStudyPair) {
@@ -211,7 +269,18 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
         <section className="app-content" aria-labelledby="app-heading">
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
-          <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>
+          {!['Home', 'Review', 'Library'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
+          {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
+          {activeSection === 'Home' && !recognitionLoading && <section className="due-counts" aria-label="Scheduled Review due counts">
+            {pairs.map((pair) => {
+              const dueCount = selectDueRecognitionCards(recognitionCards, pair.id).length;
+              return <div className="due-count-row" key={pair.id}>
+                <span>{studyPairLabel(pair)} <strong>{dueCount} due</strong></span>
+                {pair.id === activePairId && <Link className="secondary-button" href="/review">Start {studyPairLabel(pair)} review</Link>}
+              </div>;
+            })}
+          </section>}
+          {activeSection === 'Review' && !recognitionLoading && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} pair={pairs.find((pair) => pair.id === activePairId) ?? pairs[0]} />}
           {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary key={(pairs.find((pair) => pair.id === activePairId) ?? pairs[0]).id} onEntriesChanged={refreshEntryCounts} pair={pairs.find((pair) => pair.id === activePairId) ?? pairs[0]} pairs={pairs} /></Suspense>}
           <label className="pair-selector-label" htmlFor="active-study-pair">Active Study Pair</label>
           <select id="active-study-pair" aria-label="Active Study Pair" value={activePairId} onChange={(event) => { setActivePairId(event.target.value); window.localStorage.setItem('lexync-active-study-pair', event.target.value); }}>
