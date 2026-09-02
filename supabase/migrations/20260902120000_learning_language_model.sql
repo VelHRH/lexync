@@ -84,6 +84,8 @@ from public.learning_languages
 where learning_languages.learner_id = study_pairs.learner_id
   and learning_languages.language_tag = study_pairs.target_language_tag;
 
+set constraints public.require_primary_study_pair immediate;
+
 insert into public.learner_language_state (learner_id, active_learning_language_id, updated_at)
 select distinct on (learner_id)
   learner_id,

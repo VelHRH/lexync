@@ -144,7 +144,7 @@ test.describe('web multilingual manual capture', () => {
 
     await signIn(page, account);
     await page.goto('/review');
-    await expect(page.getByRole('heading', { name: /Recognition|Review/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Review', exact: true })).toBeVisible();
     const review = page.locator('.scheduled-recognition');
     await expect(review.getByText(/Spanish/i)).toBeVisible();
     await expect(review.getByText(/French/i)).toHaveCount(0);
