@@ -7,6 +7,28 @@ export type StudyPair = {
   referenceLanguageTag: string;
 };
 
+export type LearningDirection = 'recognition' | 'recall';
+
+export type LearningCard = {
+  answerLanguageTag: string;
+  direction: LearningDirection;
+  id: string;
+  learningLanguageId: string;
+  senseId: string;
+};
+
+export type TranslationLanguageUsage = {
+  answerLanguageTag: string;
+  lastUsedAt: string;
+  learningLanguageTag: string;
+  senseId: string;
+};
+
+export type LanguagePair = {
+  answerLanguageTag: string;
+  learningLanguageTag: string;
+};
+
 export type ManualCapture = {
   example: string | null;
   expression: string;
@@ -85,6 +107,72 @@ export function canonicalLanguageTag(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+export function deriveLanguagePairs(usages: TranslationLanguageUsage[]): LanguagePair[] {
+  const pairs = new Map<string, LanguagePair>();
+
+  for (const usage of usages) {
+    const learningLanguageTag = canonicalLanguageTag(usage.learningLanguageTag);
+    const answerLanguageTag = canonicalLanguageTag(usage.answerLanguageTag);
+
+    if (learningLanguageTag && answerLanguageTag) {
+      pairs.set(`${learningLanguageTag}\u0000${answerLanguageTag}`, {
+        answerLanguageTag,
+        learningLanguageTag,
+      });
+    }
+  }
+
+  return [...pairs.values()].sort((first, second) =>
+    first.learningLanguageTag.localeCompare(second.learningLanguageTag)
+    || first.answerLanguageTag.localeCompare(second.answerLanguageTag));
+}
+
+export function preferredAnswerLanguage(
+  usages: TranslationLanguageUsage[],
+  learningLanguageTag: string,
+): string | null {
+  const canonicalLearningLanguageTag = canonicalLanguageTag(learningLanguageTag);
+
+  if (!canonicalLearningLanguageTag) {
+    return null;
+  }
+
+  const candidates = new Map<string, { lastUsedAt: string; senseIds: Set<string> }>();
+
+  for (const usage of usages) {
+    if (canonicalLanguageTag(usage.learningLanguageTag) !== canonicalLearningLanguageTag) {
+      continue;
+    }
+
+    const answerLanguageTag = canonicalLanguageTag(usage.answerLanguageTag);
+
+    if (!answerLanguageTag) {
+      continue;
+    }
+
+    const candidate = candidates.get(answerLanguageTag) ?? { lastUsedAt: usage.lastUsedAt, senseIds: new Set<string>() };
+    candidate.senseIds.add(usage.senseId);
+    candidate.lastUsedAt = candidate.lastUsedAt > usage.lastUsedAt ? candidate.lastUsedAt : usage.lastUsedAt;
+    candidates.set(answerLanguageTag, candidate);
+  }
+
+  return [...candidates.entries()]
+    .sort(([firstTag, first], [secondTag, second]) =>
+      second.senseIds.size - first.senseIds.size
+      || second.lastUsedAt.localeCompare(first.lastUsedAt)
+      || firstTag.localeCompare(secondTag))[0]?.[0] ?? null;
+}
+
+export function requireSingleLearningLanguage(cards: LearningCard[]): string | null {
+  const learningLanguageIds = new Set(cards.map((card) => card.learningLanguageId));
+
+  if (learningLanguageIds.size > 1) {
+    throw new Error('A session cannot mix Learning Languages.');
+  }
+
+  return learningLanguageIds.values().next().value ?? null;
 }
 
 export function languageName(tag: string): string {
