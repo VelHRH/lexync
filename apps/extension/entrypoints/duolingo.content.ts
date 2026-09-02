@@ -83,15 +83,67 @@ export default defineContentScript({
           font: inherit;
         }
         button:disabled { cursor: default; opacity: 0.7; }
+        .sense-choice { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; font: inherit; }
+        .sense-options { display: grid; gap: 6px; }
+        .sense-choice label { display: flex; gap: 6px; align-items: flex-start; font-weight: 400; }
         [role="status"]:empty { display: none; }
+        [hidden] { display: none; }
       </style>
       <div class="capture">
         <button type="button">Save to Lexync</button>
+        <fieldset class="sense-choice" hidden>
+          <legend>Choose a Sense</legend>
+          <div class="sense-options"></div>
+          <label><input name="createNewSense" type="radio" value="new"> Create a new Sense</label>
+        </fieldset>
         <span role="status"></span>
       </div>`;
     document.documentElement.append(host);
     const button = root.querySelector('button');
+    const senseChoice = root.querySelector<HTMLElement>('.sense-choice');
+    const senseOptions = root.querySelector<HTMLElement>('.sense-options');
+    const createNewSenseInput = root.querySelector<HTMLInputElement>('[name="createNewSense"]');
     const status = root.querySelector<HTMLElement>('[role="status"]');
+    let learningLanguageId = '';
+    let senseId: string | undefined;
+    let createNewSense = false;
+    let switchNotice = '';
+
+    const showSenseChoices = (response: Extract<SaveDuolingoCaptureResponse, { kind: 'needs_sense' }>) => {
+      if (!senseChoice || !senseOptions || !createNewSenseInput || !button || !status) {
+        return;
+      }
+
+      senseId = undefined;
+      createNewSense = false;
+      senseChoice.hidden = false;
+      senseOptions.replaceChildren();
+      for (const sense of response.senses) {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.name = 'sense';
+        input.type = 'radio';
+        input.value = sense.id;
+        input.addEventListener('change', () => {
+          senseId = sense.id;
+          createNewSense = false;
+          button.disabled = false;
+        });
+        label.append(input, document.createTextNode(sense.translations.map((item) => `${item.text} (${item.answerLanguageTag})`).join(' · ') || 'Existing Sense'));
+        senseOptions.append(label);
+      }
+      createNewSenseInput.checked = false;
+      button.disabled = true;
+      status.textContent = `${switchNotice ? `${switchNotice} ` : ''}Choose a Sense or create a new Sense before saving.`;
+    };
+
+    createNewSenseInput?.addEventListener('change', () => {
+      createNewSense = createNewSenseInput.checked;
+      senseId = undefined;
+      if (button) {
+        button.disabled = !createNewSenseInput.checked;
+      }
+    });
 
     button?.addEventListener('click', () => {
       if (!button || !status) {
@@ -100,30 +152,50 @@ export default defineContentScript({
 
       button.disabled = true;
       status.textContent = 'Saving…';
-      void browser.runtime.sendMessage({
-        referenceLanguageTag: material.referenceLanguageTag,
-        targetLanguageTag: material.targetLanguageTag,
-        type: 'duolingo-capture:load',
-      }).then((loadResponse: LoadDuolingoCaptureResponse) => {
-        if (!loadResponse.studyPairId || loadResponse.error) {
-          return loadResponse;
+      const loadResponsePromise = learningLanguageId
+        ? Promise.resolve<LoadDuolingoCaptureResponse>({ learningLanguageId })
+        : browser.runtime.sendMessage({
+          answerLanguageTag: material.referenceLanguageTag,
+          learningLanguageTag: material.targetLanguageTag,
+          type: 'duolingo-capture:load',
+        }) as Promise<LoadDuolingoCaptureResponse>;
+      void loadResponsePromise.then((loadResponse: LoadDuolingoCaptureResponse) => {
+        if (!loadResponse.learningLanguageId || loadResponse.error) {
+          return { error: loadResponse.error ?? 'Matching Learning Language is unavailable.' };
         }
 
+        learningLanguageId = loadResponse.learningLanguageId;
+        switchNotice = loadResponse.switched
+          ? `Active Learning Language switched to ${loadResponse.learningLanguageTag ?? material.targetLanguageTag}.`
+          : '';
+        status.textContent = `${switchNotice ? `${switchNotice} ` : ''}Saving…`;
+
         return browser.runtime.sendMessage({
+          answerLanguageTag: material.referenceLanguageTag,
+          createNewSense,
           example: material.example,
           expression: material.expression,
-          studyPairId: loadResponse.studyPairId,
+          learningLanguageId,
+          senseId,
           translation: material.translation,
           type: 'duolingo-capture:save',
         }) as Promise<SaveDuolingoCaptureResponse>;
       }).then((response: SaveDuolingoCaptureResponse) => {
-        if (response.error) {
+        if ('error' in response) {
           button.disabled = false;
           status.textContent = response.error;
           return;
         }
 
+        if (response.kind === 'needs_sense') {
+          showSenseChoices(response);
+          return;
+        }
+
         status.textContent = 'Saved to Lexync.';
+      }).catch(() => {
+        button.disabled = false;
+        status.textContent = 'Capture could not be completed.';
       });
     });
   },

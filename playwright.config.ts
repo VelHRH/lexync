@@ -48,6 +48,26 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-learning-languages',
+      testMatch: /web-learning-languages\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-learning-languages-mobile',
+      testMatch: /web-learning-languages\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
+      name: 'web-multilingual-capture',
+      testMatch: /web-multilingual-capture\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-multilingual-capture-mobile',
+      testMatch: /web-multilingual-capture\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-vocabulary',
       testMatch: /web-vocabulary-entry\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },

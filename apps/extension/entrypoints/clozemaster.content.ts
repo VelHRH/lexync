@@ -147,17 +147,69 @@ export default defineContentScript({
           font: inherit;
         }
         button:disabled { cursor: default; opacity: 0.7; }
+        .sense-choice { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; font: inherit; }
+        .sense-options { display: grid; gap: 6px; }
+        .sense-choice label { display: flex; gap: 6px; align-items: flex-start; font-weight: 400; }
         [role="status"]:empty { display: none; }
+        [hidden] { display: none; }
       </style>
       <div class="capture">
         <button type="button">Add to Lexync</button>
+        <fieldset class="sense-choice" hidden>
+          <legend>Choose a Sense</legend>
+          <div class="sense-options"></div>
+          <label><input name="createNewSense" type="radio" value="new"> Create a new Sense</label>
+        </fieldset>
         <span role="status"></span>
       </div>`;
     const button = root.querySelector('button');
+    const senseChoice = root.querySelector<HTMLElement>('.sense-choice');
+    const senseOptions = root.querySelector<HTMLElement>('.sense-options');
+    const createNewSenseInput = root.querySelector<HTMLInputElement>('[name="createNewSense"]');
     const status = root.querySelector<HTMLElement>('[role="status"]');
     let displayedMaterialKey = '';
     let displayedLesson: Element | undefined;
     let generation = 0;
+    let learningLanguageId = '';
+    let senseId: string | undefined;
+    let createNewSense = false;
+    let switchNotice = '';
+
+    const showSenseChoices = (response: Extract<SaveClozemasterCaptureResponse, { kind: 'needs_sense' }>) => {
+      if (!senseChoice || !senseOptions || !createNewSenseInput || !button || !status) {
+        return;
+      }
+
+      senseId = undefined;
+      createNewSense = false;
+      senseChoice.hidden = false;
+      senseOptions.replaceChildren();
+      for (const sense of response.senses) {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.name = 'sense';
+        input.type = 'radio';
+        input.value = sense.id;
+        input.addEventListener('change', () => {
+          senseId = sense.id;
+          createNewSense = false;
+          button.disabled = false;
+        });
+        label.append(input, document.createTextNode(sense.translations.map((item) => `${item.text} (${item.answerLanguageTag})`).join(' · ') || 'Existing Sense'));
+        senseOptions.append(label);
+      }
+      createNewSenseInput.checked = false;
+      button.disabled = true;
+      status.textContent = `${switchNotice ? `${switchNotice} ` : ''}Choose a Sense or create a new Sense before saving.`;
+    };
+
+    createNewSenseInput?.addEventListener('change', () => {
+      createNewSense = createNewSenseInput.checked;
+      senseId = undefined;
+      if (button) {
+        button.disabled = !createNewSenseInput.checked;
+      }
+    });
 
     const syncCapture = () => {
       const material = lessonMaterial();
@@ -177,10 +229,19 @@ export default defineContentScript({
         displayedMaterialKey = nextMaterialKey;
         displayedLesson = nextLesson;
         generation += 1;
+        learningLanguageId = '';
+        senseId = undefined;
+        createNewSense = false;
+        switchNotice = '';
 
         if (button && status) {
           button.disabled = false;
           status.textContent = '';
+        }
+        if (senseChoice && senseOptions && createNewSenseInput) {
+          senseChoice.hidden = true;
+          senseOptions.replaceChildren();
+          createNewSenseInput.checked = false;
         }
       }
 
@@ -206,14 +267,23 @@ export default defineContentScript({
       const savedMaterialKey = materialKey(currentMaterial);
       button.disabled = true;
       status.textContent = 'Saving…';
-      void browser.runtime.sendMessage({
-        referenceLanguageTag: currentMaterial.referenceLanguageTag,
-        targetLanguageTag: currentMaterial.targetLanguageTag,
-        type: 'clozemaster-capture:load',
-      }).then((loadResponse: LoadClozemasterCaptureResponse) => {
-        if (!loadResponse.studyPairId || loadResponse.error) {
-          return loadResponse;
+      const loadResponsePromise = learningLanguageId
+        ? Promise.resolve<LoadClozemasterCaptureResponse>({ learningLanguageId })
+        : browser.runtime.sendMessage({
+          answerLanguageTag: currentMaterial.referenceLanguageTag,
+          learningLanguageTag: currentMaterial.targetLanguageTag,
+          type: 'clozemaster-capture:load',
+        }) as Promise<LoadClozemasterCaptureResponse>;
+      void loadResponsePromise.then((loadResponse: LoadClozemasterCaptureResponse) => {
+        if (!loadResponse.learningLanguageId || loadResponse.error) {
+          return { error: loadResponse.error ?? 'Matching Learning Language is unavailable.' };
         }
+
+        learningLanguageId = loadResponse.learningLanguageId;
+        switchNotice = loadResponse.switched
+          ? `Active Learning Language switched to ${loadResponse.learningLanguageTag ?? currentMaterial.targetLanguageTag}.`
+          : '';
+        status.textContent = `${switchNotice ? `${switchNotice} ` : ''}Saving…`;
 
         syncCapture();
         const latestMaterial = lessonMaterial();
@@ -227,21 +297,32 @@ export default defineContentScript({
         return browser.runtime.sendMessage({
           example: currentMaterial.example,
           expression: currentMaterial.expression,
-          studyPairId: loadResponse.studyPairId,
+          answerLanguageTag: currentMaterial.referenceLanguageTag,
+          createNewSense,
+          learningLanguageId,
+          senseId,
           translation: currentMaterial.translation,
           type: 'clozemaster-capture:save',
         }) as Promise<SaveClozemasterCaptureResponse>;
-      }).then((response: SaveClozemasterCaptureResponse | LoadClozemasterCaptureResponse | undefined) => {
+      }).then((response: SaveClozemasterCaptureResponse | undefined) => {
         if (!response || savedGeneration !== generation) {
           return;
         }
 
-        if (response.error) {
+        if ('error' in response) {
           button.disabled = false;
           status.textContent = response.error;
           return;
         }
 
+        if (response.kind === 'needs_sense') {
+          showSenseChoices(response);
+          return;
+        }
+
+        if (senseChoice) {
+          senseChoice.hidden = true;
+        }
         status.textContent = 'Saved to Lexync.';
       }).catch(() => {
         if (savedGeneration === generation) {
