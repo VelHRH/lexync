@@ -1,4 +1,4 @@
-import { studyPairLabel } from '@lexync/domain';
+import { canonicalLanguageTag, languageName, resolveAnswerLanguage } from '@lexync/domain';
 import type {
   LoadOrdinaryCaptureResponse,
   SaveOrdinaryCaptureResponse,
@@ -29,6 +29,12 @@ export default defineUnlistedScript(() => {
   const root = host.attachShadow({ mode: 'open' });
   let active = false;
   let currentExpression = '';
+  let currentLearningLanguageId = '';
+  let answerLanguageConfirmed = false;
+  let senseId: string | undefined;
+  let createNewSense = false;
+  let preferredAnswerLanguageTag = '';
+  let answerLanguageDetectionRevision = 0;
 
   root.innerHTML = `
     <style>
@@ -98,8 +104,11 @@ export default defineUnlistedScript(() => {
       <h2 id="lexync-capture-heading">Capture Expression</h2>
       <form novalidate>
         <label>Expression<input name="expression" readonly></label>
-        <label>Active Study Pair<select name="studyPair"></select><span class="pair-error error" hidden></span></label>
+        <label>Learning Language<select name="learningLanguage"></select><span class="pair-error error" hidden></span></label>
         <label>Translation<input name="translation"><span class="translation-error error" hidden></span></label>
+        <label>Answer Language<input name="answerLanguage" autocomplete="off"><span class="answer-language-error error" hidden></span></label>
+        <label class="answer-language-confirmation" hidden><input name="confirmAnswerLanguage" type="checkbox"> Confirm this Answer Language</label>
+        <fieldset class="sense-choice" hidden><legend>Choose a Sense</legend><div class="sense-options"></div><label><input name="createNewSense" type="radio" value="new"> Create a new Sense</label></fieldset>
         <label>Example <span>Optional</span><textarea name="example"></textarea></label>
         <div class="actions">
           <button type="submit">Save Vocabulary Entry</button>
@@ -114,11 +123,18 @@ export default defineUnlistedScript(() => {
   const dialog = root.querySelector<HTMLElement>('.dialog')!;
   const form = root.querySelector<HTMLFormElement>('form')!;
   const expressionInput = root.querySelector<HTMLInputElement>('[name="expression"]')!;
-  const pairSelect = root.querySelector<HTMLSelectElement>('[name="studyPair"]')!;
+  const languageSelect = root.querySelector<HTMLSelectElement>('[name="learningLanguage"]')!;
   const translationInput = root.querySelector<HTMLInputElement>('[name="translation"]')!;
   const exampleInput = root.querySelector<HTMLTextAreaElement>('[name="example"]')!;
   const pairError = root.querySelector<HTMLElement>('.pair-error')!;
   const translationError = root.querySelector<HTMLElement>('.translation-error')!;
+  const answerLanguageInput = root.querySelector<HTMLInputElement>('[name="answerLanguage"]')!;
+  const answerLanguageError = root.querySelector<HTMLElement>('.answer-language-error')!;
+  const answerLanguageConfirmation = root.querySelector<HTMLLabelElement>('.answer-language-confirmation')!;
+  const confirmAnswerLanguage = root.querySelector<HTMLInputElement>('[name="confirmAnswerLanguage"]')!;
+  const senseChoice = root.querySelector<HTMLElement>('.sense-choice')!;
+  const senseOptions = root.querySelector<HTMLElement>('.sense-options')!;
+  const createNewSenseInput = root.querySelector<HTMLInputElement>('[name="createNewSense"]')!;
   const cancelButton = root.querySelector<HTMLButtonElement>('button[type="button"]')!;
 
   function normalizedText(value: string | null): string {
@@ -182,9 +198,8 @@ export default defineUnlistedScript(() => {
     return null;
   }
 
-  async function loadStudyPairs() {
+  async function loadLearningLanguages() {
     const response = await browser.runtime.sendMessage({
-      detectedTargetLanguageTag: document.documentElement.lang,
       origin: location.origin,
       type: 'ordinary-capture:load',
     }) as LoadOrdinaryCaptureResponse;
@@ -193,41 +208,55 @@ export default defineUnlistedScript(() => {
       throw new Error(response.error);
     }
 
-    pairSelect.replaceChildren();
-
-    if (!response.selectedStudyPairId) {
+    languageSelect.replaceChildren();
+    for (const language of response.learningLanguages) {
       const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = 'Choose a Study Pair';
-      pairSelect.append(placeholder);
+      placeholder.value = language.id;
+      placeholder.textContent = languageName(language.languageTag);
+      placeholder.selected = language.id === response.activeLearningLanguageId;
+      languageSelect.append(placeholder);
     }
+    currentLearningLanguageId = response.activeLearningLanguageId ?? response.learningLanguages[0]?.id ?? '';
+    languageSelect.value = currentLearningLanguageId;
+    answerLanguageInput.value = response.answerLanguageTag ?? '';
+    preferredAnswerLanguageTag = response.answerLanguageTag ?? '';
+  }
 
-    for (const pair of response.pairs) {
-      const option = document.createElement('option');
-      option.value = pair.id;
-      option.textContent = studyPairLabel(pair);
-      option.selected = pair.id === response.selectedStudyPairId;
-      pairSelect.append(option);
-    }
+  function updateSubmitState() {
+    const submitButton = root.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (!submitButton) return;
+    submitButton.disabled = !currentLearningLanguageId
+      || !translationInput.value.trim()
+      || !canonicalLanguageTag(answerLanguageInput.value)
+      || (!answerLanguageConfirmation.hidden && !answerLanguageConfirmed)
+      || (senseChoice.hidden === false && !senseId && !createNewSense);
   }
 
   async function openCaptureValues(expression: string, example: string) {
     active = false;
+    answerLanguageDetectionRevision += 1;
     currentExpression = expression.trim();
     prompt.hidden = true;
     dialog.hidden = false;
     expressionInput.value = currentExpression;
     translationInput.value = '';
+    answerLanguageInput.value = '';
     exampleInput.value = example;
+    senseId = undefined;
+    createNewSense = false;
+    answerLanguageConfirmed = false;
+    confirmAnswerLanguage.checked = false;
+    answerLanguageConfirmation.hidden = true;
+    senseChoice.hidden = true;
     pairError.hidden = true;
     translationError.hidden = true;
 
     try {
-      await loadStudyPairs();
+      await loadLearningLanguages();
       translationInput.focus();
     } catch (error) {
       dialog.hidden = true;
-      prompt.textContent = error instanceof Error ? error.message : 'Study Pairs could not be loaded.';
+      prompt.textContent = error instanceof Error ? error.message : 'Learning Languages could not be loaded.';
       prompt.hidden = false;
     }
   }
@@ -303,16 +332,59 @@ export default defineUnlistedScript(() => {
     }
   }, true);
 
+  translationInput.addEventListener('input', () => {
+    const detectionRevision = ++answerLanguageDetectionRevision;
+    void browser.runtime.sendMessage({
+      text: translationInput.value,
+      type: 'ordinary-capture:detect-answer-language',
+    }).then((result: { languageTag?: string; reliable: boolean }) => {
+      if (detectionRevision !== answerLanguageDetectionRevision) {
+        return;
+      }
+
+      const resolution = resolveAnswerLanguage({
+        detectedAnswerLanguageTag: result.languageTag,
+        detectionConfidence: result.reliable ? 1 : 0,
+        detectionReliable: result.reliable,
+        preferredAnswerLanguageTag,
+      });
+      answerLanguageInput.value = resolution.answerLanguageTag ?? '';
+      answerLanguageConfirmation.hidden = !resolution.confirmationRequired;
+      answerLanguageConfirmed = !resolution.confirmationRequired;
+      confirmAnswerLanguage.checked = false;
+      updateSubmitState();
+    });
+  });
+  answerLanguageInput.addEventListener('input', () => {
+    answerLanguageDetectionRevision += 1;
+    if (!answerLanguageConfirmation.hidden) {
+      answerLanguageConfirmed = false;
+      confirmAnswerLanguage.checked = false;
+    }
+    updateSubmitState();
+  });
+  confirmAnswerLanguage.addEventListener('change', () => {
+    answerLanguageConfirmed = confirmAnswerLanguage.checked;
+    updateSubmitState();
+  });
+  languageSelect.addEventListener('change', () => {
+    currentLearningLanguageId = languageSelect.value;
+    updateSubmitState();
+  });
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const translation = translationInput.value.trim();
-    const studyPairId = pairSelect.value;
-    pairError.hidden = Boolean(studyPairId);
+    const learningLanguageId = languageSelect.value;
+    const answerLanguageTag = canonicalLanguageTag(answerLanguageInput.value);
+    pairError.hidden = Boolean(learningLanguageId);
     translationError.hidden = Boolean(translation);
-    pairError.textContent = studyPairId ? '' : 'Study Pair is required.';
+    answerLanguageError.hidden = Boolean(answerLanguageTag);
+    pairError.textContent = learningLanguageId ? '' : 'Learning Language is required.';
     translationError.textContent = translation ? '' : 'Translation is required.';
+    answerLanguageError.textContent = answerLanguageTag ? '' : 'Answer Language is required.';
 
-    if (!studyPairId || !translation) {
+    if (!learningLanguageId || !translation || !answerLanguageTag || (!answerLanguageConfirmed && answerLanguageConfirmation.hidden === false)) {
       return;
     }
 
@@ -321,16 +393,48 @@ export default defineUnlistedScript(() => {
     const response = await browser.runtime.sendMessage({
       example: exampleInput.value || null,
       expression: currentExpression,
+      answerLanguageTag,
+      createNewSense,
+      learningLanguageId,
       origin: location.origin,
-      studyPairId,
+      senseId,
       translation,
       type: 'ordinary-capture:save',
     }) as SaveOrdinaryCaptureResponse;
     submitButton.disabled = false;
 
-    if (response.error) {
+    if ('error' in response) {
       prompt.textContent = response.error;
       dialog.hidden = true;
+      prompt.hidden = false;
+      return;
+    }
+
+    if (response.kind === 'needs_sense') {
+      senseChoice.hidden = false;
+      senseOptions.replaceChildren();
+      for (const sense of response.senses) {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.name = 'sense';
+        input.type = 'radio';
+        input.value = sense.id;
+        input.addEventListener('change', () => {
+          senseId = sense.id;
+          createNewSense = false;
+          submitButton.disabled = false;
+        });
+        label.append(input, document.createTextNode(sense.translations.map((item) => `${item.text} (${item.answerLanguageTag})`).join(' · ') || 'Existing Sense'));
+        senseOptions.append(label);
+      }
+      createNewSenseInput.checked = false;
+      createNewSenseInput.onchange = () => {
+        createNewSense = createNewSenseInput.checked;
+        senseId = undefined;
+        submitButton.disabled = !createNewSenseInput.checked;
+      };
+      submitButton.disabled = true;
+      prompt.textContent = 'Choose a Sense or create a new Sense before saving.';
       prompt.hidden = false;
       return;
     }

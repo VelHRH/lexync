@@ -1,14 +1,14 @@
 'use client';
 
-import { canonicalLanguageTag, selectDueRecognitionCards, studyPairLabel, type RecognitionCard, type RecognitionReviewEvent, type StudyPair } from '@lexync/domain';
+import { canonicalLanguageTag, languageName, type RecognitionReviewEvent, type StudyPair } from '@lexync/domain';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { Suspense, type ReactNode } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { StudyPairOnboarding } from './StudyPairOnboarding';
-import { ScheduledRecognition } from './ScheduledRecognition';
+import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboarding';
+import { ScheduledRecognition, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
 
 const destinations = [
@@ -19,42 +19,38 @@ const destinations = [
   ['Settings', '/settings'],
 ] as const;
 
-type ManagedStudyPair = StudyPair & { entryCount: number };
-type StudyPairOverview = { entry_count: number; id: string; is_primary: boolean; reference_language_tag: string; target_language_tag: string };
-type ScheduledReviewOverview = {
+type LearningLanguageRow = { id: string; language_tag: string };
+type CompatibilityPair = StudyPair & { learningLanguageId: string };
+type LearningReviewOverview = {
+  answer_language_tag: string;
   created_at: string;
+  direction: 'recognition' | 'recall';
   events: RecognitionReviewEvent[];
   expression: string;
   id: string;
-  reference_language_tag: string;
+  learning_language_id: string;
+  learning_language_tag: string;
   sense_id: string;
-  study_pair_id: string;
   suspended: boolean;
-  target_language_tag: string;
   translations: string[];
 };
 
-function toManagedStudyPair(pair: StudyPairOverview): ManagedStudyPair {
-  return {
-    entryCount: pair.entry_count,
-    id: pair.id,
-    isPrimary: pair.is_primary,
-    referenceLanguageTag: pair.reference_language_tag,
-    targetLanguageTag: pair.target_language_tag,
-  };
+function toLearningLanguage(row: LearningLanguageRow): LearningLanguage {
+  return { id: row.id, languageTag: row.language_tag };
 }
 
-function toRecognitionCard(card: ScheduledReviewOverview): RecognitionCard {
+function toReviewCard(card: LearningReviewOverview): LearningRecognitionCard {
   return {
+    answerLanguageTag: card.answer_language_tag,
     createdAt: card.created_at,
+    direction: card.direction,
     events: card.events,
     expression: card.expression,
     id: card.id,
-    referenceLanguageTag: card.reference_language_tag,
+    learningLanguageId: card.learning_language_id,
+    learningLanguageTag: card.learning_language_tag,
     senseId: card.sense_id,
-    studyPairId: card.study_pair_id,
     suspended: card.suspended,
-    targetLanguageTag: card.target_language_tag,
     translations: card.translations,
   };
 }
@@ -63,37 +59,73 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
-  const [pairs, setPairs] = useState<ManagedStudyPair[]>([]);
-  const [pairsLoading, setPairsLoading] = useState(true);
-  const [activePairId, setActivePairId] = useState('');
-  const [pairError, setPairError] = useState('');
-  const [showPairForm, setShowPairForm] = useState(false);
-  const [editingPairId, setEditingPairId] = useState('');
-  const [targetLanguageDraft, setTargetLanguageDraft] = useState('');
-  const [referenceLanguageDraft, setReferenceLanguageDraft] = useState('');
-  const [pairSaving, setPairSaving] = useState(false);
-  const [deletingPairId, setDeletingPairId] = useState('');
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  const [deleteError, setDeleteError] = useState('');
-  const [recognitionCards, setRecognitionCards] = useState<RecognitionCard[]>([]);
+  const [languages, setLanguages] = useState<LearningLanguage[]>([]);
+  const [activeLanguageId, setActiveLanguageId] = useState('');
+  const [languagesLoading, setLanguagesLoading] = useState(true);
+  const [languageError, setLanguageError] = useState('');
+  const [pairs, setPairs] = useState<CompatibilityPair[]>([]);
+  const [recognitionCards, setRecognitionCards] = useState<LearningRecognitionCard[]>([]);
   const [recognitionLoading, setRecognitionLoading] = useState(true);
   const [recognitionError, setRecognitionError] = useState('');
+  const [languageDraft, setLanguageDraft] = useState('');
+  const [languageSaving, setLanguageSaving] = useState(false);
+  const [removingLanguageId, setRemovingLanguageId] = useState('');
+  const recognitionRequestId = useRef(0);
   const online = useOnlineStatus();
 
-  const applyRecognitionOverview = useCallback(({ data, error }: { data: ScheduledReviewOverview[] | null; error: { message: string } | null }) => {
+  const loadLanguages = useCallback(async (): Promise<string | null> => {
+    setLanguagesLoading(true);
+    const [{ data, error }, { data: state, error: stateError }] = await Promise.all([
+      supabase.from('learning_languages').select('id,language_tag').order('created_at'),
+      supabase.from('learner_language_state').select('active_learning_language_id').maybeSingle(),
+    ]);
+    if (error || stateError) {
+      setLanguageError(error?.message ?? stateError?.message ?? 'Learning Languages could not be loaded.');
+      setLanguagesLoading(false);
+      return null;
+    }
+    const nextLanguages = (data ?? []).map((row) => toLearningLanguage(row));
+    setLanguages(nextLanguages);
+    const nextActiveId = state?.active_learning_language_id && nextLanguages.some((language) => language.id === state.active_learning_language_id)
+      ? state.active_learning_language_id
+      : nextLanguages[0]?.id ?? '';
+    setActiveLanguageId(nextActiveId);
+    setLanguageError('');
+    setLanguagesLoading(false);
+    return nextActiveId;
+  }, []);
+
+  const loadPairs = useCallback(async () => {
+    const { data } = await supabase.from('study_pairs').select('id,is_primary,target_language_tag,reference_language_tag,learning_language_id').order('created_at');
+    setPairs((data ?? []).map((pair) => ({
+      id: pair.id,
+      isPrimary: pair.is_primary,
+      referenceLanguageTag: pair.reference_language_tag,
+      targetLanguageTag: pair.target_language_tag,
+      learningLanguageId: pair.learning_language_id,
+    })));
+  }, []);
+
+  const refreshRecognitionCards = useCallback(async (learningLanguageId = activeLanguageId) => {
+    const requestId = ++recognitionRequestId.current;
+    if (!learningLanguageId) {
+      if (requestId !== recognitionRequestId.current) return;
+      setRecognitionCards([]);
+      setRecognitionLoading(false);
+      return;
+    }
+    setRecognitionLoading(true);
+    const { data, error } = await supabase.rpc('learning_scheduled_review_overview', { p_learning_language_id: learningLanguageId });
+    if (requestId !== recognitionRequestId.current) return;
     if (error) {
       setRecognitionError(error.message);
       setRecognitionLoading(false);
       return;
     }
     setRecognitionError('');
-    setRecognitionCards((data ?? []).map((card: ScheduledReviewOverview) => toRecognitionCard(card)));
+    setRecognitionCards((data ?? []).map((card: LearningReviewOverview) => toReviewCard(card)));
     setRecognitionLoading(false);
-  }, []);
-
-  const refreshRecognitionCards = useCallback(async () => {
-    applyRecognitionOverview(await supabase.rpc('scheduled_review_overview'));
-  }, [applyRecognitionOverview]);
+  }, [activeLanguageId]);
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -106,28 +138,30 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
 
   useEffect(() => {
     if (!session) return;
-    void supabase.rpc('study_pair_overview').then(({ data, error }) => {
-      if (error) {
-        setPairError(error.message);
-        setPairsLoading(false);
-        return;
-      }
-      const nextPairs: ManagedStudyPair[] = (data ?? []).map((pair: StudyPairOverview) => toManagedStudyPair(pair));
-      setPairs(nextPairs);
-      const remembered = window.localStorage.getItem('lexync-active-study-pair');
-      setActivePairId((current) => current || (remembered && nextPairs.some((pair) => pair.id === remembered) ? remembered : nextPairs[0]?.id || ''));
-      setPairsLoading(false);
-    });
-  }, [session]);
+    queueMicrotask(() => void loadLanguages());
+    queueMicrotask(() => void loadPairs());
+  }, [loadLanguages, loadPairs, session]);
+
+  useEffect(() => {
+    if (!session || !activeLanguageId) return;
+    queueMicrotask(() => void refreshRecognitionCards(activeLanguageId));
+  }, [activeLanguageId, refreshRecognitionCards, session]);
 
   useEffect(() => {
     if (!session) return;
-    void supabase.rpc('scheduled_review_overview').then(applyRecognitionOverview);
-  }, [applyRecognitionOverview, session]);
+    const refresh = () => {
+      void (async () => {
+        const nextActiveId = await loadLanguages();
+        if (nextActiveId !== null) await refreshRecognitionCards(nextActiveId);
+      })();
+    };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [loadLanguages, refreshRecognitionCards, session]);
 
   useEffect(() => {
-    if (!forceOnboarding && !pairsLoading && session && pairs.length === 0) window.location.assign('/onboarding/study-pair');
-  }, [forceOnboarding, pairs.length, pairsLoading, section, session]);
+    if (!forceOnboarding && !languagesLoading && session && languages.length === 0) window.location.assign('/onboarding/study-pair');
+  }, [forceOnboarding, languages.length, languagesLoading, session]);
 
   useEffect(() => {
     if (!loading && !session && !publicContent && !signingOut) window.location.assign(`/auth/sign-in?next=${encodeURIComponent(window.location.pathname)}`);
@@ -136,11 +170,13 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   if (loading) return <main className="auth-loading" aria-busy="true">Loading your private library…</main>;
   if (!session) return <>{publicContent ?? <main className="auth-loading" aria-busy="true">Redirecting to sign in…</main>}</>;
   if (forceOnboarding) return <StudyPairOnboarding onCreated={() => window.location.assign('/')} />;
-  if (pairsLoading) return <main className="auth-loading" aria-busy="true">Loading your Study Pairs…</main>;
-  if (pairError) return <main className="auth-loading" role="alert">Unable to load your Study Pairs: {pairError}</main>;
-  if (pairs.length === 0) return <main className="auth-loading" aria-busy="true">Opening onboarding…</main>;
+  if (languagesLoading) return <main className="auth-loading" aria-busy="true">Loading your Learning Languages…</main>;
+  if (languageError && languages.length === 0) return <main className="auth-loading" role="alert">Unable to load your Learning Languages: {languageError}</main>;
+  if (languages.length === 0) return <main className="auth-loading" aria-busy="true">Opening onboarding…</main>;
 
   const activeSection = destinations.find(([label]) => label.toLowerCase() === section.toLowerCase())?.[0] ?? section;
+  const activeLanguage = languages.find((language) => language.id === activeLanguageId) ?? languages[0];
+  const activePairs = pairs.filter((pair) => pair.learningLanguageId === activeLanguage.id);
 
   async function signOut() {
     setSigningOut(true);
@@ -148,109 +184,53 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     window.location.assign('/');
   }
 
-  async function setPrimary(pairId: string) {
-    const { error } = await supabase.rpc('set_primary_study_pair', { p_study_pair_id: pairId });
-    if (error) return;
-    const selected = pairs.find((pair) => pair.id === pairId);
-    if (!selected) return;
-    setPairs((current) => current.map((pair) => ({ ...pair, isPrimary: pair.targetLanguageTag === selected.targetLanguageTag ? pair.id === pairId : pair.isPrimary })));
-  }
-
-  async function refreshEntryCounts() {
-    const [{ data, error }] = await Promise.all([
-      supabase.rpc('study_pair_overview'),
-      refreshRecognitionCards(),
-    ]);
+  async function setActiveLanguage(languageId: string) {
+    setLanguageError('');
+    const { error } = await supabase.rpc('set_active_learning_language', { p_learning_language_id: languageId });
     if (error) {
-      setPairError(error.message);
+      setLanguageError(error.message);
       return;
     }
-    setPairs((data ?? []).map((pair: StudyPairOverview) => toManagedStudyPair(pair)));
+    setActiveLanguageId(languageId);
+  }
+
+  async function addLanguage(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLanguageError('');
+    const languageTag = canonicalLanguageTag(languageDraft);
+    if (!languageTag) {
+      setLanguageError('Enter a valid BCP 47 language tag.');
+      return;
+    }
+    setLanguageSaving(true);
+    const { data, error } = await supabase.rpc('create_learning_language', { p_language_tag: languageTag });
+    setLanguageSaving(false);
+    if (error) {
+      setLanguageError(error.message.includes('already exists') ? 'This Learning Language already exists.' : error.message);
+      return;
+    }
+    const created = toLearningLanguage(data);
+    setLanguages((current) => [...current, created]);
+    setLanguageDraft('');
+  }
+
+  async function removeLanguage(language: LearningLanguage) {
+    setLanguageError('');
+    setRemovingLanguageId(language.id);
+    const { data, error } = await supabase.rpc('remove_learning_language', { p_learning_language_id: language.id });
+    setRemovingLanguageId('');
+    if (error) {
+      setLanguageError(error.message);
+      return;
+    }
+    const nextLanguages = languages.filter((candidate) => candidate.id !== language.id);
+    setLanguages(nextLanguages);
+    setActiveLanguageId(data.activeLearningLanguageId);
+    await loadPairs();
   }
 
   function recordReview(cardId: string, event: RecognitionReviewEvent) {
     setRecognitionCards((current) => current.map((card) => card.id === cardId ? { ...card, events: [...card.events, event] } : card));
-  }
-
-  function editPair(pair: ManagedStudyPair) {
-    setPairError('');
-    setEditingPairId(pair.id);
-    setTargetLanguageDraft(pair.targetLanguageTag);
-    setReferenceLanguageDraft(pair.referenceLanguageTag);
-  }
-
-  async function savePairLanguages(pair: ManagedStudyPair) {
-    const targetTag = canonicalLanguageTag(targetLanguageDraft);
-    const referenceTag = canonicalLanguageTag(referenceLanguageDraft);
-    if (!targetTag || !referenceTag) {
-      setPairError('Enter a valid BCP 47 language tag.');
-      return;
-    }
-    if (targetTag === referenceTag) {
-      setPairError('Target and Reference Languages must be different.');
-      return;
-    }
-    setPairSaving(true);
-    setPairError('');
-    const { data, error } = await supabase.rpc('update_empty_study_pair_languages', {
-      p_reference_language_tag: referenceTag,
-      p_study_pair_id: pair.id,
-      p_target_language_tag: targetTag,
-    });
-    setPairSaving(false);
-    if (error) {
-      setPairError(error.message);
-      return;
-    }
-    const oldReplacement = pair.isPrimary && pair.targetLanguageTag !== data.target_language_tag
-      ? pairs.find((candidate) => candidate.id !== pair.id && candidate.targetLanguageTag === pair.targetLanguageTag)
-      : undefined;
-    setPairs((current) => current.map((candidate) => {
-      if (candidate.id === pair.id) return {
-        ...candidate,
-        isPrimary: data.is_primary,
-        referenceLanguageTag: data.reference_language_tag,
-        targetLanguageTag: data.target_language_tag,
-      };
-      if (oldReplacement && candidate.id === oldReplacement.id) return { ...candidate, isPrimary: true };
-      if (data.is_primary && candidate.targetLanguageTag === data.target_language_tag) return { ...candidate, isPrimary: false };
-      return candidate;
-    }));
-    setEditingPairId('');
-  }
-
-  function beginDeletePair(pairId: string) {
-    setDeletingPairId(pairId);
-    setDeleteConfirmation('');
-    setDeleteError('');
-  }
-
-  async function deletePair(pair: ManagedStudyPair, confirmation = deleteConfirmation) {
-    const label = studyPairLabel(pair);
-    if (confirmation !== label) return;
-    setPairSaving(true);
-    setDeleteError('');
-    const { error } = await supabase.rpc('delete_study_pair', {
-      p_confirmation: `${pair.targetLanguageTag} → ${pair.referenceLanguageTag}`,
-      p_study_pair_id: pair.id,
-    });
-    setPairSaving(false);
-    if (error) {
-      setDeleteError(`Study Pair could not be deleted. ${error.message}`);
-      return;
-    }
-    const remainingPairs = pairs.filter((candidate) => candidate.id !== pair.id);
-    const replacement = pair.isPrimary
-      ? remainingPairs.find((candidate) => candidate.targetLanguageTag === pair.targetLanguageTag)
-      : undefined;
-    const nextPairs = remainingPairs.map((candidate) => replacement && candidate.id === replacement.id ? { ...candidate, isPrimary: true } : candidate);
-    const nextActivePairId = activePairId === pair.id ? nextPairs[0]?.id ?? '' : activePairId;
-    setPairs(nextPairs);
-    setActivePairId(nextActivePairId);
-    if (nextActivePairId) window.localStorage.setItem('lexync-active-study-pair', nextActivePairId);
-    else window.localStorage.removeItem('lexync-active-study-pair');
-    setDeletingPairId('');
-    setDeleteConfirmation('');
   }
 
   return (
@@ -258,6 +238,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
       <header className="app-header">
         <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
         <div>
+          <label className="pair-selector-label" htmlFor="active-learning-language">Active Learning Language</label>
+          <select id="active-learning-language" aria-label="Active Learning Language" value={activeLanguage.id} onChange={(event) => void setActiveLanguage(event.target.value)}>
+            {languages.map((language) => <option key={language.id} value={language.id}>{languageName(language.languageTag)} · {language.languageTag}</option>)}
+          </select>
           {online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>}
           <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
         </div>
@@ -269,65 +253,28 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
         <section className="app-content" aria-labelledby="app-heading">
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
-          {!['Home', 'Review', 'Library'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
-          {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
           {activeSection === 'Home' && !recognitionLoading && <section className="due-counts" aria-label="Scheduled Review due counts">
-            {pairs.map((pair) => {
-              const dueCount = selectDueRecognitionCards(recognitionCards, pair.id).length;
-              return <div className="due-count-row" key={pair.id}>
-                <span>{studyPairLabel(pair)} <strong>{dueCount} due</strong></span>
-                {pair.id === activePairId && <Link className="secondary-button" href="/review">Start {studyPairLabel(pair)} review</Link>}
-              </div>;
-            })}
+            <div className="due-count-row"><span>{languageName(activeLanguage.languageTag)} <strong>{recognitionCards.length} due</strong></span><Link className="secondary-button" href="/review">Start review</Link></div>
           </section>}
-          {activeSection === 'Review' && !recognitionLoading && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} pair={pairs.find((pair) => pair.id === activePairId) ?? pairs[0]} />}
-          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary key={(pairs.find((pair) => pair.id === activePairId) ?? pairs[0]).id} onEntriesChanged={refreshEntryCounts} pair={pairs.find((pair) => pair.id === activePairId) ?? pairs[0]} pairs={pairs} /></Suspense>}
-          <label className="pair-selector-label" htmlFor="active-study-pair">Active Study Pair</label>
-          <select id="active-study-pair" aria-label="Active Study Pair" value={activePairId} onChange={(event) => { setActivePairId(event.target.value); window.localStorage.setItem('lexync-active-study-pair', event.target.value); }}>
-            {pairs.map((pair) => <option key={pair.id} value={pair.id}>{studyPairLabel(pair)}</option>)}
-          </select>
-          {pairError && <p className="form-notice error" role="alert">{pairError}</p>}
-          {!online && <p className="form-notice" role="status">Study Pair repair requires a connection.</p>}
-          <div className="pair-management">
-            <button className="secondary-button" type="button" disabled={!online} onClick={() => setShowPairForm((current) => !current)}>Add Study Pair</button>
-            {pairs.map((pair) => <div className="pair-row" key={pair.id}>
-              <div className="pair-row-heading">
-                <span>{studyPairLabel(pair)} {pair.isPrimary && <strong>Primary</strong>}</span>
-                {pair.entryCount > 0 && <p className="app-empty">Languages are locked because this Study Pair owns Vocabulary Entries.</p>}
-              </div>
-              {editingPairId === pair.id ? <form className="pair-language-form" onSubmit={(event) => { event.preventDefault(); void savePairLanguages(pair); }}>
-                <label htmlFor={`pair-target-${pair.id}`}>Target Language for {studyPairLabel(pair)}</label>
-                <input id={`pair-target-${pair.id}`} value={targetLanguageDraft} onChange={(event) => setTargetLanguageDraft(event.target.value)} />
-                <label htmlFor={`pair-reference-${pair.id}`}>Reference Language for {studyPairLabel(pair)}</label>
-                <input id={`pair-reference-${pair.id}`} value={referenceLanguageDraft} onChange={(event) => setReferenceLanguageDraft(event.target.value)} />
-                <div>
-                  <button className="text-button" type="submit" disabled={pairSaving}>Save languages</button>
-                  <button className="text-button" type="button" onClick={() => setEditingPairId('')}>Cancel</button>
-                </div>
-              </form> : <div className="pair-row-actions">
-                <button className="text-button" type="button" onClick={() => editPair(pair)} disabled={!online || pair.entryCount > 0}>Edit languages for {studyPairLabel(pair)}</button>
-                <button className="text-button" type="button" onClick={() => void setPrimary(pair.id)} disabled={!online || pair.isPrimary}>Make primary {studyPairLabel(pair)}</button>
-                <button className="text-button danger" type="button" onClick={() => beginDeletePair(pair.id)} disabled={!online || pairs.length === 1}>Delete {studyPairLabel(pair)}</button>
-              </div>}
-            </div>)}
-          </div>
-          {showPairForm && <StudyPairOnboarding completeImmediately onCreated={(pair) => { setPairs((current) => [...current, { ...pair, entryCount: 0 }]); setActivePairId(pair.id); window.localStorage.setItem('lexync-active-study-pair', pair.id); setShowPairForm(false); }} />}
-          {deletingPairId && (() => {
-            const pair = pairs.find((candidate) => candidate.id === deletingPairId);
-            if (!pair) return null;
-            const label = studyPairLabel(pair);
-            return <section className="pair-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="pair-delete-heading">
-              <h2 id="pair-delete-heading">Delete {label}</h2>
-              <p>Vocabulary Entries, private Senses, translations, Examples, Collections, and learning progress will be permanently deleted.</p>
-              <label htmlFor="pair-delete-confirmation">Type {label} to confirm</label>
-              <input id="pair-delete-confirmation" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} />
-              {deleteError && <p className="form-notice error" role="alert">{deleteError}</p>}
-              <div>
-                <button className="secondary-button danger" type="button" disabled={pairSaving || deleteConfirmation !== label} onClick={() => void deletePair(pair)}>Delete Study Pair</button>
-                <button className="secondary-button" type="button" disabled={pairSaving} onClick={() => { setDeletingPairId(''); setDeleteConfirmation(''); setDeleteError(''); }}>Cancel</button>
-              </div>
-            </section>;
-          })()}
+          {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
+          {activeSection === 'Review' && !recognitionLoading && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={activeLanguage} />}
+          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
+          {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
+            <h2 id="learning-languages-heading">Learning Languages</h2>
+            <form className="web-auth-form" onSubmit={addLanguage}>
+              <label htmlFor="settings-learning-language">Learning Language</label>
+              <input id="settings-learning-language" value={languageDraft} onChange={(event) => setLanguageDraft(event.target.value)} placeholder="fr-CA" autoComplete="off" />
+              <button className="primary-button" type="submit" disabled={!online || languageSaving}>{languageSaving ? 'Adding…' : 'Add Learning Language'}</button>
+            </form>
+            {languageError && <p className="form-notice error" role="alert">{languageError}</p>}
+            <ul>
+              {languages.map((language) => <li className="language-row" key={language.id}>
+                <span>{languageName(language.languageTag)} · <span>{language.languageTag}</span>{language.id === activeLanguage.id && <strong> Active</strong>}</span>
+                <button className="text-button danger" type="button" disabled={!online || languages.length === 1 || removingLanguageId === language.id} onClick={() => void removeLanguage(language)}>{removingLanguageId === language.id ? 'Removing…' : `Remove ${language.languageTag}`}</button>
+              </li>)}
+            </ul>
+          </section>}
+          {!['Home', 'Review', 'Library', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
         </section>
       </div>
     </main>

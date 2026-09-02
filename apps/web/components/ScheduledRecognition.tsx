@@ -3,14 +3,26 @@
 import {
   deriveRecognitionCardSchedule,
   languageName,
-  selectDueRecognitionCards,
-  type RecognitionCard,
   type RecognitionReviewEvent,
   type ScheduledReviewRating,
-  type StudyPair,
 } from '@lexync/domain';
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import type { LearningLanguage } from './StudyPairOnboarding';
+
+export type LearningRecognitionCard = {
+  answerLanguageTag: string;
+  createdAt: string;
+  direction: 'recognition' | 'recall';
+  events: RecognitionReviewEvent[];
+  expression: string;
+  id: string;
+  learningLanguageId: string;
+  learningLanguageTag: string;
+  senseId: string;
+  suspended: boolean;
+  translations: string[];
+};
 
 const ratingValues: { label: string; rating: ScheduledReviewRating }[] = [
   { label: 'Again', rating: 'again' },
@@ -22,13 +34,17 @@ const ratingValues: { label: string; rating: ScheduledReviewRating }[] = [
 export function ScheduledRecognition({
   cards,
   onReviewConfirmed,
-  pair,
+  language,
 }: {
-  cards: RecognitionCard[];
+  cards: LearningRecognitionCard[];
   onReviewConfirmed: (cardId: string, event: RecognitionReviewEvent) => void;
-  pair: StudyPair;
+  language: LearningLanguage;
 }) {
-  const dueCards = selectDueRecognitionCards(cards, pair.id);
+  const [now] = useState(() => Date.now());
+  const dueCards = cards
+    .filter((card) => card.learningLanguageId === language.id && !card.suspended)
+    .filter((card) => deriveRecognitionCardSchedule(card).due.getTime() <= now)
+    .sort((first, second) => deriveRecognitionCardSchedule(first).due.getTime() - deriveRecognitionCardSchedule(second).due.getTime());
   const currentCard = dueCards[0];
   const [revealedCardId, setRevealedCardId] = useState('');
   const [rating, setRating] = useState<ScheduledReviewRating>('again');
@@ -37,16 +53,10 @@ export function ScheduledRecognition({
   const [error, setError] = useState('');
 
   if (!currentCard) {
-    const nextCard = cards
-      .filter((card) => card.studyPairId === pair.id && !card.suspended)
-      .map((card) => ({ card, schedule: deriveRecognitionCardSchedule(card) }))
-      .sort((first, second) => first.schedule.due.getTime() - second.schedule.due.getTime())[0];
-
     return <section className="scheduled-recognition" aria-labelledby="recognition-heading">
       <h2 id="recognition-heading">Recognition</h2>
       {notice && <p className="form-notice" role="status">{notice}</p>}
-      <p>No recognition Cards are due for {languageName(pair.targetLanguageTag)} → {languageName(pair.referenceLanguageTag)}.</p>
-      {nextCard && <p className="app-empty">Next recognition review {nextCard.schedule.due.toLocaleString()}.</p>}
+      <p>No recognition Cards are due for {languageName(language.languageTag)}.</p>
     </section>;
   }
 
@@ -81,7 +91,7 @@ export function ScheduledRecognition({
   return <section className="scheduled-recognition" aria-labelledby="recognition-heading">
     <p className="eyebrow"><span /> Scheduled Review</p>
     <h2 id="recognition-heading">Recognition</h2>
-    <p className="app-empty">Translate from {languageName(pair.targetLanguageTag)} to {languageName(pair.referenceLanguageTag)}.</p>
+    <p className="app-empty">Translate from {languageName(language.languageTag)}. Answer Language: {currentCard.answerLanguageTag}.</p>
     <p className="recognition-expression">{currentCard.expression}</p>
     {!revealed && <button className="primary-button" type="button" onClick={() => setRevealedCardId(currentCard.id)}>Reveal translation</button>}
     {revealed && <>

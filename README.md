@@ -21,7 +21,7 @@ pnpm android:test
 pnpm android:build
 ```
 
-Run the web application locally with `pnpm dev`.
+Run Supabase, the web application, and the WXT extension together with `pnpm dev`. Run only the web application with `pnpm dev:web` or only the extension with `pnpm dev:extension`.
 
 ## Local backend and extension
 
@@ -32,7 +32,7 @@ pnpm backend:start
 pnpm backend:reset
 ```
 
-Run the WXT extension in development with `pnpm dev:extension`. Copy `.env.example` to `.env.local` and provide the Supabase URL, browser-safe publishable key, and web URL. Secret and service-role keys must never use a `WXT_PUBLIC_` variable.
+Copy `.env.example` to `.env.local` and provide the Supabase URL, browser-safe publishable key, and web URL. Secret and service-role keys must never use a `WXT_PUBLIC_` variable.
 
 `pnpm test` starts and resets the local Supabase project, runs the focused ownership-policy tests, builds every JavaScript/TypeScript workspace, and runs Playwright. Stop the local services with `pnpm backend:stop` when they are no longer needed.
 

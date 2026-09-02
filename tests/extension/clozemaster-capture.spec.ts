@@ -2,14 +2,12 @@ import { expect, test } from './fixtures';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-async function createStudyPair(
+async function createLearningLanguage(
   learnerClient: SupabaseClient,
-  targetLanguageTag: string,
-  referenceLanguageTag: string,
+  languageTag: string,
 ) {
-  const { data, error } = await learnerClient.rpc('create_study_pair', {
-    p_reference_language_tag: referenceLanguageTag,
-    p_target_language_tag: targetLanguageTag,
+  const { data, error } = await learnerClient.rpc('create_learning_language', {
+    p_language_tag: languageTag,
   });
 
   if (error) {
@@ -80,12 +78,12 @@ async function openClozemasterFixture(
 }
 
 test.describe('Clozemaster lesson capture', () => {
-  test('saves an answered live lesson to the Exit course Study Pair', async ({
+  test('saves an answered live lesson to the Exit course Learning Language', async ({
     extensionContext,
     extensionPage,
     learnerClient,
   }) => {
-    const coursePair = await createStudyPair(learnerClient, 'lt', 'en');
+    const learningLanguage = await createLearningLanguage(learnerClient, 'lt');
     await extensionPage.close();
     const page = await openClozemasterFixture(extensionContext, liveLessonMarkup(), 'https://www.clozemaster.com/play');
 
@@ -94,11 +92,11 @@ test.describe('Clozemaster lesson capture', () => {
     await expect(page.getByRole('status')).toHaveText('Saved to Lexync.');
     const { data } = await learnerClient
       .from('vocabulary_entries')
-      .select('expression, study_pair_id, senses(translations(text), examples(text))')
+      .select('expression, learning_language_id, senses(translations(text), examples(text))')
       .single();
     expect(data).toEqual({
       expression: 'draugas',
-      study_pair_id: coursePair.id,
+      learning_language_id: learningLanguage.id,
       senses: [{
         examples: [{ text: 'Johnas yra mano geriausias draugas.' }],
         translations: [{ text: 'John is my best friend.' }],
@@ -106,12 +104,42 @@ test.describe('Clozemaster lesson capture', () => {
     });
   });
 
+  test('keeps a saved capture successful when Learning Language sync fails', async ({
+    extensionContext,
+    extensionPage,
+    learnerClient,
+  }) => {
+    await createLearningLanguage(learnerClient, 'it');
+    await extensionPage.close();
+    let snapshotRequests = 0;
+    await extensionContext.route('http://127.0.0.1:54321/rest/v1/rpc/account_learning_snapshot*', async (route) => {
+      snapshotRequests += 1;
+      if (snapshotRequests >= 2) {
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
+    const page = await openClozemasterFixture(extensionContext, lessonMarkup());
+
+    await page.getByRole('button', { name: 'Add to Lexync' }).click();
+
+    await expect(page.getByRole('status')).toHaveText('Saved to Lexync.');
+    const { data, error } = await learnerClient
+      .from('translations')
+      .select('text')
+      .eq('text', 'cat')
+      .single();
+    if (error) throw error;
+    expect(data).toEqual({ text: 'cat' });
+  });
+
   test('refreshes the live capture action when Clozemaster replaces the lesson', async ({
     extensionContext,
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'lt', 'en');
+    await createLearningLanguage(learnerClient, 'lt');
     await extensionPage.close();
     const page = await openClozemasterFixture(extensionContext, '<!doctype html><html><body><a href="/l/lit-eng" title="Exit">×</a><main class="stage"></main></body></html>', 'https://www.clozemaster.com/play');
     const save = page.getByRole('button', { name: 'Add to Lexync' });
@@ -153,18 +181,18 @@ test.describe('Clozemaster lesson capture', () => {
     });
   });
 
-  test('does not persist a lesson replaced during Study Pair resolution', async ({
+  test('does not persist a lesson replaced during Learning Language resolution', async ({
     extensionContext,
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'lt', 'en');
+    await createLearningLanguage(learnerClient, 'lt');
     await extensionPage.close();
     let resolveLookupStarted!: () => void;
     let releaseLookup!: () => void;
     const lookupStarted = new Promise<void>((resolve) => { resolveLookupStarted = resolve; });
     const lookupReleased = new Promise<void>((resolve) => { releaseLookup = resolve; });
-    await extensionContext.route('http://127.0.0.1:54321/rest/v1/study_pairs*', async (route) => {
+    await extensionContext.route('http://127.0.0.1:54321/rest/v1/rpc/account_learning_snapshot*', async (route) => {
       resolveLookupStarted();
       await lookupReleased;
       await route.continue();
@@ -200,17 +228,12 @@ test.describe('Clozemaster lesson capture', () => {
     }]);
   });
 
-  test('deliberately saves displayed material to the course Study Pair', async ({
+  test('deliberately saves displayed material to the course Learning Language', async ({
     extensionContext,
     extensionPage,
     learnerClient,
   }) => {
-    const coursePair = await createStudyPair(learnerClient, 'it', 'en');
-    const rememberedPair = await createStudyPair(learnerClient, 'it', 'uk');
-    await extensionPage.evaluate(
-      ([key, value]) => chrome.storage.local.set({ [key]: value }),
-      ['lexync.websiteStudyPair.https://www.clozemaster.com', rememberedPair.id],
-    );
+    const learningLanguage = await createLearningLanguage(learnerClient, 'it');
     await extensionPage.close();
     const page = await openClozemasterFixture(extensionContext, lessonMarkup());
 
@@ -225,11 +248,11 @@ test.describe('Clozemaster lesson capture', () => {
     await expect(page.getByRole('status')).toHaveText('Saved to Lexync.');
     const { data } = await learnerClient
       .from('vocabulary_entries')
-      .select('expression, study_pair_id, senses(translations(text), examples(text))')
+      .select('expression, learning_language_id, senses(translations(text), examples(text))')
       .single();
     expect(data).toEqual({
       expression: 'gatto',
-      study_pair_id: coursePair.id,
+      learning_language_id: learningLanguage.id,
       senses: [{
         examples: [{ text: 'Il gatto dorme sul divano.' }],
         translations: [{ text: 'cat' }],
@@ -242,7 +265,7 @@ test.describe('Clozemaster lesson capture', () => {
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'it', 'en');
+    await createLearningLanguage(learnerClient, 'it');
     await extensionPage.close();
     const firstPage = await openClozemasterFixture(extensionContext, lessonMarkup());
     await firstPage.getByRole('button', { name: 'Add to Lexync' }).click();
@@ -268,38 +291,37 @@ test.describe('Clozemaster lesson capture', () => {
 
     const { data } = await learnerClient
       .from('vocabulary_entries')
-      .select('expression, senses(translations(text), examples(text))');
+      .select('expression, senses(translations(text, answer_language_tag), examples(text))');
     expect(data).toEqual([{
       expression: 'gatto',
       senses: expect.arrayContaining([
         {
-          examples: [
+          examples: expect.arrayContaining([
             { text: 'Il gatto dorme sul divano.' },
             { text: 'Un gatto attraversa il cortile.' },
-          ],
-          translations: [{ text: 'cat' }],
-        },
-        {
-          examples: [],
-          translations: [{ text: 'feline' }],
+          ]),
+          translations: expect.arrayContaining([
+            { text: 'cat', answer_language_tag: 'en' },
+            { text: 'feline', answer_language_tag: 'en' },
+          ]),
         },
       ]),
     }]);
   });
 
-  test('keeps material unsaved when the course Study Pair is unavailable', async ({
+  test('keeps material unsaved when the Learning Language is unavailable', async ({
     extensionContext,
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'it', 'uk');
+    await createLearningLanguage(learnerClient, 'fr');
     await extensionPage.close();
     const page = await openClozemasterFixture(extensionContext, lessonMarkup());
     const save = page.getByRole('button', { name: 'Add to Lexync' });
 
     await save.click();
 
-    await expect(page.getByRole('status')).toHaveText('Matching Study Pair is unavailable.');
+    await expect(page.getByRole('status')).toHaveText('Matching Learning Language is unavailable.');
     await expect(save).toBeEnabled();
     const { count } = await learnerClient
       .from('vocabulary_entries')
@@ -312,7 +334,7 @@ test.describe('Clozemaster lesson capture', () => {
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'it', 'en');
+    await createLearningLanguage(learnerClient, 'it');
     await extensionPage.close();
     const page = await openClozemasterFixture(extensionContext, `<!doctype html>
       <html>
@@ -337,7 +359,7 @@ test.describe('Clozemaster lesson capture', () => {
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'it', 'en');
+    await createLearningLanguage(learnerClient, 'it');
     await extensionPage.close();
     const page = await openClozemasterFixture(extensionContext, lessonMarkup());
     const save = page.getByRole('button', { name: 'Add to Lexync' });

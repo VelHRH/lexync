@@ -1,33 +1,24 @@
+import type { CaptureLearningLanguageResponse } from './learning-language-messages';
+
 export type LoadClozemasterCaptureMessage = {
-  referenceLanguageTag: string;
-  targetLanguageTag: string;
+  answerLanguageTag: string;
+  learningLanguageTag: string;
   type: 'clozemaster-capture:load';
 };
-
-export type LoadClozemasterCaptureResponse = {
-  error?: string;
-  studyPairId?: string;
-};
-
+export type LoadClozemasterCaptureResponse = { error?: string; learningLanguageId?: string; switched?: boolean; learningLanguageTag?: string };
 export type SaveClozemasterCaptureMessage = {
+  answerLanguageTag: string;
+  createNewSense?: boolean;
   example: string | null;
   expression: string;
-  studyPairId: string;
+  learningLanguageId: string;
+  senseId?: string;
   translation: string;
   type: 'clozemaster-capture:save';
 };
-
-export type SaveClozemasterCaptureResponse = {
-  error?: string;
-};
-
+export type SaveClozemasterCaptureResponse = CaptureLearningLanguageResponse;
 export type ClozemasterCaptureMessage = LoadClozemasterCaptureMessage | SaveClozemasterCaptureMessage;
-
 export function isClozemasterCaptureMessage(value: unknown): value is ClozemasterCaptureMessage {
-  if (typeof value !== 'object' || value === null || !('type' in value)) {
-    return false;
-  }
-
-  return value.type === 'clozemaster-capture:load'
-    || value.type === 'clozemaster-capture:save';
+  return typeof value === 'object' && value !== null && 'type' in value
+    && (value.type === 'clozemaster-capture:load' || value.type === 'clozemaster-capture:save');
 }

@@ -1,61 +1,49 @@
 'use client';
 
-import { canonicalLanguageTag, studyPairLabel, type StudyPair } from '@lexync/domain';
+import { canonicalLanguageTag } from '@lexync/domain';
 import { type FormEvent, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-export function StudyPairOnboarding({ onCreated, completeImmediately = false }: { onCreated: (pair: StudyPair) => void; completeImmediately?: boolean }) {
-  const [targetLanguage, setTargetLanguage] = useState('');
-  const [referenceLanguage, setReferenceLanguage] = useState('');
+export type LearningLanguage = { id: string; languageTag: string };
+
+export function StudyPairOnboarding({ onCreated, completeImmediately = false }: { onCreated: (language: LearningLanguage) => void; completeImmediately?: boolean }) {
+  const [languageDraft, setLanguageDraft] = useState('');
   const [notice, setNotice] = useState('');
-  const [createdPair, setCreatedPair] = useState<StudyPair | null>(null);
+  const [createdLanguage, setCreatedLanguage] = useState<LearningLanguage | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setNotice('');
-    const targetTag = canonicalLanguageTag(targetLanguage);
-    const referenceTag = canonicalLanguageTag(referenceLanguage);
-    if (!targetTag || !referenceTag) {
+    const languageTag = canonicalLanguageTag(languageDraft);
+    if (!languageTag) {
       setNotice('Enter a valid BCP 47 language tag.');
       return;
     }
-    if (targetTag === referenceTag) {
-      setNotice('Target and Reference Languages must be different.');
-      return;
-    }
     setSubmitting(true);
-    const { data, error } = await supabase.rpc('create_study_pair', {
-      p_reference_language_tag: referenceTag,
-      p_target_language_tag: targetTag,
-    });
+    const { data, error } = await supabase.rpc('create_learning_language', { p_language_tag: languageTag });
     setSubmitting(false);
     if (error) {
-      setNotice(error.code === '23505' ? 'This Study Pair already exists.' : error.message);
+      setNotice(error.message.includes('already exists') ? 'This Learning Language already exists.' : error.message);
       return;
     }
-    const pair = {
-      id: data.id,
-      isPrimary: data.is_primary,
-      referenceLanguageTag: data.reference_language_tag,
-      targetLanguageTag: data.target_language_tag,
-    } satisfies StudyPair;
+    const language = { id: data.id, languageTag: data.language_tag } satisfies LearningLanguage;
     if (completeImmediately) {
-      onCreated(pair);
+      onCreated(language);
       return;
     }
-    setCreatedPair(pair);
+    setCreatedLanguage(language);
   }
 
-  if (createdPair) {
+  if (createdLanguage) {
     return (
-      <section className="pair-onboarding" aria-labelledby="pair-ready-heading">
+      <section className="pair-onboarding" aria-labelledby="language-ready-heading">
         <p className="eyebrow"><span /> First step</p>
-        <h1 id="pair-ready-heading">Your Study Pair is ready</h1>
-        <p className="app-empty">{studyPairLabel(createdPair)} is now your active learning context.</p>
+        <h1 id="language-ready-heading">Your Learning Language is ready</h1>
+        <p className="app-empty">{createdLanguage.languageTag} is now your active learning context.</p>
         <div className="pair-onboarding-actions">
-          <button className="primary-button" type="button" onClick={() => onCreated(createdPair)}>Continue to dashboard</button>
-          <button className="secondary-button" type="button" onClick={() => window.location.assign(`/library?add=1&studyPair=${createdPair.id}`)}>Add a Vocabulary Entry</button>
+          <button className="primary-button" type="button" onClick={() => onCreated(createdLanguage)}>Continue to dashboard</button>
+          <button className="secondary-button" type="button" onClick={() => window.location.assign('/library?add=1')}>Add a Vocabulary Entry</button>
           <button className="secondary-button" type="button" onClick={() => window.location.assign('/#extension')}>Install extension</button>
         </div>
       </section>
@@ -65,15 +53,13 @@ export function StudyPairOnboarding({ onCreated, completeImmediately = false }: 
   return (
     <main className="pair-onboarding">
       <p className="eyebrow"><span /> Your language context</p>
-      <h1>Set up your first Study Pair</h1>
-      <p className="app-empty">Choose the language you are learning as Target and the language you use as Reference. You can add more pairs later.</p>
+      <h1>Set up your first Learning Language</h1>
+      <p className="app-empty">Choose the language you are learning. You can add more languages later.</p>
       <form className="web-auth-form" onSubmit={submit}>
-        <label htmlFor="target-language">Target Language</label>
-        <input id="target-language" value={targetLanguage} onChange={(event) => setTargetLanguage(event.target.value)} placeholder="es or pt-BR" autoComplete="off" />
-        <label htmlFor="reference-language">Reference Language</label>
-        <input id="reference-language" value={referenceLanguage} onChange={(event) => setReferenceLanguage(event.target.value)} placeholder="en" autoComplete="off" />
+        <label htmlFor="learning-language">Learning Language</label>
+        <input id="learning-language" value={languageDraft} onChange={(event) => setLanguageDraft(event.target.value)} placeholder="es or pt-BR" autoComplete="off" />
         {notice && <p className="form-notice error" role="alert">{notice}</p>}
-        <button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Creating…' : 'Create Study Pair'}</button>
+        <button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Creating…' : 'Create Learning Language'}</button>
       </form>
     </main>
   );

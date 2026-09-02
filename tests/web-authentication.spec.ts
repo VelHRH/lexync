@@ -65,13 +65,15 @@ test.describe('authenticated web learning client', () => {
     await page.getByRole('button', { name: 'Create account' }).click();
 
     await expect(page).toHaveURL('/onboarding/study-pair');
-    await page.getByLabel('Target Language').fill('es');
-    await page.getByLabel('Reference Language').fill('en');
-    await page.getByRole('button', { name: 'Create Study Pair' }).click();
-    await expect(page.getByRole('heading', { name: 'Your Study Pair is ready' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Learning Language/i })).toBeVisible();
+    await expect(page.getByLabel(/Answer Language|Reference Language/i)).toHaveCount(0);
+    await page.getByLabel('Learning Language').fill('es');
+    await page.getByRole('button', { name: 'Create Learning Language' }).click();
+    await expect(page.getByRole('heading', { name: 'Your Learning Language is ready' })).toBeVisible();
     await page.getByRole('button', { name: 'Continue to dashboard' }).click();
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByLabel('Active Learning Language')).toContainText(/Spanish|es/i);
     await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
 
     await page.getByRole('link', { name: 'Library' }).click();

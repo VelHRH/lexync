@@ -24,6 +24,37 @@ export type TranslationLanguageUsage = {
   senseId: string;
 };
 
+export type AnswerLanguageResolution =
+  | {
+      answerLanguageTag: string;
+      confirmationRequired: false;
+      confidence: 'confirmed';
+      editable: false;
+      source: 'adapter';
+    }
+  | {
+      answerLanguageTag: string;
+      confirmationRequired: false;
+      confidence: 'suggested';
+      editable: true;
+      source: 'detector';
+    }
+  | {
+      answerLanguageTag: string | null;
+      confirmationRequired: true;
+      confidence: 'fallback';
+      editable: true;
+      source: 'detector' | 'preferred';
+    };
+
+export type AnswerLanguageResolutionOptions = {
+  adapterAnswerLanguageTag?: string;
+  detectedAnswerLanguageTag?: string;
+  detectionConfidence?: number;
+  detectionReliable?: boolean;
+  preferredAnswerLanguageTag?: string;
+};
+
 export type LanguagePair = {
   answerLanguageTag: string;
   learningLanguageTag: string;
@@ -107,6 +138,46 @@ export function canonicalLanguageTag(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+export function resolveAnswerLanguage(options: AnswerLanguageResolutionOptions): AnswerLanguageResolution {
+  const adapterAnswerLanguageTag = options.adapterAnswerLanguageTag
+    ? canonicalLanguageTag(options.adapterAnswerLanguageTag)
+    : null;
+
+  if (adapterAnswerLanguageTag) {
+    return {
+      answerLanguageTag: adapterAnswerLanguageTag,
+      confirmationRequired: false,
+      confidence: 'confirmed',
+      editable: false,
+      source: 'adapter',
+    };
+  }
+
+  const detectedAnswerLanguageTag = options.detectedAnswerLanguageTag
+    ? canonicalLanguageTag(options.detectedAnswerLanguageTag)
+    : null;
+
+  if (detectedAnswerLanguageTag && options.detectionReliable && (options.detectionConfidence ?? 0) > 0) {
+    return {
+      answerLanguageTag: detectedAnswerLanguageTag,
+      confirmationRequired: false,
+      confidence: 'suggested',
+      editable: true,
+      source: 'detector',
+    };
+  }
+
+  return {
+    answerLanguageTag: options.preferredAnswerLanguageTag
+      ? canonicalLanguageTag(options.preferredAnswerLanguageTag)
+      : null,
+    confirmationRequired: true,
+    confidence: 'fallback',
+    editable: true,
+    source: detectedAnswerLanguageTag ? 'detector' : 'preferred',
+  };
 }
 
 export function deriveLanguagePairs(usages: TranslationLanguageUsage[]): LanguagePair[] {

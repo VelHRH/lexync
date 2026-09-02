@@ -1,4 +1,3 @@
-import { studyPairLabel } from '@lexync/domain';
 import type { LearningModeEntry, LearningModeLoadResponse } from '../lib/learning-mode-messages';
 
 type LearningScope = typeof globalThis & {
@@ -23,7 +22,7 @@ export default defineUnlistedScript(async () => {
   }) as LearningModeLoadResponse;
 
   if (!response.permitted || (response.decided && !response.enabled)
-    || (!response.enabled && !response.selectedStudyPairId)) {
+    || (!response.enabled && !response.selectedLearningLanguageId)) {
     scope.__lexyncLearningMode = false;
     return;
   }
@@ -99,7 +98,7 @@ export default defineUnlistedScript(async () => {
     <section class="card" role="dialog" aria-labelledby="lexync-learning-heading" hidden>
       <h2 id="lexync-learning-heading">Learning Mode</h2>
       <p class="proposal"></p>
-      <label hidden>Study Pair<select></select></label>
+      <label hidden>Learning Language<select></select></label>
       <div class="actions"><button class="primary enable">Enable</button><button class="secondary decline">Not now</button></div>
     </section>
     <button class="mode-status" type="button" aria-label="Disable Learning Mode" title="Turn off Learning Mode" hidden>Learning Mode is on</button>
@@ -113,8 +112,8 @@ export default defineUnlistedScript(async () => {
   document.documentElement.append(hoverStyle);
   const card = root.querySelector<HTMLElement>('.card')!;
   const proposal = root.querySelector<HTMLElement>('.proposal')!;
-  const pairLabel = root.querySelector<HTMLLabelElement>('label')!;
-  const pairSelect = root.querySelector<HTMLSelectElement>('select')!;
+  const languageLabel = root.querySelector<HTMLLabelElement>('label')!;
+  const languageSelect = root.querySelector<HTMLSelectElement>('select')!;
   const enableButton = root.querySelector<HTMLButtonElement>('.enable')!;
   const declineButton = root.querySelector<HTMLButtonElement>('.decline')!;
   const status = root.querySelector<HTMLButtonElement>('.mode-status')!;
@@ -144,20 +143,29 @@ export default defineUnlistedScript(async () => {
     translationTooltip.hidden = true;
     const senses = entry.senses.map((sense) => `
       <div class="sense">
-        ${sense.translations.map((translation) => `<strong>${escapeMarkup(translation)}</strong>`).join('')}
+        ${sense.translations.map((translation) => `<strong>${escapeMarkup(translation.text)} (${escapeMarkup(languageName(translation.answerLanguageTag))})</strong>`).join('')}
         ${sense.examples.map((example) => `<span>${escapeMarkup(example)}</span>`).join('')}
       </div>
     `).join('');
-    details.innerHTML = `<h2>${escapeMarkup(entry.expression)}</h2>${senses}<button class="secondary">Close</button>`;
+    details.innerHTML = `<h2>${escapeMarkup(entry.expression)}</h2>${senses}<div class="actions"><button class="primary add-translation" type="button">Add translation</button><button class="secondary close" type="button">Close</button></div>`;
     details.hidden = false;
-    details.querySelector('button')?.addEventListener('click', () => {
+    details.querySelector<HTMLButtonElement>('.add-translation')?.addEventListener('click', () => {
+      const example = entry.senses.flatMap((sense) => sense.examples)[0] ?? '';
+      details.hidden = true;
+      void browser.runtime.sendMessage({ type: 'learning-mode:start-capture' }).then(() => {
+        scope.__lexyncOpenOrdinaryCapture?.(entry.expression, example);
+      });
+    });
+    details.querySelector<HTMLButtonElement>('.close')?.addEventListener('click', () => {
       details.hidden = true;
     });
   }
 
   function showTranslationTooltip(entry: LearningModeEntry, mark: HTMLElement) {
-    const translations = [...new Set(entry.senses.flatMap((sense) => sense.translations))];
-    translationTooltip.textContent = translations.join(' · ');
+    const translations = [...new Map(entry.senses.flatMap((sense) => sense.translations).map((translation) => [
+      `${translation.text}\u0000${translation.answerLanguageTag}`, translation,
+    ])).values()];
+    translationTooltip.textContent = translations.map((translation) => `${translation.text} (${languageName(translation.answerLanguageTag)})`).join(' · ');
 
     if (!translationTooltip.textContent) {
       return;
@@ -296,18 +304,18 @@ export default defineUnlistedScript(async () => {
   }
 
   async function enable() {
-    const studyPairId = pairSelect.value || response.selectedStudyPairId;
+    const learningLanguageId = languageSelect.value || response.selectedLearningLanguageId;
 
-    if (!studyPairId) {
-      pairLabel.hidden = false;
-      pairSelect.focus();
+    if (!learningLanguageId) {
+      languageLabel.hidden = false;
+      languageSelect.focus();
       return;
     }
 
     await browser.runtime.sendMessage({
       enabled: true,
       origin: location.origin,
-      studyPairId,
+      learningLanguageId,
       type: 'learning-mode:set-site',
     });
     const next = await browser.runtime.sendMessage({
@@ -323,7 +331,7 @@ export default defineUnlistedScript(async () => {
     void browser.runtime.sendMessage({
       enabled: false,
       origin: location.origin,
-      studyPairId: pairSelect.value || response.selectedStudyPairId,
+      learningLanguageId: languageSelect.value || response.selectedLearningLanguageId,
       type: 'learning-mode:set-site',
     });
     teardown();
@@ -334,7 +342,7 @@ export default defineUnlistedScript(async () => {
     void browser.runtime.sendMessage({
       enabled: false,
       origin: location.origin,
-      studyPairId: response.selectedStudyPairId,
+      learningLanguageId: response.selectedLearningLanguageId,
       type: 'learning-mode:set-site',
     }).then(teardown);
   });
@@ -447,18 +455,18 @@ export default defineUnlistedScript(async () => {
   if (response.enabled) {
     startMode(response.entries);
   } else {
-    proposal.textContent = `Learn ${languageName(response.detectedTargetLanguageTag)} on this site?`;
-    pairSelect.replaceChildren();
+    proposal.textContent = `Learn ${languageName(response.detectedLearningLanguageTag)} on this site?`;
+    languageSelect.replaceChildren();
 
-    for (const pair of response.pairs) {
+    for (const language of response.learningLanguages) {
       const option = document.createElement('option');
-      option.value = pair.id;
-      option.textContent = studyPairLabel(pair);
-      option.selected = pair.id === response.selectedStudyPairId;
-      pairSelect.append(option);
+      option.value = language.id;
+      option.textContent = languageName(language.languageTag);
+      option.selected = language.id === response.selectedLearningLanguageId;
+      languageSelect.append(option);
     }
 
-    pairLabel.hidden = Boolean(response.selectedStudyPairId);
+    languageLabel.hidden = Boolean(response.selectedLearningLanguageId);
     card.hidden = false;
   }
 });

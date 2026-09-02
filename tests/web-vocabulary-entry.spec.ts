@@ -38,7 +38,7 @@ async function createEntry(client: Awaited<ReturnType<typeof registerWithPair>>[
 }
 
 test.describe('web Vocabulary Entry library', () => {
-  test('searches and filters only the active Study Pair', async ({ page }) => {
+  test('searches and filters only the active Learning Language', async ({ page }) => {
     const account = credentials('web-discovery');
     const { client, pair } = await registerWithPair(account);
     await createEntry(client, pair.id, 'casa', 'house');
@@ -65,8 +65,16 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Vocabulary status').selectOption('suspended');
     await expect(page.locator('summary').filter({ hasText: 'nube' })).toBeVisible();
     await expect(page.getByText('casa', { exact: true })).toHaveCount(0);
-    await page.getByLabel('Active Study Pair').selectOption({ label: 'Italian → English' });
+    const { data: languages, error: languagesError } = await client.from('learning_languages').select('id,language_tag');
+    if (languagesError) throw languagesError;
+    const italian = languages?.find((language) => language.language_tag === 'it');
+    if (!italian) throw new Error('The Italian Learning Language fixture is missing.');
+    const activeLanguage = page.getByLabel('Active Learning Language');
+    await activeLanguage.selectOption(italian.id);
+    await expect(activeLanguage).toHaveValue(italian.id);
+    await expect(page.getByLabel('Vocabulary status')).toHaveValue('all');
     await page.getByLabel('Vocabulary status').selectOption('suspended');
+    await expect(page.getByLabel('Vocabulary status')).toHaveValue('suspended');
     await expect(page.getByText('No suspended Vocabulary Entries yet.')).toBeVisible();
     await page.getByLabel('Vocabulary status').selectOption('all');
     await expect(page.locator('summary').filter({ hasText: 'casa italiana' })).toBeVisible();
@@ -99,21 +107,22 @@ test.describe('web Vocabulary Entry library', () => {
     const summary = page.locator('summary').filter({ hasText: 'descubrir' });
     await summary.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByText('to discover', { exact: true })).toBeVisible();
-    await expect(page.getByText('Quiero descubrir la ciudad.')).toBeVisible();
+    const entry = summary.locator('..');
+    await expect(entry.getByText(/^to discover en$/)).toBeVisible();
+    await expect(entry.getByText('Quiero descubrir la ciudad.')).toBeVisible();
     const suspend = page.getByRole('button', { name: 'Suspend descubrir' });
     await suspend.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('status').filter({ hasText: 'descubrir is suspended.' })).toBeVisible();
     await expect(page.getByText('Suspended', { exact: true })).toBeVisible();
-    await expect(page.getByText('to discover', { exact: true })).toBeVisible();
-    await expect(page.getByText('Quiero descubrir la ciudad.')).toBeVisible();
+    await expect(entry.getByText(/^to discover en$/)).toBeVisible();
+    await expect(entry.getByText('Quiero descubrir la ciudad.')).toBeVisible();
     const resume = page.getByRole('button', { name: 'Resume descubrir' });
     await resume.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('status').filter({ hasText: 'descubrir is active.' })).toBeVisible();
     await expect(page.getByText('Suspended', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('to discover', { exact: true })).toBeVisible();
+    await expect(entry.getByText(/^to discover en$/)).toBeVisible();
   });
 
   test('creates a complete entry and preserves validation values', async ({ page }) => {
@@ -127,22 +136,25 @@ test.describe('web Vocabulary Entry library', () => {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     }
     await page.getByLabel('Expression').fill('descubrir');
+    await page.getByLabel('Answer Language').fill('en');
     await page.getByLabel('Translation').fill('to discover');
     await page.getByLabel('Example').fill('Quiero descubrir la ciudad.');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await page.locator('summary').filter({ hasText: 'descubrir' }).click();
-    await expect(page.getByRole('heading', { name: 'descubrir' })).toBeVisible();
-    await expect(page.getByText('to discover', { exact: true })).toBeVisible();
+    const entry = page.locator('summary').filter({ hasText: 'descubrir' }).locator('..');
+    await expect(entry.getByRole('heading', { name: 'descubrir' })).toBeVisible();
+    await expect(entry.getByText(/^to discover en$/)).toBeVisible();
     await expect(page.getByText('Quiero descubrir la ciudad.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Add vocabulary' }).click();
-    await page.route('**/rest/v1/rpc/capture_manual_entry', (route) => route.abort());
+    await page.route('**/rest/v1/rpc/capture_learning_language_entry', (route) => route.abort());
     await page.getByLabel('Expression').fill('fallo');
+    await page.getByLabel('Answer Language').fill('en');
     await page.getByLabel('Translation').fill('failure');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.getByLabel('Expression')).toHaveValue('fallo');
     await expect(page.getByLabel('Translation')).toHaveValue('failure');
-    await page.unroute('**/rest/v1/rpc/capture_manual_entry');
+    await page.unroute('**/rest/v1/rpc/capture_learning_language_entry');
     await page.getByLabel('Expression').fill('');
     await page.getByLabel('Translation').fill('');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
@@ -157,19 +169,23 @@ test.describe('web Vocabulary Entry library', () => {
     await page.goto('/library');
     await page.getByRole('button', { name: 'Add vocabulary' }).click();
     await page.getByLabel('Expression').fill('Casa');
+    await page.getByLabel('Answer Language').fill('en');
     await page.getByLabel('Translation').fill('house');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.locator('summary').filter({ hasText: 'Casa' })).toBeVisible();
     await page.getByRole('button', { name: 'Add vocabulary' }).click();
     await page.getByLabel('Expression').fill(' casa ');
+    await page.getByLabel('Answer Language').fill('en');
     await page.getByLabel('Translation').fill('home');
     await page.getByLabel('Example').fill('Mi casa es pequeña.');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
-    await page.locator('summary').filter({ hasText: 'Casa' }).click();
-    await expect(page.getByRole('heading', { name: 'Casa' })).toHaveCount(1);
-    await expect(page.getByText('house', { exact: true })).toBeVisible();
-    await expect(page.getByText('home', { exact: true })).toBeVisible();
-    await expect(page.getByText('Mi casa es pequeña.')).toBeVisible();
+    const entry = page.locator('summary').filter({ hasText: 'Casa' });
+    await entry.click();
+    const entryDetails = entry.locator('..');
+    await expect(entryDetails.getByRole('heading', { name: 'Casa' })).toHaveCount(1);
+    await expect(entryDetails.getByText(/^house en$/)).toBeVisible();
+    await expect(entryDetails.getByText(/^home en$/)).toBeVisible();
+    await expect(entryDetails.getByText('Mi casa es pequeña.')).toBeVisible();
   });
 
   test('shows extension material only to its owner', async ({ page }) => {
@@ -185,8 +201,9 @@ test.describe('web Vocabulary Entry library', () => {
     await signIn(page, owner);
     await page.goto('/library');
     await page.locator('summary').filter({ hasText: 'biblioteca' }).click();
-    await expect(page.getByRole('heading', { name: 'biblioteca' })).toBeVisible();
-    await expect(page.getByText('library', { exact: true })).toBeVisible();
+    const entry = page.locator('summary').filter({ hasText: 'biblioteca' }).locator('..');
+    await expect(entry.getByRole('heading', { name: 'biblioteca' })).toBeVisible();
+    await expect(entry.getByText(/^library en$/)).toBeVisible();
 
     const other = credentials('web-other');
     const { client: otherClient } = await registerWithPair(other);
@@ -220,12 +237,14 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Example 2 text').fill('Descubrimos la respuesta.');
     await page.getByRole('button', { name: 'Save changes' }).press('Enter');
 
-    await page.locator('summary').filter({ hasText: 'descubrir algo' }).click();
-    await expect(page.getByRole('heading', { name: 'descubrir algo' })).toBeVisible();
-    await expect(page.getByText('discover', { exact: true })).toBeVisible();
-    await expect(page.getByText('find out', { exact: true })).toBeVisible();
-    await expect(page.getByText('uncover', { exact: true })).toBeVisible();
-    await expect(page.getByText('Quiero descubrir algo nuevo.')).toBeVisible();
+    const updatedEntry = page.locator('summary').filter({ hasText: 'descubrir algo' });
+    await updatedEntry.click();
+    const updatedDetails = updatedEntry.locator('..');
+    await expect(updatedDetails.getByRole('heading', { name: 'descubrir algo' })).toBeVisible();
+    await expect(updatedDetails.getByText(/^discover en$/)).toBeVisible();
+    await expect(updatedDetails.getByText(/^find out en$/)).toBeVisible();
+    await expect(updatedDetails.getByText(/^uncover en$/)).toBeVisible();
+    await expect(updatedDetails.getByText('Quiero descubrir algo nuevo.')).toBeVisible();
 
     const { data: snapshot, error } = await client.rpc('account_vocabulary_snapshot');
     if (error) throw error;

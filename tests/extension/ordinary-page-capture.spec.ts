@@ -2,14 +2,12 @@ import { expect, test } from './fixtures';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-async function createStudyPair(
+async function createLearningLanguage(
   learnerClient: SupabaseClient,
-  targetLanguageTag: string,
-  referenceLanguageTag: string,
+  languageTag: string,
 ) {
-  const { data, error } = await learnerClient.rpc('create_study_pair', {
-    p_reference_language_tag: referenceLanguageTag,
-    p_target_language_tag: targetLanguageTag,
+  const { data, error } = await learnerClient.rpc('create_learning_language', {
+    p_language_tag: languageTag,
   });
 
   if (error) {
@@ -48,18 +46,17 @@ async function openControlledPage(context: BrowserContext): Promise<Page> {
 }
 
 test.describe('Learning Mode capture', () => {
-  test('captures consecutive exact words into a changed Study Pair with an edited Example', async ({
+  test('captures consecutive exact words into a Learning Language with an edited Example', async ({
     extensionContext,
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'it', 'en');
-    const ukrainianPair = await createStudyPair(learnerClient, 'it', 'uk');
+    const learningLanguage = await createLearningLanguage(learnerClient, 'it');
     await extensionPage.close();
     const page = await openControlledPage(extensionContext);
     let captureRequest: Record<string, unknown> | undefined;
     extensionContext.on('request', (request) => {
-      if (request.url().includes('/rest/v1/rpc/capture_manual_entry')) {
+      if (request.url().includes('/rest/v1/rpc/capture_learning_language_entry')) {
         captureRequest = request.postDataJSON() as Record<string, unknown>;
       }
     });
@@ -68,9 +65,11 @@ test.describe('Learning Mode capture', () => {
 
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await expect(capture.getByLabel('Expression')).toHaveValue('scoperta');
-    await expect(capture.getByLabel('Active Study Pair')).toContainText('Italian → English');
-    await capture.getByLabel('Active Study Pair').selectOption(ukrainianPair.id);
+    await expect(capture.getByLabel('Learning Language')).toHaveValue(learningLanguage.id);
     await capture.getByLabel('Translation').fill('відкриття');
+    await capture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('uk');
+    const firstConfirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
+    if (await firstConfirmation.isVisible()) await firstConfirmation.check();
     await expect(capture.getByLabel('Example')).toHaveValue('Ogni scoperta cambia il viaggio. Never upload this neighboring sentence.');
     await capture.getByLabel('Example').fill('Una scoperta cambia il viaggio.');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
@@ -80,35 +79,41 @@ test.describe('Learning Mode capture', () => {
     await expect(page.getByRole('tooltip')).toHaveText('Click to add "viaggio"');
     await page.locator('#second-word').click();
     await expect(capture.getByLabel('Expression')).toHaveValue('viaggio');
-    await expect(capture.getByLabel('Active Study Pair')).toHaveValue(ukrainianPair.id);
+    await expect(capture.getByLabel('Learning Language')).toHaveValue(learningLanguage.id);
     await capture.getByLabel('Translation').fill('подорож');
+    await capture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('uk');
+    const secondConfirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
+    if (await secondConfirmation.isVisible()) await secondConfirmation.check();
     await capture.getByLabel('Example').fill('');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
     const { data } = await learnerClient
       .from('vocabulary_entries')
-      .select('expression, study_pair_id, senses(translations(text), examples(text))')
+      .select('expression, learning_language_id, senses(translations(text, answer_language_tag), examples(text))')
       .eq('expression_identity', 'scoperta')
       .single();
     expect(data).toEqual({
       expression: 'scoperta',
-      study_pair_id: ukrainianPair.id,
-      senses: [{ translations: [{ text: 'відкриття' }], examples: [{ text: 'Una scoperta cambia il viaggio.' }] }],
+      learning_language_id: learningLanguage.id,
+      senses: [{ translations: [{ text: 'відкриття', answer_language_tag: 'uk' }], examples: [{ text: 'Una scoperta cambia il viaggio.' }] }],
     });
     const { data: secondCapture } = await learnerClient
       .from('vocabulary_entries')
-      .select('expression, study_pair_id, senses(translations(text), examples(text))')
+      .select('expression, learning_language_id, senses(translations(text, answer_language_tag), examples(text))')
       .eq('expression_identity', 'viaggio')
       .single();
     expect(secondCapture).toEqual({
       expression: 'viaggio',
-      study_pair_id: ukrainianPair.id,
-      senses: [{ translations: [{ text: 'подорож' }], examples: [] }],
+      learning_language_id: learningLanguage.id,
+      senses: [{ translations: [{ text: 'подорож', answer_language_tag: 'uk' }], examples: [] }],
     });
     expect(Object.keys(captureRequest ?? {}).sort()).toEqual([
+      'p_answer_language_tag',
+      'p_create_new_sense',
       'p_example',
       'p_expression',
-      'p_study_pair_id',
+      'p_learning_language_id',
+      'p_sense_id',
       'p_translation',
     ]);
     expect(JSON.stringify(captureRequest)).not.toContain('Private reading notes');
@@ -122,7 +127,7 @@ test.describe('Learning Mode capture', () => {
     extensionPage,
     learnerClient,
   }) => {
-    const pair = await createStudyPair(learnerClient, 'it', 'en');
+    const learningLanguage = await createLearningLanguage(learnerClient, 'it');
     await extensionPage.close();
     const page = await openControlledPage(extensionContext);
 
@@ -135,19 +140,22 @@ test.describe('Learning Mode capture', () => {
     await expect(capture.getByLabel('Expression')).toHaveValue('strada maestra');
     await expect(capture.getByLabel('Example')).toHaveValue('La strada maestra attraversa il borgo.');
     await capture.getByLabel('Translation').fill('main road');
+    await capture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('en');
+    const confirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
+    if (await confirmation.isVisible()) await confirmation.check();
     await capture.getByLabel('Example').fill('');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 
     await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
     const { data } = await learnerClient
       .from('vocabulary_entries')
-      .select('expression, study_pair_id, senses(translations(text), examples(text))')
-      .eq('study_pair_id', pair.id)
+      .select('expression, learning_language_id, senses(translations(text, answer_language_tag), examples(text))')
+      .eq('learning_language_id', learningLanguage.id)
       .single();
     expect(data).toEqual({
       expression: 'strada maestra',
-      study_pair_id: pair.id,
-      senses: [{ translations: [{ text: 'main road' }], examples: [] }],
+      learning_language_id: learningLanguage.id,
+      senses: [{ translations: [{ text: 'main road', answer_language_tag: 'en' }], examples: [] }],
     });
   });
 
@@ -156,7 +164,7 @@ test.describe('Learning Mode capture', () => {
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'it', 'en');
+    await createLearningLanguage(learnerClient, 'it');
     await extensionPage.close();
     const page = await openControlledPage(extensionContext);
 
@@ -178,7 +186,7 @@ test.describe('Learning Mode capture', () => {
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'it', 'en');
+    await createLearningLanguage(learnerClient, 'it');
     await extensionPage.close();
     const page = await openControlledPage(extensionContext);
 
