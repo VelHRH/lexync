@@ -15,16 +15,16 @@ select public.capture_manual_entry((select id from public.study_pairs), 'casa', 
 select public.capture_manual_entry((select id from public.study_pairs), 'casa', 'home', null);
 select public.capture_manual_entry((select id from public.study_pairs), 'nube', 'cloud', null);
 
-select is((select count(*) from public.cards), 3::bigint, 'each Sense has one recognition Card');
+select is((select count(*) from public.cards), 6::bigint, 'each Sense has recognition and recall Cards');
 select is((select count(distinct sense_id) from public.cards), 3::bigint, 'recognition Cards are independent by Sense');
 select is((select count(*) from public.scheduled_review_overview()), 3::bigint, 'all active owned Cards are due initially');
 
 select public.set_vocabulary_entry_suspended((select id from public.vocabulary_entries where expression = 'nube'), true);
 select is((select count(*) from public.scheduled_review_overview()), 2::bigint, 'suspended material is excluded from due review data');
-select is((select count(*) from public.cards), 3::bigint, 'suspension retains Card progress');
+select is((select count(*) from public.cards), 6::bigint, 'suspension retains Card progress');
 select set_config(
   'test.owner_card_id',
-  (select cards.id::text from public.cards join public.senses on senses.id = cards.sense_id join public.translations on translations.sense_id = senses.id where translations.text = 'house'),
+  (select cards.id::text from public.cards join public.senses on senses.id = cards.sense_id join public.translations on translations.sense_id = senses.id where translations.text = 'house' and cards.direction = 'recognition'),
   true
 );
 
