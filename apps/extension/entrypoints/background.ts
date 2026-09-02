@@ -140,7 +140,9 @@ async function handleAdapterCapture(
   return saveCapture(message, sender);
 }
 
-function originPattern(origin: string): string { return `${origin}/*`; }
+function originPattern(origin: string): string {
+  return `${origin}/*`;
+}
 
 async function detectTextLanguages(textSample: string): Promise<string[]> {
   const detection = await browser.i18n.detectLanguage(textSample).catch(() => undefined);
@@ -226,17 +228,23 @@ async function injectLearningMode(tabId: number): Promise<void> {
 
 function learningModeRegistrationId(origin: string): string {
   let hash = 0;
-  for (const character of origin) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+  for (const character of origin) {
+    hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+  }
   return `lexync-learning-${Math.abs(hash)}`;
 }
 
 async function updateLearningModeRegistration(origin: string, enabled: boolean): Promise<void> {
   const id = learningModeRegistrationId(origin);
   const existing = await browser.scripting.getRegisteredContentScripts({ ids: [id] });
-  if (existing.length > 0) await browser.scripting.unregisterContentScripts({ ids: [id] });
-  if (enabled) await browser.scripting.registerContentScripts([{
-    id, js: ['learning-mode.js'], matches: [originPattern(origin)], persistAcrossSessions: true, runAt: 'document_idle',
-  }]);
+  if (existing.length > 0) {
+    await browser.scripting.unregisterContentScripts({ ids: [id] });
+  }
+  if (enabled) {
+    await browser.scripting.registerContentScripts([{
+      id, js: ['learning-mode.js'], matches: [originPattern(origin)], persistAcrossSessions: true, runAt: 'document_idle',
+    }]);
+  }
 }
 
 async function refreshAction(tabId: number): Promise<void> {

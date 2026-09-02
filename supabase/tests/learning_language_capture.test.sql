@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(29);
 
 insert into auth.users (id)
 values ('80808080-8080-8080-8080-808080808080');
@@ -104,16 +104,42 @@ select is(
 );
 select is((select count(*) from public.senses join public.vocabulary_entries on vocabulary_entries.id = senses.vocabulary_entry_id where vocabulary_entries.learning_vocabulary_entry_id = (select id from public.learning_vocabulary_entries where expression = 'banco')), 3::bigint, 'create-new Sense adds a Sense');
 
+select is(
+  (select language_tag from public.create_learning_language('de-DE')),
+  'de-DE',
+  'an empty canonical-only Learning Language can be created alongside legacy pairs'
+);
+select lives_ok(
+  $$select public.create_study_pair('de-DE', 'en-US')$$,
+  'a compatibility Study Pair can be added for an empty Learning Language'
+);
+select throws_ok(
+  $$select public.remove_learning_language((select id from public.learning_languages where language_tag = 'de-DE'))$$,
+  'P0001',
+  'Learning Language contains Study Pairs.',
+  'a Learning Language with compatibility pairs cannot be removed'
+);
+select is(
+  (select count(*) from public.study_pairs where target_language_tag = 'de-DE'),
+  1::bigint,
+  'compatibility Study Pairs are retained after rejected removal'
+);
+
 select lives_ok(
   $$select public.remove_learning_language((select id from public.learning_languages where language_tag = 'fr-CA'))$$,
   'an empty non-active Learning Language can be removed'
 );
-select is((select count(*) from public.learning_languages), 1::bigint, 'the empty Learning Language is removed');
+select is((select count(*) from public.learning_languages), 2::bigint, 'the empty Learning Language is removed');
 select throws_ok(
   $$select public.remove_learning_language((select id from public.learning_languages where language_tag = 'pt-BR'))$$,
   'P0001',
   'Learning Language contains Vocabulary Entries.',
   'a Learning Language with material cannot be removed'
+);
+select is(
+  (select count(*) from public.study_pairs where target_language_tag = 'pt-BR'),
+  2::bigint,
+  'legacy Study Pairs remain after material removal is rejected'
 );
 
 select * from finish();

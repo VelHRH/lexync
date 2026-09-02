@@ -1,4 +1,3 @@
-import { languageName } from '@lexync/domain';
 import type { LearningModeEntry, LearningModeLoadResponse } from '../lib/learning-mode-messages';
 
 type LearningScope = typeof globalThis & {

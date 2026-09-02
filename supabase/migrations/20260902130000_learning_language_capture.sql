@@ -50,6 +50,7 @@ declare
   active_language_id uuid;
   language_count bigint;
   dependent_entry_count bigint;
+  dependent_study_pair_count bigint;
 begin
   if current_learner_id is null then
     raise exception 'Authentication is required.';
@@ -80,6 +81,15 @@ begin
     raise exception 'Learning Language contains Vocabulary Entries.';
   end if;
 
+  select count(*) into dependent_study_pair_count
+  from public.study_pairs
+  where learner_id = current_learner_id
+    and learning_language_id = selected_language.id;
+
+  if dependent_study_pair_count > 0 then
+    raise exception 'Learning Language contains Study Pairs.';
+  end if;
+
   select count(*) into language_count
   from public.learning_languages
   where learner_id = current_learner_id;
@@ -107,10 +117,6 @@ begin
   else
     remaining_language_id := active_language_id;
   end if;
-
-  delete from public.study_pairs
-  where learner_id = current_learner_id
-    and learning_language_id = selected_language.id;
 
   delete from public.learning_languages
   where id = selected_language.id and learner_id = current_learner_id;

@@ -3,7 +3,7 @@
 import { canonicalLanguageTag, languageName, type RecognitionReviewEvent, type StudyPair } from '@lexync/domain';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { Suspense, type ReactNode } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -70,9 +70,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const [languageDraft, setLanguageDraft] = useState('');
   const [languageSaving, setLanguageSaving] = useState(false);
   const [removingLanguageId, setRemovingLanguageId] = useState('');
+  const recognitionRequestId = useRef(0);
   const online = useOnlineStatus();
 
-  const loadLanguages = useCallback(async () => {
+  const loadLanguages = useCallback(async (): Promise<string | null> => {
     setLanguagesLoading(true);
     const [{ data, error }, { data: state, error: stateError }] = await Promise.all([
       supabase.from('learning_languages').select('id,language_tag').order('created_at'),
@@ -81,7 +82,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     if (error || stateError) {
       setLanguageError(error?.message ?? stateError?.message ?? 'Learning Languages could not be loaded.');
       setLanguagesLoading(false);
-      return;
+      return null;
     }
     const nextLanguages = (data ?? []).map((row) => toLearningLanguage(row));
     setLanguages(nextLanguages);
@@ -91,6 +92,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     setActiveLanguageId(nextActiveId);
     setLanguageError('');
     setLanguagesLoading(false);
+    return nextActiveId;
   }, []);
 
   const loadPairs = useCallback(async () => {
@@ -105,13 +107,16 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }, []);
 
   const refreshRecognitionCards = useCallback(async (learningLanguageId = activeLanguageId) => {
+    const requestId = ++recognitionRequestId.current;
     if (!learningLanguageId) {
+      if (requestId !== recognitionRequestId.current) return;
       setRecognitionCards([]);
       setRecognitionLoading(false);
       return;
     }
     setRecognitionLoading(true);
     const { data, error } = await supabase.rpc('learning_scheduled_review_overview', { p_learning_language_id: learningLanguageId });
+    if (requestId !== recognitionRequestId.current) return;
     if (error) {
       setRecognitionError(error.message);
       setRecognitionLoading(false);
@@ -145,8 +150,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   useEffect(() => {
     if (!session) return;
     const refresh = () => {
-      void loadLanguages();
-      void refreshRecognitionCards();
+      void (async () => {
+        const nextActiveId = await loadLanguages();
+        if (nextActiveId !== null) await refreshRecognitionCards(nextActiveId);
+      })();
     };
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
