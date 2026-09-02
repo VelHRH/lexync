@@ -2,10 +2,9 @@ import type { BrowserContext, Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { expect, extensionId, test } from './fixtures';
 
-async function createStudyPair(learnerClient: SupabaseClient, targetLanguageTag = 'it', referenceLanguageTag = 'en') {
-  const { data, error } = await learnerClient.rpc('create_study_pair', {
-    p_reference_language_tag: referenceLanguageTag,
-    p_target_language_tag: targetLanguageTag,
+async function createLearningLanguage(learnerClient: SupabaseClient, languageTag = 'it') {
+  const { data, error } = await learnerClient.rpc('create_learning_language', {
+    p_language_tag: languageTag,
   });
 
   if (error) {
@@ -17,15 +16,19 @@ async function createStudyPair(learnerClient: SupabaseClient, targetLanguageTag 
 
 async function saveExpression(
   learnerClient: SupabaseClient,
-  studyPairId: string,
+  learningLanguageId: string,
   expression: string,
   translation: string,
   example: string,
+  answerLanguageTag = 'en',
 ) {
-  const { error } = await learnerClient.rpc('capture_manual_entry', {
+  const { error } = await learnerClient.rpc('capture_learning_language_entry', {
+    p_answer_language_tag: answerLanguageTag,
+    p_create_new_sense: false,
     p_example: example,
     p_expression: expression,
-    p_study_pair_id: studyPairId,
+    p_learning_language_id: learningLanguageId,
+    p_sense_id: null,
     p_translation: translation,
   });
 
@@ -72,7 +75,7 @@ test.describe('Learning Mode', () => {
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient, 'lt');
+    await createLearningLanguage(learnerClient, 'lt');
     const page = await openReadingPage(extensionContext, '/reading', 'http://learning-mode.test', `
       <p>Vilniaus universiteto leidykla pristato lietuvių kalbos vadovėlį.</p>
       <p>Knygoje pateikiami pokalbiai, klausomi ir skaitomi tekstai.</p>
@@ -101,9 +104,9 @@ test.describe('Learning Mode', () => {
     extensionPage,
     learnerClient,
   }) => {
-    const pair = await createStudyPair(learnerClient);
-    await saveExpression(learnerClient, pair.id, 'scoperta', 'discovery', 'La scoperta apre una strada nuova.');
-    await saveExpression(learnerClient, pair.id, 'scoperta', 'finding', 'Ogni scoperta cambia il viaggio.');
+    const learningLanguage = await createLearningLanguage(learnerClient);
+    await saveExpression(learnerClient, learningLanguage.id, 'scoperta', 'discovery', 'La scoperta apre una strada nuova.');
+    await saveExpression(learnerClient, learningLanguage.id, 'scoperta', 'finding', 'Ogni scoperta cambia il viaggio.');
     await learnerClient.from('vocabulary_entries').update({ suspended: true }).eq('expression_identity', 'scoperta');
     const page = await openReadingPage(extensionContext);
 
@@ -144,27 +147,27 @@ test.describe('Learning Mode', () => {
     await expect(page.getByRole('tooltip')).toHaveText('Click to add "curiosità"');
   });
 
-  test('treats an expression from another Study Pair for the same Target Language as saved', async ({
+  test('treats an expression with another Answer Language for the same Learning Language as saved', async ({
     extensionContext,
     extensionPage,
     learnerClient,
   }) => {
-    const primaryPair = await createStudyPair(learnerClient, 'it', 'en');
-    await saveExpression(learnerClient, primaryPair.id, 'viaggio', 'journey', 'Ogni viaggio apre una strada nuova.');
+    const learningLanguage = await createLearningLanguage(learnerClient, 'it');
+    await saveExpression(learnerClient, learningLanguage.id, 'viaggio', 'journey', 'Ogni viaggio apre una strada nuova.');
     const page = await openReadingPage(extensionContext, '/cross-pair', 'http://127.0.0.1:54321', `
       <p>La scoperta apre una strada nuova e cambia il modo in cui osserviamo il mondo.</p>
       <p>Ogni scoperta accompagna il viaggio, rende interessante la giornata e invita a continuare.</p>
       <p>Leggere, ascoltare e parlare ogni giorno aiuta a imparare nuove parole italiane.</p>`);
 
     await enableOnPage(page);
-    const ukrainianPair = await createStudyPair(learnerClient, 'it', 'uk');
-    await saveExpression(learnerClient, ukrainianPair.id, 'Scoperta', 'відкриття', 'Una scoperta cambia il viaggio.');
+    await saveExpression(learnerClient, learningLanguage.id, 'Scoperta', 'відкриття', 'Una scoperta cambia il viaggio.', 'uk');
     await page.getByRole('button', { name: 'Disable Learning Mode' }).click();
     await page.bringToFront();
     await extensionPage.bringToFront();
     await extensionPage.reload();
     await extensionPage.getByRole('button', { name: 'Enable Learning Mode' }).click();
     await page.bringToFront();
+    await page.reload();
     await expect(page.getByRole('button', { name: 'Disable Learning Mode' })).toBeVisible();
     const saved = page.locator('[data-lexync-saved="true"]', { hasText: 'scoperta' }).first();
     await expect(saved).toBeVisible();
@@ -180,7 +183,7 @@ test.describe('Learning Mode', () => {
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient);
+    await createLearningLanguage(learnerClient);
     const page = await openReadingPage(extensionContext, '/decline');
     const prompt = page.getByRole('dialog', { name: 'Learning Mode' });
 
@@ -192,6 +195,7 @@ test.describe('Learning Mode', () => {
     await extensionPage.reload();
     await extensionPage.getByRole('button', { name: 'Enable Learning Mode' }).click();
     await page.bringToFront();
+    await page.reload();
     await expect(page.getByRole('button', { name: 'Disable Learning Mode' })).toHaveText('Learning Mode is on');
   });
 
@@ -200,7 +204,7 @@ test.describe('Learning Mode', () => {
     extensionPage,
     learnerClient,
   }) => {
-    await createStudyPair(learnerClient);
+    await createLearningLanguage(learnerClient);
     await extensionPage.close();
     const page = await openReadingPage(extensionContext, '/status-disable');
 
@@ -219,8 +223,8 @@ test.describe('Learning Mode', () => {
     extensionPage,
     learnerClient,
   }) => {
-    const pair = await createStudyPair(learnerClient);
-    await saveExpression(learnerClient, pair.id, 'scoperta', 'discovery', '');
+    const learningLanguage = await createLearningLanguage(learnerClient);
+    await saveExpression(learnerClient, learningLanguage.id, 'scoperta', 'discovery', '');
     const page = await openReadingPage(extensionContext);
 
     await enableOnPage(page);
@@ -231,6 +235,9 @@ test.describe('Learning Mode', () => {
     await page.locator('#unknown').click();
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await capture.getByLabel('Translation').fill('wonder');
+    const confirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
+    await expect(confirmation).toBeVisible();
+    await confirmation.check();
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.locator('[data-lexync-saved="true"]', { hasText: 'meraviglia' })).toBeVisible();
     await page.locator('#second-unknown').hover();
@@ -247,6 +254,7 @@ test.describe('Learning Mode', () => {
     await expect(page.locator('[data-lexync-saved="true"]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Disable Learning Mode' })).toHaveCount(0);
     await popup.getByRole('button', { name: 'Enable Learning Mode' }).click();
+    await page.reload();
     await expect(page.getByRole('button', { name: 'Disable Learning Mode' })).toHaveText('Learning Mode is on');
 
     await extensionContext.route('http://127.0.0.1:54321/rest/v1/**', (route) => route.abort());

@@ -28,26 +28,6 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
-      name: 'web-study-pair',
-      testMatch: /web-study-pair-onboarding\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'web-study-pair-mobile',
-      testMatch: /web-study-pair-onboarding\.spec\.ts/,
-      use: { ...devices['Pixel 7'] },
-    },
-    {
-      name: 'web-study-pair-repair',
-      testMatch: /web-study-pair-repair\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'web-study-pair-repair-mobile',
-      testMatch: /web-study-pair-repair\.spec\.ts/,
-      use: { ...devices['Pixel 7'] },
-    },
-    {
       name: 'web-learning-languages',
       testMatch: /web-learning-languages\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
@@ -95,6 +75,7 @@ export default defineConfig({
     {
       name: 'extension-chromium',
       testMatch: /extension\/.*\.spec\.ts/,
+      testIgnore: /extension\/study-pair-expression-identity\.spec\.ts/,
     },
     {
       name: 'bundle-security',

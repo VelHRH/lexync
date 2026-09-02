@@ -37,7 +37,7 @@ const BrandArtwork = ({ background }: { background: keyof typeof brandArtworkByB
   );
 };
 
-export function PublicHome() {
+function PublicHome() {
   return (
     <main>
       <header className="site-header">

@@ -107,8 +107,8 @@ async function saveCapture(
   if (isCaptureNeedsSense(response)) return response;
   if ('error' in response) return response;
   if (response.kind !== 'saved') return response;
-  const entries = await syncExpressionSnapshot(message.learningLanguageId);
-  if (sender.tab?.id) {
+  const entries = await syncExpressionSnapshot(message.learningLanguageId).catch(() => undefined);
+  if (entries && sender.tab?.id) {
     await browser.tabs.sendMessage(sender.tab.id, { entries, type: 'learning-mode:index-updated' }).catch(() => undefined);
   }
   return response;
@@ -301,7 +301,8 @@ async function handleLearningMode(message: LearningModeMessage, sender: { tab?: 
   const tags = await detectTextLanguages(message.textSample);
   const state = await resolveSiteState(message.origin, tags);
   const entries = state.enabled && state.selectedLearningLanguageId
-    ? await readExpressionSnapshot(state.selectedLearningLanguageId)
+    ? await syncExpressionSnapshot(state.selectedLearningLanguageId)
+      .catch(() => readExpressionSnapshot(state.selectedLearningLanguageId!))
     : [];
   return { ...state, entries } satisfies LearningModeLoadResponse;
 }

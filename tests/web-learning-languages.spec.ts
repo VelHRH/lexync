@@ -30,6 +30,7 @@ async function signIn(page: Page, account: ReturnType<typeof credentials>) {
   await page.getByLabel('Email').fill(account.email);
   await page.getByLabel('Password').fill(account.password);
   await page.getByLabel('Password').press('Enter');
+  await expect(page).toHaveURL('/');
 }
 
 async function submitForm(form: Locator) {
@@ -56,13 +57,14 @@ test.describe('web Learning Language settings', () => {
 
     await language.fill('en_US');
     await submitForm(form);
-    await expect(page.getByRole('alert')).toContainText('valid BCP 47');
+    await expect(form.getByRole('alert')).toContainText('valid BCP 47');
     await expect(language).toHaveValue('en_US');
 
     await language.fill('pt-BR');
     await submitForm(form);
     const continueButton = page.getByRole('button', { name: /Continue to dashboard/i });
-    if (await continueButton.isVisible()) await continueButton.click();
+    await expect(continueButton).toBeVisible();
+    await continueButton.click();
     await expect(page).toHaveURL('/');
     await expect(page.getByLabel('Active Learning Language')).toContainText(/Portuguese|pt-BR/i);
   });
@@ -73,20 +75,21 @@ test.describe('web Learning Language settings', () => {
     await signIn(page, account);
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-    await expect(page.getByText(/Learning Languages/i).first()).toBeVisible();
+    const languagesSection = page.getByRole('region', { name: 'Learning Languages' });
+    await expect(languagesSection).toBeVisible();
 
-    const addForm = page.locator('form').filter({ has: page.getByLabel('Learning Language', { exact: true }) }).last();
+    const addForm = languagesSection.locator('form');
     const language = addForm.getByLabel('Learning Language', { exact: true });
     await language.fill('en_US');
     await addForm.getByRole('button', { name: /Add Learning Language/i }).click();
-    await expect(page.getByRole('alert')).toContainText('valid BCP 47');
+    await expect(languagesSection.getByRole('alert')).toContainText('valid BCP 47');
 
     await language.fill('fr-CA');
     await addForm.getByRole('button', { name: /Add Learning Language/i }).click();
     await expect(page.getByText('fr-CA', { exact: true })).toBeVisible();
     await language.fill('fr-CA');
     await addForm.getByRole('button', { name: /Add Learning Language/i }).click();
-    await expect(page.getByRole('alert')).toContainText(/already exists|duplicate/i);
+    await expect(languagesSection.getByRole('alert')).toContainText(/already exists|duplicate/i);
 
     const frenchRow = page.locator('li, [role="listitem"], .language-row').filter({ hasText: 'fr-CA' }).last();
     const removeFrench = frenchRow.getByRole('button', { name: /Remove/i });
@@ -96,8 +99,8 @@ test.describe('web Learning Language settings', () => {
 
     const spanishRow = page.locator('li, [role="listitem"], .language-row').filter({ hasText: /Spanish|es/ }).last();
     const removeSpanish = spanishRow.getByRole('button', { name: /Remove/i });
-    if (await removeSpanish.isEnabled()) await removeSpanish.click();
-    await expect(page.getByText(/Spanish|es/, { exact: false }).first()).toBeVisible();
+    await expect(spanishRow).toBeVisible();
+    await expect(removeSpanish).toBeDisabled();
   });
 
   test('uses one account-wide selector and refetches external active-language changes', async ({ page }) => {

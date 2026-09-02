@@ -192,7 +192,7 @@ export default defineContentScript({
           return;
         }
 
-        status.textContent = 'Saved to Lexync.';
+        status.textContent = `${switchNotice ? `${switchNotice} ` : ''}Saved to Lexync.`;
       }).catch(() => {
         button.disabled = false;
         status.textContent = 'Capture could not be completed.';

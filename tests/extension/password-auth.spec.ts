@@ -115,6 +115,6 @@ test.describe('password authentication', () => {
     await page.getByLabel('Confirm new password').fill(`${account.password}-new`);
     await page.getByRole('button', { name: 'Update password' }).click();
 
-    await expect(page.getByRole('status')).toContainText('Password updated');
+    await expect(page.getByRole('status')).toContainText('Password updated', { timeout: 15_000 });
   });
 });

@@ -271,7 +271,7 @@ begin
     end if;
 
     resolved_sense_id := p_sense_id;
-  elsif existing_sense_count = 1 then
+  elsif existing_sense_count = 1 and not p_create_new_sense then
     select senses.id into resolved_sense_id
     from public.senses
     join public.vocabulary_entries

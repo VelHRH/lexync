@@ -147,9 +147,16 @@ export default defineUnlistedScript(async () => {
         ${sense.examples.map((example) => `<span>${escapeMarkup(example)}</span>`).join('')}
       </div>
     `).join('');
-    details.innerHTML = `<h2>${escapeMarkup(entry.expression)}</h2>${senses}<button class="secondary">Close</button>`;
+    details.innerHTML = `<h2>${escapeMarkup(entry.expression)}</h2>${senses}<div class="actions"><button class="primary add-translation" type="button">Add translation</button><button class="secondary close" type="button">Close</button></div>`;
     details.hidden = false;
-    details.querySelector('button')?.addEventListener('click', () => {
+    details.querySelector<HTMLButtonElement>('.add-translation')?.addEventListener('click', () => {
+      const example = entry.senses.flatMap((sense) => sense.examples)[0] ?? '';
+      details.hidden = true;
+      void browser.runtime.sendMessage({ type: 'learning-mode:start-capture' }).then(() => {
+        scope.__lexyncOpenOrdinaryCapture?.(entry.expression, example);
+      });
+    });
+    details.querySelector<HTMLButtonElement>('.close')?.addEventListener('click', () => {
       details.hidden = true;
     });
   }

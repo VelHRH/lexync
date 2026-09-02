@@ -323,7 +323,7 @@ export default defineContentScript({
         if (senseChoice) {
           senseChoice.hidden = true;
         }
-        status.textContent = 'Saved to Lexync.';
+        status.textContent = `${switchNotice ? `${switchNotice} ` : ''}Saved to Lexync.`;
       }).catch(() => {
         if (savedGeneration === generation) {
           button.disabled = false;

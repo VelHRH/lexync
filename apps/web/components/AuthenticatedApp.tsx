@@ -171,7 +171,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   if (!session) return <>{publicContent ?? <main className="auth-loading" aria-busy="true">Redirecting to sign in…</main>}</>;
   if (forceOnboarding) return <StudyPairOnboarding onCreated={() => window.location.assign('/')} />;
   if (languagesLoading) return <main className="auth-loading" aria-busy="true">Loading your Learning Languages…</main>;
-  if (languageError) return <main className="auth-loading" role="alert">Unable to load your Learning Languages: {languageError}</main>;
+  if (languageError && languages.length === 0) return <main className="auth-loading" role="alert">Unable to load your Learning Languages: {languageError}</main>;
   if (languages.length === 0) return <main className="auth-loading" aria-busy="true">Opening onboarding…</main>;
 
   const activeSection = destinations.find(([label]) => label.toLowerCase() === section.toLowerCase())?.[0] ?? section;
@@ -258,7 +258,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
           </section>}
           {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
           {activeSection === 'Review' && !recognitionLoading && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={activeLanguage} />}
-          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={() => refreshRecognitionCards(activeLanguage.id)} language={activeLanguage} pairs={activePairs} /></Suspense>}
+          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
             <h2 id="learning-languages-heading">Learning Languages</h2>
             <form className="web-auth-form" onSubmit={addLanguage}>

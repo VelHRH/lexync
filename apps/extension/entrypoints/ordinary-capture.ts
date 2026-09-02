@@ -34,6 +34,7 @@ export default defineUnlistedScript(() => {
   let senseId: string | undefined;
   let createNewSense = false;
   let preferredAnswerLanguageTag = '';
+  let answerLanguageDetectionRevision = 0;
 
   root.innerHTML = `
     <style>
@@ -233,6 +234,7 @@ export default defineUnlistedScript(() => {
 
   async function openCaptureValues(expression: string, example: string) {
     active = false;
+    answerLanguageDetectionRevision += 1;
     currentExpression = expression.trim();
     prompt.hidden = true;
     dialog.hidden = false;
@@ -254,7 +256,7 @@ export default defineUnlistedScript(() => {
       translationInput.focus();
     } catch (error) {
       dialog.hidden = true;
-      prompt.textContent = error instanceof Error ? error.message : 'Study Pairs could not be loaded.';
+      prompt.textContent = error instanceof Error ? error.message : 'Learning Languages could not be loaded.';
       prompt.hidden = false;
     }
   }
@@ -331,10 +333,15 @@ export default defineUnlistedScript(() => {
   }, true);
 
   translationInput.addEventListener('input', () => {
+    const detectionRevision = ++answerLanguageDetectionRevision;
     void browser.runtime.sendMessage({
       text: translationInput.value,
       type: 'ordinary-capture:detect-answer-language',
     }).then((result: { languageTag?: string; reliable: boolean }) => {
+      if (detectionRevision !== answerLanguageDetectionRevision) {
+        return;
+      }
+
       const resolution = resolveAnswerLanguage({
         detectedAnswerLanguageTag: result.languageTag,
         detectionConfidence: result.reliable ? 1 : 0,
@@ -348,7 +355,14 @@ export default defineUnlistedScript(() => {
       updateSubmitState();
     });
   });
-  answerLanguageInput.addEventListener('input', updateSubmitState);
+  answerLanguageInput.addEventListener('input', () => {
+    answerLanguageDetectionRevision += 1;
+    if (!answerLanguageConfirmation.hidden) {
+      answerLanguageConfirmed = false;
+      confirmAnswerLanguage.checked = false;
+    }
+    updateSubmitState();
+  });
   confirmAnswerLanguage.addEventListener('change', () => {
     answerLanguageConfirmed = confirmAnswerLanguage.checked;
     updateSubmitState();

@@ -59,14 +59,14 @@ test.describe('web multilingual manual capture', () => {
 
     await expect(page.getByLabel('Active Learning Language')).toBeVisible();
     await saveCapture(page, 'Casa', 'en-US', 'house');
-    await expect(page.getByText('Casa', { exact: true })).toHaveCount(1);
+    const casaSummary = page.locator('.vocabulary-entry summary').filter({ hasText: /^Casa$/ });
+    await expect(casaSummary).toHaveCount(1);
     await saveCapture(page, ' casa ', 'uk-UA', 'дім');
-    await expect(page.getByText('Casa', { exact: true })).toHaveCount(1);
-    await page.getByText('Casa', { exact: true }).click();
-    await expect(page.getByText('house', { exact: true })).toBeVisible();
-    await expect(page.getByText('дім', { exact: true })).toBeVisible();
-    await expect(page.getByText('en-US', { exact: true })).toBeVisible();
-    await expect(page.getByText('uk-UA', { exact: true })).toBeVisible();
+    await expect(casaSummary).toHaveCount(1);
+    await casaSummary.click();
+    const casaEntry = casaSummary.locator('..');
+    await expect(casaEntry.getByText(/^house en-US$/)).toBeVisible();
+    await expect(casaEntry.getByText(/^дім uk-UA$/)).toBeVisible();
 
     const { data: languages, error: languageError } = await setup.client.from('learning_languages').select('id,language_tag');
     if (languageError) throw languageError;
@@ -90,36 +90,46 @@ test.describe('web multilingual manual capture', () => {
     await setLanguage(answerLanguage, 'pt-BR');
     await form.getByLabel('Translation', { exact: true }).fill('computador');
     await form.getByRole('button', { name: /Save Vocabulary Entry|Save/i }).click();
-    await expect(page.getByText('pt-BR', { exact: true })).toBeVisible();
-    await expect(page.getByText('computador', { exact: true })).toBeVisible();
+    const ordenadorSummary = page.locator('.vocabulary-entry summary').filter({ hasText: /^ordenador$/ });
+    await expect(ordenadorSummary).toHaveCount(1);
+    await ordenadorSummary.click();
+    const ordenadorEntry = ordenadorSummary.locator('..');
+    await expect(ordenadorEntry.getByText(/^computador pt-BR$/)).toBeVisible();
   });
 
   test('requires an explicit Sense choice before adding an Answer Language to a multi-Sense entry', async ({ page }) => {
     const account = credentials('web-sense-choice');
     const setup = await register(account, [['es', 'en']]);
-    const { data: pair, error: pairError } = await setup.client.from('study_pairs').select('id').eq('id', setup.pairIds[0]).single();
-    if (pairError || !pair) throw pairError ?? new Error('The Study Pair fixture is missing.');
-    const { data: captured, error: captureError } = await setup.client.rpc('capture_manual_entry', {
+    const { data: spanish, error: languageError } = await setup.client
+      .from('learning_languages')
+      .select('id')
+      .eq('language_tag', 'es')
+      .single();
+    if (languageError || !spanish) throw languageError ?? new Error('The Spanish Learning Language fixture is missing.');
+    const first = await setup.client.rpc('capture_learning_language_entry', {
+      p_answer_language_tag: 'en',
+      p_create_new_sense: false,
       p_example: null,
       p_expression: 'banco',
-      p_study_pair_id: pair.id,
+      p_learning_language_id: spanish.id,
+      p_sense_id: null,
       p_translation: 'bank',
     });
-    if (captureError) throw captureError;
-    const entryId = (captured as { vocabularyEntryId: string }).vocabularyEntryId;
-    const { data: secondSense, error: senseError } = await setup.client
-      .from('senses')
-      .insert({ vocabulary_entry_id: entryId })
-      .select('id')
-      .single();
-    if (senseError || !secondSense) throw senseError ?? new Error('The second Sense fixture is missing.');
-    const { error: translationError } = await setup.client.from('translations').insert({ sense_id: secondSense.id, text: 'bench', answer_language_tag: 'en' });
-    if (translationError) throw translationError;
+    const second = await setup.client.rpc('capture_learning_language_entry', {
+      p_answer_language_tag: 'en',
+      p_create_new_sense: true,
+      p_example: null,
+      p_expression: 'banco',
+      p_learning_language_id: spanish.id,
+      p_sense_id: null,
+      p_translation: 'bench',
+    });
+    if (first.error || second.error) throw first.error ?? second.error;
 
     await signIn(page, account);
     await page.goto('/library');
     await saveCapture(page, 'banco', 'uk', 'банк');
-    await expect(page.getByText(/Choose an existing Sense|Create a new Sense|Select a Sense/i)).toBeVisible();
+    await expect(page.getByText('Choose an existing Sense or create a new Sense', { exact: true })).toBeVisible();
     await expect(page.getByText('банк', { exact: true })).toHaveCount(0);
   });
 
@@ -135,9 +145,10 @@ test.describe('web multilingual manual capture', () => {
     await signIn(page, account);
     await page.goto('/review');
     await expect(page.getByRole('heading', { name: /Recognition|Review/i })).toBeVisible();
-    await expect(page.getByText(/Spanish/i)).toBeVisible();
-    await expect(page.getByText(/French/i)).toHaveCount(0);
-    await expect(page.getByText(/English|Ukrainian|en|uk/i)).toBeVisible();
+    const review = page.locator('.scheduled-recognition');
+    await expect(review.getByText(/Spanish/i)).toBeVisible();
+    await expect(review.getByText(/French/i)).toHaveCount(0);
+    await expect(review.getByText(/English|Ukrainian|en|uk/i)).toBeVisible();
     await expect(page.locator('main')).not.toContainText('Study Pair');
   });
 });
