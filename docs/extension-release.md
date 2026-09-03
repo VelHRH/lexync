@@ -8,6 +8,9 @@ Configure these repository variables so ordinary CI can include the listing iden
 
 - `CHROME_EXTENSION_ID`: the existing Chrome Web Store listing ID.
 - `CHROME_PUBLISHER_ID`: the Chrome Web Store publisher ID.
+- `EXTENSION_SUPABASE_URL`: the production Supabase project URL.
+- `EXTENSION_SUPABASE_PUBLISHABLE_KEY`: the browser-safe production Supabase publishable key.
+- `EXTENSION_WEB_URL`: the production web client URL.
 
 On the protected `chrome-web-store` environment, configure these secrets so credential access remains approval-gated:
 
@@ -15,6 +18,16 @@ On the protected `chrome-web-store` environment, configure these secrets so cred
 - `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY`: the service account PEM private key. A repository secret may contain escaped `\n` sequences; the publication helper normalizes them before signing.
 
 Keep the environment protected and keep the service account limited to the Chrome Web Store operations needed by these workflows.
+
+## Release command
+
+Complete and merge the ordinary ticket pull request first. Then run the complete automated release preparation with a new version from the repository root. The command updates local `main` itself:
+
+```sh
+pnpm extension:release -- 0.1.2
+```
+
+The command validates the repository configuration, creates and pushes a release branch, opens a pull request, waits for its checks, merges it through branch protection, waits for CI on the merge commit, creates and pushes the matching version tag, and dispatches the staged-release workflow with the exact successful CI run ID. GitHub environment approval, Chrome Web Store review, final publication approval, and the production smoke checklist remain deliberate human gates.
 
 ## CI artifact and staged submission
 

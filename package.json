@@ -18,6 +18,7 @@
     "dev:web": "pnpm --filter @lexync/web dev",
     "dev:extension": "pnpm --filter @lexync/extension dev",
     "extension:package": "node scripts/package-extension.mjs",
+    "extension:release": "node scripts/release-extension.mjs",
     "test": "pnpm backend:start && pnpm backend:reset && pnpm test:db && node scripts/with-local-supabase.mjs pnpm run test:local",
     "test:db": "pnpm dlx supabase@2.115.0 test db",
     "test:local": "pnpm build && playwright test"

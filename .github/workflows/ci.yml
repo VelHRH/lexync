@@ -34,13 +34,23 @@ jobs:
       - run: pnpm test:db
       - run: pnpm check
       - run: node scripts/with-local-supabase.mjs pnpm build
-      - run: pnpm extension:package
+      - run: node scripts/with-local-supabase.mjs pnpm exec playwright test
+      - name: Build production extension artifact
+        env:
+          WXT_PUBLIC_SUPABASE_URL: ${{ vars.EXTENSION_SUPABASE_URL }}
+          WXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXTENSION_SUPABASE_PUBLISHABLE_KEY }}
+          WXT_PUBLIC_WEB_URL: ${{ vars.EXTENSION_WEB_URL }}
+        run: |
+          test -n "$WXT_PUBLIC_SUPABASE_URL"
+          test -n "$WXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          test -n "$WXT_PUBLIC_WEB_URL"
+          pnpm --filter @lexync/extension build
+          pnpm extension:package
       - name: Generate extension release metadata
         env:
           CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
           GITHUB_SHA: ${{ github.sha }}
         run: node scripts/generate-extension-release-metadata.mjs --artifact artifacts/lexync-chromium.zip --output artifacts/release-metadata.json
-      - run: node scripts/with-local-supabase.mjs pnpm exec playwright test
       - if: failure()
         run: node scripts/capture-supabase-diagnostics.mjs
       - if: failure()

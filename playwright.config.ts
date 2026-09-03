@@ -91,7 +91,7 @@ export default defineConfig({
     },
     {
       name: 'extension-release',
-      testMatch: /extension-release\.spec\.ts/,
+      testMatch: /extension-release(?:-command)?\.spec\.ts/,
     },
   ],
   webServer: {
