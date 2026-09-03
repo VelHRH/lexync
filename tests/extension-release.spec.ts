@@ -310,6 +310,20 @@ test.describe('Chromium extension release artifact', () => {
     expect(workflow).toMatch(/release notes|generate-notes|notes/i);
   });
 
+  test('packages the release artifact from production extension configuration', async () => {
+    const workflow = await readRepositoryFile('.github/workflows/ci.yml');
+    const browserTests = workflow.indexOf('pnpm exec playwright test');
+    const productionBuild = workflow.indexOf('name: Build production extension artifact');
+    const packaging = workflow.indexOf('pnpm extension:package');
+
+    expect(workflow).toMatch(/WXT_PUBLIC_SUPABASE_URL:\s*\$\{\{\s*vars\.EXTENSION_SUPABASE_URL\s*\}\}/);
+    expect(workflow).toMatch(/WXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:\s*\$\{\{\s*vars\.EXTENSION_SUPABASE_PUBLISHABLE_KEY\s*\}\}/);
+    expect(workflow).toMatch(/WXT_PUBLIC_WEB_URL:\s*\$\{\{\s*vars\.EXTENSION_WEB_URL\s*\}\}/);
+    expect(browserTests).toBeGreaterThan(-1);
+    expect(productionBuild).toBeGreaterThan(browserTests);
+    expect(packaging).toBeGreaterThan(productionBuild);
+  });
+
   test('defines a separate explicit staged-publication workflow contract', async () => {
     const workflow = await readRepositoryFile('.github/workflows/extension-publish.yml');
 
