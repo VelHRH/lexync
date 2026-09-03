@@ -52,8 +52,18 @@ test.describe('authenticated web learning client', () => {
 
     await expect(page.getByRole('link', { name: 'Create account' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
     await expect(page.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', /auth/);
     await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', /auth/);
+  });
+
+  test('publishes the extension privacy policy without requiring authentication', async ({ page }) => {
+    await page.goto('/privacy');
+
+    await expect(page).toHaveTitle('Privacy Policy — Lexync');
+    await expect(page.getByRole('heading', { name: 'Your words stay yours.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Chrome Web Store Limited Use' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'yrchenko644@gmail.com' })).toHaveAttribute('href', 'mailto:yrchenko644@gmail.com');
   });
 
   test('registers, signs in, signs out, and protects private destinations', async ({ page }) => {

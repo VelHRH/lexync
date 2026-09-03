@@ -78,7 +78,7 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2>Retention and deletion</h2>
-            <p>Account and synchronized learning data are retained while your account is active. You can delete individual learning entries within Lexync. You may request deletion of your account and associated server-side data by contacting us. Locally stored extension data can be removed by signing out, clearing the extension&apos;s data, or uninstalling the extension. Infrastructure logs are retained according to the service provider&apos;s applicable retention period.</p>
+            <p>Account and synchronized learning data are retained while your account is active. You can delete individual learning entries within Lexync. You may request deletion of your account and associated server-side data by contacting us. Signing out removes the locally stored authentication session. Other locally stored extension data can be removed by clearing the extension&apos;s data or uninstalling the extension. Infrastructure logs are retained according to the service provider&apos;s applicable retention period.</p>
           </section>
 
           <section>
