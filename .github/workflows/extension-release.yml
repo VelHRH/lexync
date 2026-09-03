@@ -1,0 +1,187 @@
+name: Extension staged release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact version tag to release
+        required: true
+        type: string
+      run_id:
+        description: Successful CI workflow run ID that produced the artifact
+        required: true
+        type: string
+      release_notes:
+        description: Optional release notes in Markdown
+        required: false
+        type: string
+
+concurrency:
+  group: extension-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  verify-ci-run:
+    name: Verify tag and CI run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      RUN_ID: ${{ inputs.run_id }}
+    outputs:
+      commit_sha: ${{ steps.verify.outputs.commit_sha }}
+    steps:
+      - name: Verify tag and CI run
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+(\.[0-9]+){0,3}$ ]] || { echo "Tag must be an exact semantic version tag" >&2; exit 1; }
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "CI run ID must be numeric" >&2; exit 1; }
+
+          tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG")"
+          object_type="$(jq -r '.object.type' <<<"$tag_ref")"
+          commit_sha="$(jq -r '.object.sha' <<<"$tag_ref")"
+          while [[ "$object_type" == tag ]]; do
+            tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$commit_sha")"
+            object_type="$(jq -r '.object.type' <<<"$tag_object")"
+            commit_sha="$(jq -r '.object.sha' <<<"$tag_object")"
+          done
+          [[ "$object_type" == commit ]] || { echo "Tag does not resolve to a commit" >&2; exit 1; }
+
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          workflow_path="$(jq -r '.path // empty' <<<"$run_json")"
+          workflow_name="$(jq -r '.name // empty' <<<"$run_json")"
+          run_status="$(jq -r '.status // empty' <<<"$run_json")"
+          run_conclusion="$(jq -r '.conclusion // empty' <<<"$run_json")"
+          run_sha="$(jq -r '.head_sha // empty' <<<"$run_json")"
+          [[ "$workflow_path" == .github/workflows/ci.yml && "$workflow_name" == CI ]] || { echo "Run is not the repository CI workflow" >&2; exit 1; }
+          [[ "$run_status" == completed && "$run_conclusion" == success ]] || { echo "CI run is not successful" >&2; exit 1; }
+          [[ "$run_sha" == "$commit_sha" ]] || { echo "CI run commit does not match peeled tag commit" >&2; exit 1; }
+
+          printf 'commit_sha=%s\n' "$commit_sha" >> "$GITHUB_OUTPUT"
+
+  stage-and-release:
+    name: Validate, stage, and release
+    needs: verify-ci-run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: chrome-web-store
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      RUN_ID: ${{ inputs.run_id }}
+      EXPECTED_COMMIT: ${{ needs.verify-ci-run.outputs.commit_sha }}
+      RELEASE_NOTES_INPUT: ${{ inputs.release_notes }}
+      CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+      CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+      CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+      CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 10.30.3
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install release tooling
+        run: pnpm install --frozen-lockfile
+
+      - name: Download validated CI artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: lexync-chromium-extension
+          path: artifacts
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Validate release inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f artifacts/lexync-chromium.zip
+          test -f artifacts/release-metadata.json
+
+          github_release_versions="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' | sed -E 's/^v//' | paste -sd, -)"
+
+          private_key="$(printf '%s' "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" | sed 's/\\n/\n/g')"
+          issued_at="$(date +%s)"
+          expires_at="$((issued_at + 3600))"
+          encode_segment() {
+            printf '%s' "$1" | openssl base64 -A | tr '+/' '-_' | tr -d '='
+          }
+          jwt_header="$(encode_segment '{"alg":"RS256","typ":"JWT"}')"
+          jwt_claims="$(encode_segment "$(jq -cn --arg iss "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL" --arg iat "$issued_at" --arg exp "$expires_at" '{iss:$iss,scope:"https://www.googleapis.com/auth/chromewebstore",aud:"https://oauth2.googleapis.com/token",iat:($iat|tonumber),exp:($exp|tonumber)}')")"
+          signing_input="$jwt_header.$jwt_claims"
+          jwt_signature="$(printf '%s' "$signing_input" | openssl dgst -sha256 -sign <(printf '%s' "$private_key") | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
+          access_token="$(curl --fail-with-body --silent --show-error --request POST https://oauth2.googleapis.com/token --data-urlencode grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer --data-urlencode assertion="$signing_input.$jwt_signature" | jq -r '.access_token // empty')"
+          test -n "$access_token"
+          status_json="$(curl --fail-with-body --silent --show-error --header "Authorization: Bearer $access_token" "https://chromewebstore.googleapis.com/v2/publishers/$CHROME_PUBLISHER_ID/items/$CHROME_EXTENSION_ID:fetchStatus")"
+          chrome_web_store_versions="$(jq -r '[.publishedItemRevisionStatus.distributionChannels[]?.crxVersion, .submittedItemRevisionStatus.distributionChannels[]?.crxVersion] | map(select(type == "string")) | unique | join(",")' <<<"$status_json")"
+
+          node scripts/validate-extension-release.mjs \
+            --artifact artifacts/lexync-chromium.zip \
+            --metadata artifacts/release-metadata.json \
+            --tag "$TAG" \
+            --expected-commit "$EXPECTED_COMMIT" \
+            --expected-chrome-listing-id "$CHROME_EXTENSION_ID" \
+            --github-release-versions "$github_release_versions" \
+            --chrome-web-store-versions "$chrome_web_store_versions"
+
+      - name: Validate WXT Chrome Web Store credentials
+        run: |
+          pnpm --filter @lexync/extension exec wxt submit --dry-run \
+            --chrome-api-version v2 \
+            --chrome-zip artifacts/lexync-chromium.zip \
+            --chrome-extension-id "$CHROME_EXTENSION_ID" \
+            --chrome-publisher-id "$CHROME_PUBLISHER_ID" \
+            --chrome-service-account-client-email "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL" \
+            --chrome-service-account-private-key "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" \
+            --chrome-publish-type STAGED_PUBLISH
+
+      - name: Submit exact ZIP for staged review
+        run: |
+          pnpm --filter @lexync/extension exec wxt submit \
+            --chrome-api-version v2 \
+            --chrome-zip artifacts/lexync-chromium.zip \
+            --chrome-extension-id "$CHROME_EXTENSION_ID" \
+            --chrome-publisher-id "$CHROME_PUBLISHER_ID" \
+            --chrome-service-account-client-email "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL" \
+            --chrome-service-account-private-key "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" \
+            --chrome-publish-type STAGED_PUBLISH
+
+      - name: Create GitHub release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum artifacts/lexync-chromium.zip > artifacts/SHA256SUMS.txt
+          {
+            printf 'tag=%s\n' "$TAG"
+            printf 'commit_sha=%s\n' "$EXPECTED_COMMIT"
+            printf 'ci_run_id=%s\n' "$RUN_ID"
+            printf 'workflow=.github/workflows/ci.yml\n'
+            printf 'sha256=%s\n' "$(cut -d' ' -f1 artifacts/SHA256SUMS.txt)"
+          } > artifacts/provenance.txt
+          assets=(artifacts/lexync-chromium.zip artifacts/release-metadata.json artifacts/SHA256SUMS.txt artifacts/provenance.txt)
+          if [[ -n "$RELEASE_NOTES_INPUT" ]]; then
+            printf '%s\n' "$RELEASE_NOTES_INPUT" > artifacts/release-notes.md
+            gh release create "$TAG" "${assets[@]}" --title "$TAG" --notes-file artifacts/release-notes.md --target "$EXPECTED_COMMIT"
+          else
+            gh release create "$TAG" "${assets[@]}" --title "$TAG" --generate-notes --target "$EXPECTED_COMMIT"
+          fi

@@ -1,0 +1,51 @@
+name: Publish approved staged extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Exact extension version approved for staged publication
+        required: true
+        type: string
+      publish_confirmation:
+        description: Confirm that the approved staged revision should be published
+        required: true
+        default: 'no'
+        type: choice
+        options:
+          - 'no'
+          - 'yes'
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish approved staged revision
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: chrome-web-store
+    permissions:
+      contents: read
+    env:
+      CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+      CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+      CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+      CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+      EXPECTED_VERSION: ${{ inputs.expected_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+
+      - name: Check approved staged status
+        run: node scripts/publish-existing-staged-extension.mjs --status --expected-version "$EXPECTED_VERSION"
+
+      - name: Publish approved staged revision
+        if: inputs.publish_confirmation == 'yes'
+        run: node scripts/publish-existing-staged-extension.mjs --publish --expected-version "$EXPECTED_VERSION"
+
+      - name: Check post-publish published status
+        if: inputs.publish_confirmation == 'yes' && success()
+        run: node scripts/publish-existing-staged-extension.mjs --status --expected-version "$EXPECTED_VERSION"
