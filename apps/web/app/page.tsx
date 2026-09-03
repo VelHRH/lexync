@@ -146,7 +146,10 @@ function PublicHome() {
         <a className="brand footer-brand" href="#top" aria-label="Back to the top">
           <BrandArtwork background="dark" />
         </a>
-        <p>Notice it. Keep it. Know it.</p>
+        <div className="footer-meta">
+          <Link href="/privacy">Privacy Policy</Link>
+          <p>Notice it. Keep it. Know it.</p>
+        </div>
       </footer>
     </main>
   );
