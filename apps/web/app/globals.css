@@ -405,6 +405,54 @@ footer {
   margin: 0.35rem 0;
 }
 
+.recognition-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.recognition-choices legend {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.recognition-choices label {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--cream);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.recognition-choices label:hover {
+  background: var(--mint);
+}
+
+.recognition-choices label:has(input:checked) {
+  border-color: var(--moss);
+  background: var(--mint);
+}
+
+.recognition-choices input {
+  flex: 0 0 auto;
+  accent-color: var(--moss);
+}
+
+.recognition-choices input:focus-visible {
+  outline: 2px solid var(--apricot);
+  outline-offset: 3px;
+}
+
 .recognition-ratings {
   display: flex;
   flex-wrap: wrap;
@@ -428,6 +476,12 @@ footer {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--cream);
+}
+
+@media (max-width: 32rem) {
+  .recognition-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .library-toolbar,

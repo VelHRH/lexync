@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import * as domain from '../../packages/domain/src/index';
 import {
   deriveRecognitionCardSchedule,
   scheduledReviewRetention,
@@ -9,12 +10,31 @@ import {
 const createdAt = '2026-09-01T08:00:00.000Z';
 const reviewedAt = '2026-09-01T09:00:00.000Z';
 
-function card(overrides: Partial<RecognitionCard> = {}): RecognitionCard {
+type ChoiceCard = RecognitionCard & {
+  answerLanguageTag: string;
+  direction: 'recognition' | 'recall';
+  learningLanguageId: string;
+};
+
+type RecognitionChoice = {
+  correct: boolean;
+  senseId: string;
+  text: string;
+};
+
+const selectRecognitionChoices = (domain as typeof domain & {
+  selectRecognitionChoices: (currentCard: ChoiceCard, cards: ChoiceCard[]) => RecognitionChoice[] | null;
+}).selectRecognitionChoices;
+
+function card(overrides: Partial<ChoiceCard> = {}): ChoiceCard {
   return {
+    answerLanguageTag: 'en',
     createdAt,
+    direction: 'recognition',
     events: [],
     expression: 'casa',
     id: 'card-one',
+    learningLanguageId: 'spanish',
     referenceLanguageTag: 'en',
     senseId: 'sense-one',
     studyPairId: 'spanish-english',
@@ -26,6 +46,38 @@ function card(overrides: Partial<RecognitionCard> = {}): RecognitionCard {
 }
 
 test.describe('Scheduled Recognition domain', () => {
+  test('selects four meaningful choices from eligible distinct Senses and deduplicates identities', () => {
+    const current = card({ id: 'current', senseId: 'current-sense', translations: ['house'] });
+    const choices = selectRecognitionChoices(current, [
+      current,
+      card({ id: 'dog', expression: 'perro', senseId: 'dog-sense', translations: ['dog'] }),
+      card({ id: 'book', expression: 'libro', senseId: 'book-sense', translations: ['book'] }),
+      card({ id: 'table', expression: 'mesa', senseId: 'table-sense', translations: ['table'] }),
+      card({ id: 'duplicate-dog', expression: 'can', senseId: 'duplicate-dog-sense', translations: [' DOG '] }),
+      card({ id: 'suspended', expression: 'nube', senseId: 'suspended-sense', suspended: true, translations: ['cloud'] }),
+      card({ id: 'other-language', expression: 'gatto', senseId: 'other-language-sense', learningLanguageId: 'italian', targetLanguageTag: 'it', translations: ['cat'] }),
+      card({ id: 'other-answer', expression: 'fruta', senseId: 'other-answer-sense', answerLanguageTag: 'uk', referenceLanguageTag: 'uk', translations: ['фрукт'] }),
+      card({ id: 'recall-dog', direction: 'recall', expression: 'perro', senseId: 'dog-sense', translations: ['dog'] }),
+    ]);
+
+    expect(choices).toHaveLength(4);
+    expect(new Set(choices?.map((choice) => choice.text))).toEqual(new Set(['house', 'dog', 'book', 'table']));
+    expect(new Set(choices?.map((choice) => choice.senseId))).toEqual(new Set(['current-sense', 'dog-sense', 'book-sense', 'table-sense']));
+    expect(choices?.filter((choice) => choice.correct)).toEqual([{ correct: true, senseId: 'current-sense', text: 'house' }]);
+  });
+
+  test('falls back when fewer than three eligible distractors remain', () => {
+    const current = card({ id: 'current', senseId: 'current-sense', translations: ['house'] });
+    const choices = selectRecognitionChoices(current, [
+      current,
+      card({ id: 'dog', expression: 'perro', senseId: 'dog-sense', translations: ['dog'] }),
+      card({ id: 'book', expression: 'libro', senseId: 'book-sense', translations: ['book'] }),
+      card({ id: 'duplicate-dog', expression: 'can', senseId: 'duplicate-dog-sense', translations: [' DOG '] }),
+    ]);
+
+    expect(choices).toBeNull();
+  });
+
   test('keeps one independently scheduled recognition Card per active Sense', () => {
     const due = selectDueRecognitionCards([
       card(),

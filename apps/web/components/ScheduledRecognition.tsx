@@ -3,6 +3,7 @@
 import {
   deriveRecognitionCardSchedule,
   languageName,
+  selectRecognitionChoices,
   type RecognitionReviewEvent,
   type ScheduledReviewRating,
 } from '@lexync/domain';
@@ -46,11 +47,7 @@ export function ScheduledRecognition({
     .filter((card) => deriveRecognitionCardSchedule(card).due.getTime() <= now)
     .sort((first, second) => deriveRecognitionCardSchedule(first).due.getTime() - deriveRecognitionCardSchedule(second).due.getTime());
   const currentCard = dueCards[0];
-  const [revealedCardId, setRevealedCardId] = useState('');
-  const [rating, setRating] = useState<ScheduledReviewRating>('again');
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
 
   if (!currentCard) {
     return <section className="scheduled-recognition" aria-labelledby="recognition-heading">
@@ -60,7 +57,49 @@ export function ScheduledRecognition({
     </section>;
   }
 
-  const revealed = revealedCardId === currentCard.id;
+  return <RecognitionExercise
+    cards={cards}
+    currentCard={currentCard}
+    key={currentCard.id}
+    language={language}
+    notice={notice}
+    onNotice={setNotice}
+    onReviewConfirmed={onReviewConfirmed}
+  />;
+}
+
+function RecognitionExercise({
+  cards,
+  currentCard,
+  language,
+  notice,
+  onNotice,
+  onReviewConfirmed,
+}: {
+  cards: LearningRecognitionCard[];
+  currentCard: LearningRecognitionCard;
+  language: LearningLanguage;
+  notice: string;
+  onNotice: (notice: string) => void;
+  onReviewConfirmed: (cardId: string, event: RecognitionReviewEvent) => void;
+}) {
+  const choiceCards = cards.map((card) => ({
+    ...card,
+    referenceLanguageTag: card.answerLanguageTag,
+    studyPairId: `${card.learningLanguageId}:${card.answerLanguageTag}`,
+    targetLanguageTag: card.learningLanguageTag,
+  }));
+  const choices = selectRecognitionChoices({
+    ...currentCard,
+    referenceLanguageTag: currentCard.answerLanguageTag,
+    studyPairId: `${currentCard.learningLanguageId}:${currentCard.answerLanguageTag}`,
+    targetLanguageTag: currentCard.learningLanguageTag,
+  }, choiceCards);
+  const [revealed, setRevealed] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState('');
+  const [rating, setRating] = useState<ScheduledReviewRating>('again');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   async function confirmReview() {
     const reviewedAt = new Date();
@@ -83,7 +122,7 @@ export function ScheduledRecognition({
       return;
     }
     const nextSchedule = deriveRecognitionCardSchedule({ ...currentCard, events: [...currentCard.events, event] });
-    setNotice(`Review recorded. Next review ${nextSchedule.due.toLocaleString()}.`);
+    onNotice(`Review recorded. Next review ${nextSchedule.due.toLocaleString()}.`);
     setRating('again');
     onReviewConfirmed(currentCard.id, event);
   }
@@ -93,16 +132,57 @@ export function ScheduledRecognition({
     <h2 id="recognition-heading">Recognition</h2>
     <p className="app-empty">Translate from {languageName(language.languageTag)}. Answer Language: {currentCard.answerLanguageTag}.</p>
     <p className="recognition-expression">{currentCard.expression}</p>
-    {!revealed && <button className="primary-button" type="button" onClick={() => setRevealedCardId(currentCard.id)}>Reveal translation</button>}
-    {revealed && <>
-      <div className="recognition-answer" aria-live="polite">
-        {currentCard.translations.map((translation) => <p key={translation}>{translation}</p>)}
-      </div>
+    {choices ? <>
+      <fieldset className="recognition-choices">
+        <legend>Choose the best translation.</legend>
+        {choices.map((choice) => <label key={choice.senseId}>
+          <input
+            checked={selectedAnswer === choice.senseId}
+            disabled={saving}
+            name="recognition-answer"
+            onChange={() => {
+              setSelectedAnswer(choice.senseId);
+              setRating(choice.correct ? 'good' : 'again');
+            }}
+            type="radio"
+            value={choice.senseId}
+          />
+          {choice.text}
+        </label>)}
+      </fieldset>
+      {selectedAnswer && <RatingControls rating={rating} saving={saving} setRating={setRating} onConfirm={() => void confirmReview()} />}
+    </> : <>
+      {!revealed && <button className="primary-button" type="button" disabled={saving} onClick={() => setRevealed(true)}>Reveal translation</button>}
+      {revealed && <>
+        <div className="recognition-answer" aria-live="polite">
+          {currentCard.translations.map((translation) => <p key={translation}>{translation}</p>)}
+        </div>
+        <RatingControls rating={rating} saving={saving} setRating={setRating} onConfirm={() => void confirmReview()} />
+      </>}
+    </>}
+    {error && <p className="form-notice error" role="alert">{error}</p>}
+    {notice && <p className="form-notice" role="status">{notice}</p>}
+  </section>;
+}
+
+function RatingControls({
+  rating,
+  saving,
+  setRating,
+  onConfirm,
+}: {
+  rating: ScheduledReviewRating;
+  saving: boolean;
+  setRating: (rating: ScheduledReviewRating) => void;
+  onConfirm: () => void;
+}) {
+  return <>
       <fieldset className="recognition-ratings">
         <legend>How well did you remember?</legend>
         {ratingValues.map((candidate) => <label key={candidate.rating}>
           <input
             checked={rating === candidate.rating}
+            disabled={saving}
             name="recognition-rating"
             onChange={() => setRating(candidate.rating)}
             type="radio"
@@ -111,9 +191,6 @@ export function ScheduledRecognition({
           {candidate.label}
         </label>)}
       </fieldset>
-      <button className="primary-button" type="button" disabled={saving} onClick={() => void confirmReview()}>{saving ? 'Recording review…' : 'Confirm review'}</button>
-    </>}
-    {error && <p className="form-notice error" role="alert">{error}</p>}
-    {notice && <p className="form-notice" role="status">{notice}</p>}
-  </section>;
+      <button className="primary-button" type="button" disabled={saving} onClick={onConfirm}>{saving ? 'Recording review…' : 'Confirm review'}</button>
+    </>;
 }
