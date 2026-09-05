@@ -1,6 +1,17 @@
 begin;
 
-select plan(34);
+select plan(35);
+
+select ok(
+  exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'learner_language_state'
+  ),
+  'Active Learning Language changes are published in realtime'
+);
 
 insert into auth.users (id)
 values
