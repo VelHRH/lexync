@@ -73,8 +73,8 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const recognitionRequestId = useRef(0);
   const online = useOnlineStatus();
 
-  const loadLanguages = useCallback(async (): Promise<string | null> => {
-    setLanguagesLoading(true);
+  const loadLanguages = useCallback(async (showLoading = true): Promise<string | null> => {
+    if (showLoading) setLanguagesLoading(true);
     const [{ data, error }, { data: state, error: stateError }] = await Promise.all([
       supabase.from('learning_languages').select('id,language_tag').order('created_at'),
       supabase.from('learner_language_state').select('active_learning_language_id').maybeSingle(),
@@ -151,7 +151,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     if (!session) return;
     const refresh = () => {
       void (async () => {
-        const nextActiveId = await loadLanguages();
+        const nextActiveId = await loadLanguages(false);
         if (nextActiveId !== null) await refreshRecognitionCards(nextActiveId);
       })();
     };

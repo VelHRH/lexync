@@ -129,7 +129,20 @@ test.describe('web Learning Language settings', () => {
 
     const { error: externalError } = await setup.client.rpc('set_active_learning_language', { p_learning_language_id: spanish.id });
     if (externalError) throw externalError;
+    let resumeRefresh = () => {};
+    const refreshGate = new Promise<void>((resolve) => {
+      resumeRefresh = resolve;
+    });
+    await page.route('**/rest/v1/learning_languages?*', async (route) => {
+      await refreshGate;
+      await route.continue();
+    });
+    const refreshRequest = page.waitForRequest('**/rest/v1/learning_languages?*');
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await refreshRequest;
+    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByText('Loading your Learning Languages…')).toHaveCount(0);
+    resumeRefresh();
     await expect(page.getByLabel('Active Learning Language')).toHaveValue(spanish.id);
   });
 });
