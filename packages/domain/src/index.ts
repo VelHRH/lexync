@@ -112,6 +112,18 @@ export type RecognitionCard = {
   translations: string[];
 };
 
+export type RecognitionChoiceCard = RecognitionCard & {
+  answerLanguageTag: string;
+  direction: LearningDirection;
+  learningLanguageId: string;
+};
+
+export type RecognitionChoice = {
+  correct: boolean;
+  senseId: string;
+  text: string;
+};
+
 export const scheduledReviewRetention = 0.9;
 
 const recognitionScheduler = fsrs(generatorParameters({
@@ -275,6 +287,94 @@ export function selectDueRecognitionCards(cards: RecognitionCard[], activeStudyP
       const dueDifference = deriveRecognitionCardSchedule(first).due.getTime() - deriveRecognitionCardSchedule(second).due.getTime();
       return dueDifference || first.id.localeCompare(second.id);
     });
+}
+
+function translationIdentity(value: string): string | null {
+  const identity = value.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und').replaceAll('\u03c2', '\u03c3');
+
+  return identity || null;
+}
+
+type RecognitionTranslation = { identity: string; text: string };
+
+function compareStable(first: string, second: string): number {
+  return first < second ? -1 : first > second ? 1 : 0;
+}
+
+function representativeTranslations(translations: string[]): RecognitionTranslation[] {
+  const representatives = new Map<string, RecognitionTranslation>();
+
+  for (const text of translations) {
+    const identity = translationIdentity(text);
+
+    if (!identity) {
+      continue;
+    }
+
+    const existing = representatives.get(identity);
+
+    if (!existing || compareStable(text, existing.text) < 0) {
+      representatives.set(identity, { identity, text });
+    }
+  }
+
+  return [...representatives.values()].sort((first, second) =>
+    compareStable(first.identity, second.identity) || compareStable(first.text, second.text));
+}
+
+export function selectRecognitionChoices(
+  currentCard: RecognitionChoiceCard,
+  cards: RecognitionChoiceCard[],
+): RecognitionChoice[] | null {
+  const currentAnswerLanguageTag = canonicalLanguageTag(currentCard.answerLanguageTag);
+  const correctAnswer = representativeTranslations(currentCard.translations)[0];
+
+  if (!currentAnswerLanguageTag || !correctAnswer) {
+    return null;
+  }
+
+  const candidateTranslationsBySense = new Map<string, RecognitionTranslation[]>();
+
+  for (const card of cards) {
+    if (card.learningLanguageId !== currentCard.learningLanguageId
+      || card.senseId === currentCard.senseId
+      || card.suspended
+      || canonicalLanguageTag(card.answerLanguageTag) !== currentAnswerLanguageTag) {
+      continue;
+    }
+
+    const translations = candidateTranslationsBySense.get(card.senseId) ?? [];
+    translations.push(...representativeTranslations(card.translations));
+    candidateTranslationsBySense.set(card.senseId, translations);
+  }
+
+  const selectedIdentities = new Set<string>([correctAnswer.identity]);
+  const distractors: RecognitionChoice[] = [];
+
+  for (const [senseId, translations] of candidateTranslationsBySense.entries()) {
+    const representative = representativeTranslations(translations.map((translation) => translation.text))
+      .find((translation) => !selectedIdentities.has(translation.identity));
+
+    if (!representative) {
+      continue;
+    }
+
+    selectedIdentities.add(representative.identity);
+    distractors.push({ correct: false, senseId, text: representative.text });
+
+    if (distractors.length === 3) {
+      break;
+    }
+  }
+
+  if (distractors.length < 3) {
+    return null;
+  }
+
+  return [
+    { correct: true, senseId: currentCard.senseId, text: correctAnswer.text },
+    ...distractors,
+  ].sort((first, second) => compareStable(first.senseId, second.senseId));
 }
 
 function matchingLanguageTag(first: string, second: string): boolean {

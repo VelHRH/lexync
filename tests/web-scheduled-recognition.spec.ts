@@ -37,6 +37,38 @@ async function captureEntry(client: SupabaseClient, learningLanguageId: string, 
   return data as { vocabularyEntryId: string };
 }
 
+async function suspendEntry(client: SupabaseClient, vocabularyEntryId: string) {
+  const { data: compatibilityEntry, error: compatibilityError } = await client
+    .from('vocabulary_entries')
+    .select('id')
+    .eq('learning_vocabulary_entry_id', vocabularyEntryId)
+    .single();
+  if (compatibilityError || !compatibilityEntry) throw compatibilityError ?? new Error('The compatibility Vocabulary Entry fixture is missing.');
+  const { error } = await client.rpc('set_vocabulary_entry_suspended', {
+    p_suspended: true,
+    p_vocabulary_entry_id: compatibilityEntry.id,
+  });
+  if (error) throw error;
+}
+
+async function seedRecognitionChoices() {
+  const { account, client, languageIds } = await registerLearner('recognition-choices', ['es', 'it']);
+  const spanish = languageIds[0];
+  const italian = languageIds[1];
+  await captureEntry(client, spanish, 'en', 'casa', 'house');
+  await captureEntry(client, spanish, 'en', 'perro', 'dog');
+  await captureEntry(client, spanish, 'en', 'libro', 'book');
+  await captureEntry(client, spanish, 'en', 'mesa', 'table');
+  await captureEntry(client, spanish, 'en', 'can', ' DOG ');
+  const suspended = await captureEntry(client, spanish, 'en', 'nube', 'cloud');
+  await suspendEntry(client, suspended.vocabularyEntryId);
+  await captureEntry(client, spanish, 'uk', 'fruta', 'фрукт');
+  await captureEntry(client, italian, 'en', 'gatto', 'cat');
+  const other = await registerLearner('recognition-choices-other', ['es']);
+  await captureEntry(other.client, other.languageIds[0], 'en', 'privado', 'private');
+  return { account, client };
+}
+
 async function signIn(page: Page, account: ReturnType<typeof credentials>) {
   await page.goto('/auth/sign-in');
   await page.getByLabel('Email').fill(account.email);
@@ -53,17 +85,7 @@ test.describe('web Scheduled Recognition', () => {
     await captureEntry(client, spanish, 'en', 'casa', 'house');
     await captureEntry(client, spanish, 'en', 'casa', 'home');
     const suspended = await captureEntry(client, spanish, 'en', 'nube', 'cloud');
-    const { data: compatibilityEntry, error: compatibilityError } = await client
-      .from('vocabulary_entries')
-      .select('id')
-      .eq('learning_vocabulary_entry_id', suspended.vocabularyEntryId)
-      .single();
-    if (compatibilityError || !compatibilityEntry) throw compatibilityError ?? new Error('The compatibility Vocabulary Entry fixture is missing.');
-    const { error: suspensionError } = await client.rpc('set_vocabulary_entry_suspended', {
-      p_suspended: true,
-      p_vocabulary_entry_id: compatibilityEntry.id,
-    });
-    if (suspensionError) throw suspensionError;
+    await suspendEntry(client, suspended.vocabularyEntryId);
     await captureEntry(client, italian, 'en', 'gatto', 'cat');
     const other = await registerLearner('recognition-other', ['es']);
     await captureEntry(other.client, other.languageIds[0], 'en', 'privado', 'private');
@@ -114,6 +136,7 @@ test.describe('web Scheduled Recognition', () => {
     await page.getByRole('button', { name: 'Reveal translation' }).press('Enter');
     await page.getByRole('radio', { name: 'Good' }).check();
     await page.getByRole('button', { name: 'Confirm review' }).press('Enter');
+    await expect(page.getByText('No recognition Cards are due for Spanish.')).toBeVisible();
 
     const { data: events, error } = await client.from('review_events').select('card_id, rating');
     if (error) throw error;
@@ -126,5 +149,57 @@ test.describe('web Scheduled Recognition', () => {
     if (countError) throw countError;
     expect(count).toBe(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  });
+
+  test('offers four credible choices, preselects Good for a correct answer, and records a keyboard override once', async ({ page }) => {
+    const { account, client } = await seedRecognitionChoices();
+    await signIn(page, account);
+    await page.goto('/review');
+
+    await expect(page.getByText('casa', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reveal translation' })).toHaveCount(0);
+    const answerNames = ['house', 'dog', 'book', 'table'];
+    const answerRadios = page.getByRole('radio');
+    await expect(answerRadios).toHaveCount(4);
+    for (const answerName of answerNames) {
+      await expect(page.getByRole('radio', { name: answerName, exact: true })).toHaveCount(1);
+    }
+    await expect(page.getByText('cloud', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('фрукт', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('cat', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('private', { exact: true })).toHaveCount(0);
+
+    const correctAnswer = page.getByRole('radio', { name: 'house', exact: true });
+    await correctAnswer.focus();
+    await correctAnswer.press('Space');
+    await expect(page.getByRole('radio', { name: 'Good', exact: true })).toBeChecked();
+    await page.getByRole('radio', { name: 'Again', exact: true }).check();
+    const confirm = page.getByRole('button', { name: 'Confirm review' });
+    await confirm.focus();
+    await confirm.press('Enter');
+    await expect(page.getByRole('status')).toContainText('Review recorded. Next review');
+
+    const { data: events, error } = await client.from('review_events').select('rating');
+    if (error) throw error;
+    expect(events).toHaveLength(1);
+    expect(events?.[0].rating).toBe('again');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  });
+
+  test('preselects Again for an incorrect choice and allows a rating override', async ({ page }) => {
+    const { account, client } = await seedRecognitionChoices();
+    await signIn(page, account);
+    await page.goto('/review');
+
+    await page.getByRole('radio', { name: 'dog', exact: true }).check();
+    await expect(page.getByRole('radio', { name: 'Again', exact: true })).toBeChecked();
+    await page.getByRole('radio', { name: 'Hard', exact: true }).check();
+    await page.getByRole('button', { name: 'Confirm review' }).click();
+    await expect(page.getByRole('status')).toContainText('Review recorded. Next review');
+
+    const { data: events, error } = await client.from('review_events').select('rating');
+    if (error) throw error;
+    expect(events).toHaveLength(1);
+    expect(events?.[0].rating).toBe('hard');
   });
 });
