@@ -55,6 +55,30 @@ function toReviewCard(card: LearningReviewOverview): LearningRecognitionCard {
   };
 }
 
+function sectionLabel(section: string) {
+  return destinations.find(([label]) => label.toLowerCase() === section.toLowerCase())?.[0] ?? section;
+}
+
+function AppLoadingShell({ section, message, alert = false }: { section: string; message: string; alert?: boolean }) {
+  const activeSection = sectionLabel(section);
+
+  return <main className="app-shell" aria-busy={!alert}>
+    <header className="app-header">
+      <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
+    </header>
+    <div className="app-body">
+      <nav className="app-navigation" aria-label="Main navigation">
+        {destinations.map(([label, href]) => <Link className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
+      </nav>
+      <section className="app-content" aria-labelledby="app-heading">
+        <p className="eyebrow"><span /> Your private learning space</p>
+        <h1 id="app-heading">{activeSection}</h1>
+        <p className={`form-notice${alert ? ' error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
+      </section>
+    </div>
+  </main>;
+}
+
 export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboarding = false }: { section?: string; publicContent?: ReactNode; forceOnboarding?: boolean }) {
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,8 +97,8 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const recognitionRequestId = useRef(0);
   const online = useOnlineStatus();
 
-  const loadLanguages = useCallback(async (showLoading = true): Promise<string | null> => {
-    if (showLoading) setLanguagesLoading(true);
+  const loadLanguages = useCallback(async (): Promise<string | null> => {
+    setLanguagesLoading(true);
     const [{ data, error }, { data: state, error: stateError }] = await Promise.all([
       supabase.from('learning_languages').select('id,language_tag').order('created_at'),
       supabase.from('learner_language_state').select('active_learning_language_id').maybeSingle(),
@@ -149,15 +173,22 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
 
   useEffect(() => {
     if (!session) return;
-    const refresh = () => {
-      void (async () => {
-        const nextActiveId = await loadLanguages(false);
-        if (nextActiveId !== null) await refreshRecognitionCards(nextActiveId);
-      })();
+    const channel = supabase
+      .channel(`learner-language-state:${session.user.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        filter: `learner_id=eq.${session.user.id}`,
+        schema: 'public',
+        table: 'learner_language_state',
+      }, (payload) => {
+        const activeLearningLanguageId = (payload.new as { active_learning_language_id?: unknown }).active_learning_language_id;
+        if (typeof activeLearningLanguageId === 'string') setActiveLanguageId(activeLearningLanguageId);
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
     };
-    window.addEventListener('focus', refresh);
-    return () => window.removeEventListener('focus', refresh);
-  }, [loadLanguages, refreshRecognitionCards, session]);
+  }, [session]);
 
   useEffect(() => {
     if (!forceOnboarding && !languagesLoading && session && languages.length === 0) window.location.assign('/onboarding/study-pair');
@@ -167,14 +198,14 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     if (!loading && !session && !publicContent && !signingOut) window.location.assign(`/auth/sign-in?next=${encodeURIComponent(window.location.pathname)}`);
   }, [loading, publicContent, session, signingOut]);
 
-  if (loading) return <main className="auth-loading" aria-busy="true">Loading your private library…</main>;
-  if (!session) return <>{publicContent ?? <main className="auth-loading" aria-busy="true">Redirecting to sign in…</main>}</>;
+  if (loading) return <>{publicContent ?? <AppLoadingShell section={section} message="Opening your private library…" />}</>;
+  if (!session) return <>{publicContent ?? <AppLoadingShell section={section} message="Opening sign in…" />}</>;
   if (forceOnboarding) return <StudyPairOnboarding onCreated={() => window.location.assign('/')} />;
-  if (languagesLoading) return <main className="auth-loading" aria-busy="true">Loading your Learning Languages…</main>;
-  if (languageError && languages.length === 0) return <main className="auth-loading" role="alert">Unable to load your Learning Languages: {languageError}</main>;
-  if (languages.length === 0) return <main className="auth-loading" aria-busy="true">Opening onboarding…</main>;
+  if (languagesLoading) return <AppLoadingShell section={section} message="Loading your Learning Languages…" />;
+  if (languageError && languages.length === 0) return <AppLoadingShell section={section} message={`Unable to load your Learning Languages: ${languageError}`} alert />;
+  if (languages.length === 0) return <AppLoadingShell section={section} message="Opening onboarding…" />;
 
-  const activeSection = destinations.find(([label]) => label.toLowerCase() === section.toLowerCase())?.[0] ?? section;
+  const activeSection = sectionLabel(section);
   const activeLanguage = languages.find((language) => language.id === activeLanguageId) ?? languages[0];
   const activePairs = pairs.filter((pair) => pair.learningLanguageId === activeLanguage.id);
 

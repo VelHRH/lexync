@@ -38,8 +38,7 @@ footer {
   padding-right: clamp(1.25rem, 5vw, 5rem);
 }
 
-.auth-page,
-.auth-loading {
+.auth-page {
   min-height: 100vh;
   display: grid;
   place-items: center;

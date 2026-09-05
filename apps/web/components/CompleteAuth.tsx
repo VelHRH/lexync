@@ -21,5 +21,9 @@ export function CompleteAuth({ code, type }: { code?: string; type?: string }) {
     });
   }, [code, type]);
 
-  return <main className="auth-loading" aria-busy="true">Completing authentication…</main>;
+  return <main className="auth-page">
+    <section className="auth-card" aria-busy="true">
+      <p className="auth-intro" role="status">Completing authentication…</p>
+    </section>
+  </main>;
 }
