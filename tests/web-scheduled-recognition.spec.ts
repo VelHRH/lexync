@@ -77,6 +77,49 @@ async function signIn(page: Page, account: ReturnType<typeof credentials>) {
   await expect(page).toHaveURL('/');
 }
 
+type LearningReviewRow = {
+  direction: 'recognition' | 'recall';
+  expression: string;
+  id: string;
+  learning_language_id: string;
+  translations: string[];
+};
+
+async function seedRecallReview(prefix: string, expression: string, translations: string[]) {
+  const { account, client, languageIds } = await registerLearner(prefix, ['es']);
+  const learningLanguageId = languageIds[0];
+  await captureEntry(client, learningLanguageId, 'en', expression, translations[0]);
+  for (const translation of translations.slice(1)) {
+    await captureEntry(client, learningLanguageId, 'en', expression, translation);
+  }
+
+  const { data, error } = await client.rpc('learning_scheduled_review_overview', {
+    p_learning_language_id: learningLanguageId,
+  });
+  if (error) throw error;
+  const rows = (data ?? []) as LearningReviewRow[];
+  const recallCard = rows.find((row) => row.direction === 'recall' && row.expression === expression);
+  const recognitionCard = rows.find((row) => row.direction === 'recognition' && row.expression === expression);
+  if (!recallCard || !recognitionCard) throw new Error('The Recall and Recognition Card fixtures are missing.');
+
+  const occurredAt = new Date().toISOString();
+  const { error: reviewError } = await client.rpc('confirm_scheduled_review', {
+    p_card_id: recognitionCard.id,
+    p_event_id: crypto.randomUUID(),
+    p_occurred_at: occurredAt,
+    p_rating: 'good',
+  });
+  if (reviewError) throw reviewError;
+
+  return { account, client, learningLanguageId, recallCard, recognitionCard };
+}
+
+async function expectNoMobileOverflow(page: Page) {
+  if (test.info().project.name === 'web-scheduled-recognition-mobile') {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  }
+}
+
 test.describe('web Scheduled Recognition', () => {
   test('shows owned due counts by Learning Language and starts only the active language', async ({ page }) => {
     const { account, client, languageIds } = await registerLearner('recognition-counts', ['es', 'it']);
@@ -133,10 +176,14 @@ test.describe('web Scheduled Recognition', () => {
     await page.getByRole('button', { name: 'Confirm review' }).press('Enter');
     await expect(page.getByRole('status')).toContainText('Review recorded. Next review');
 
-    await page.getByRole('button', { name: 'Reveal translation' }).press('Enter');
-    await page.getByRole('radio', { name: 'Good' }).check();
+    await expect(page.getByRole('heading', { name: 'Recall' })).toBeVisible();
+    await page.getByLabel('Target Expression').fill('casa');
+    await page.getByRole('button', { name: 'Check answer' }).press('Enter');
+    await expect(page.locator('[aria-live="polite"]').filter({ hasText: /correct/i })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Correct', exact: true })).toBeChecked();
+    await expect(page.getByRole('radio', { name: 'Good', exact: true })).toBeChecked();
     await page.getByRole('button', { name: 'Confirm review' }).press('Enter');
-    await expect(page.getByText('No recognition Cards are due for Spanish.')).toBeVisible();
+    await expect(page.getByText(/No .*Cards are due for Spanish\./)).toBeVisible();
 
     const { data: events, error } = await client.from('review_events').select('card_id, rating');
     if (error) throw error;
@@ -144,7 +191,7 @@ test.describe('web Scheduled Recognition', () => {
     expect(events?.every((event) => event.rating === 'good')).toBeTruthy();
 
     await page.reload();
-    await expect(page.getByText('No recognition Cards are due for Spanish.')).toBeVisible();
+    await expect(page.getByText(/No .*Cards are due for Spanish\./)).toBeVisible();
     const { count, error: countError } = await client.from('review_events').select('*', { count: 'exact', head: true });
     if (countError) throw countError;
     expect(count).toBe(2);
@@ -201,5 +248,68 @@ test.describe('web Scheduled Recognition', () => {
     if (error) throw error;
     expect(events).toHaveLength(1);
     expect(events?.[0].rating).toBe('hard');
+  });
+
+  test('runs a typed Recall review by keyboard, shows all translations, and records only the Recall event', async ({ page }) => {
+    const { account, client, recallCard, recognitionCard } = await seedRecallReview('recall-keyboard', 'casa', ['house', 'home']);
+    await signIn(page, account);
+    await page.goto('/review');
+
+    await expect(page.getByRole('heading', { name: 'Recall' })).toBeVisible();
+    await expect(page.getByText('Answer Language: en. Type the Target Expression.', { exact: true })).toBeVisible();
+    await expect(page.getByText('house', { exact: true })).toBeVisible();
+    await expect(page.getByText('home', { exact: true })).toBeVisible();
+    const input = page.getByLabel('Target Expression');
+    await input.fill('  CASA!  ');
+    const check = page.getByRole('button', { name: 'Check answer' });
+    await check.focus();
+    await check.press('Enter');
+    await expect(page.locator('[aria-live="polite"]').filter({ hasText: /correct/i })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Correct', exact: true })).toBeChecked();
+    await expect(page.getByRole('radio', { name: 'Incorrect', exact: true })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Good', exact: true })).toBeChecked();
+
+    await page.getByRole('radio', { name: 'Incorrect', exact: true }).check();
+    await expect(page.getByRole('radio', { name: 'Again', exact: true })).toBeChecked();
+    await page.getByRole('radio', { name: 'Easy', exact: true }).check();
+    const confirm = page.getByRole('button', { name: 'Confirm review' });
+    await confirm.focus();
+    await confirm.press('Enter');
+    await expect(page.getByRole('status')).toContainText('Review recorded');
+
+    const { data: events, error } = await client.from('review_events').select('card_id, rating').in('card_id', [recallCard.id, recognitionCard.id]);
+    if (error) throw error;
+    expect(events).toHaveLength(2);
+    expect(events?.filter((event) => event.card_id === recognitionCard.id)).toHaveLength(1);
+    expect(events?.find((event) => event.card_id === recallCard.id)?.rating).toBe('easy');
+    const { count, error: recallEventError } = await client.from('review_events').select('*', { count: 'exact', head: true }).eq('card_id', recallCard.id);
+    if (recallEventError) throw recallEventError;
+    expect(count).toBe(1);
+    await expectNoMobileOverflow(page);
+  });
+
+  test('shows Again for an incorrect typed Recall answer and allows correctness and rating overrides', async ({ page }) => {
+    const { account, client, recallCard, recognitionCard } = await seedRecallReview('recall-override', "l'amour", ['love', 'affection']);
+    await signIn(page, account);
+    await page.goto('/review');
+
+    await expect(page.getByRole('heading', { name: 'Recall' })).toBeVisible();
+    await page.getByLabel('Target Expression').fill('lamour');
+    await page.getByRole('button', { name: 'Check answer' }).click();
+    await expect(page.locator('[aria-live="polite"]').filter({ hasText: /incorrect/i })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Incorrect', exact: true })).toBeChecked();
+    await expect(page.getByRole('radio', { name: 'Again', exact: true })).toBeChecked();
+    await page.getByRole('radio', { name: 'Correct', exact: true }).check();
+    await expect(page.getByRole('radio', { name: 'Good', exact: true })).toBeChecked();
+    await page.getByRole('radio', { name: 'Hard', exact: true }).check();
+    await page.getByRole('button', { name: 'Confirm review' }).click();
+    await expect(page.getByRole('status')).toContainText('Review recorded');
+
+    const { data: events, error } = await client.from('review_events').select('card_id, rating').in('card_id', [recallCard.id, recognitionCard.id]);
+    if (error) throw error;
+    expect(events).toHaveLength(2);
+    expect(events?.find((event) => event.card_id === recallCard.id)?.rating).toBe('hard');
+    expect(events?.find((event) => event.card_id === recognitionCard.id)?.rating).toBe('good');
+    await expectNoMobileOverflow(page);
   });
 });
