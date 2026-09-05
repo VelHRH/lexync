@@ -177,20 +177,20 @@ function RatingControls({
   onConfirm: () => void;
 }) {
   return <>
-      <fieldset className="recognition-ratings">
-        <legend>How well did you remember?</legend>
-        {ratingValues.map((candidate) => <label key={candidate.rating}>
-          <input
-            checked={rating === candidate.rating}
-            disabled={saving}
-            name="recognition-rating"
-            onChange={() => setRating(candidate.rating)}
-            type="radio"
-            value={candidate.rating}
-          />
-          {candidate.label}
-        </label>)}
-      </fieldset>
-      <button className="primary-button" type="button" disabled={saving} onClick={onConfirm}>{saving ? 'Recording review…' : 'Confirm review'}</button>
-    </>;
+    <fieldset className="recognition-ratings">
+      <legend>How well did you remember?</legend>
+      {ratingValues.map((candidate) => <label key={candidate.rating}>
+        <input
+          checked={rating === candidate.rating}
+          disabled={saving}
+          name="recognition-rating"
+          onChange={() => setRating(candidate.rating)}
+          type="radio"
+          value={candidate.rating}
+        />
+        {candidate.label}
+      </label>)}
+    </fieldset>
+    <button className="primary-button" type="button" disabled={saving} onClick={onConfirm}>{saving ? 'Recording review…' : 'Confirm review'}</button>
+  </>;
 }

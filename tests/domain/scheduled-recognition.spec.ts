@@ -1,32 +1,17 @@
 import { expect, test } from '@playwright/test';
-import * as domain from '../../packages/domain/src/index';
 import {
   deriveRecognitionCardSchedule,
   scheduledReviewRetention,
+  selectRecognitionChoices,
   selectDueRecognitionCards,
-  type RecognitionCard,
+  type RecognitionChoice,
+  type RecognitionChoiceCard,
 } from '../../packages/domain/src/index';
 
 const createdAt = '2026-09-01T08:00:00.000Z';
 const reviewedAt = '2026-09-01T09:00:00.000Z';
 
-type ChoiceCard = RecognitionCard & {
-  answerLanguageTag: string;
-  direction: 'recognition' | 'recall';
-  learningLanguageId: string;
-};
-
-type RecognitionChoice = {
-  correct: boolean;
-  senseId: string;
-  text: string;
-};
-
-const selectRecognitionChoices = (domain as typeof domain & {
-  selectRecognitionChoices: (currentCard: ChoiceCard, cards: ChoiceCard[]) => RecognitionChoice[] | null;
-}).selectRecognitionChoices;
-
-function card(overrides: Partial<ChoiceCard> = {}): ChoiceCard {
+function card(overrides: Partial<RecognitionChoiceCard> = {}): RecognitionChoiceCard {
   return {
     answerLanguageTag: 'en',
     createdAt,
@@ -48,7 +33,7 @@ function card(overrides: Partial<ChoiceCard> = {}): ChoiceCard {
 test.describe('Scheduled Recognition domain', () => {
   test('selects four meaningful choices from eligible distinct Senses and deduplicates identities', () => {
     const current = card({ id: 'current', senseId: 'current-sense', translations: ['house'] });
-    const choices = selectRecognitionChoices(current, [
+    const choices: RecognitionChoice[] | null = selectRecognitionChoices(current, [
       current,
       card({ id: 'dog', expression: 'perro', senseId: 'dog-sense', translations: ['dog'] }),
       card({ id: 'book', expression: 'libro', senseId: 'book-sense', translations: ['book'] }),
@@ -68,7 +53,7 @@ test.describe('Scheduled Recognition domain', () => {
 
   test('falls back when fewer than three eligible distractors remain', () => {
     const current = card({ id: 'current', senseId: 'current-sense', translations: ['house'] });
-    const choices = selectRecognitionChoices(current, [
+    const choices: RecognitionChoice[] | null = selectRecognitionChoices(current, [
       current,
       card({ id: 'dog', expression: 'perro', senseId: 'dog-sense', translations: ['dog'] }),
       card({ id: 'book', expression: 'libro', senseId: 'book-sense', translations: ['book'] }),

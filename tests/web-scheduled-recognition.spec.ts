@@ -85,17 +85,7 @@ test.describe('web Scheduled Recognition', () => {
     await captureEntry(client, spanish, 'en', 'casa', 'house');
     await captureEntry(client, spanish, 'en', 'casa', 'home');
     const suspended = await captureEntry(client, spanish, 'en', 'nube', 'cloud');
-    const { data: compatibilityEntry, error: compatibilityError } = await client
-      .from('vocabulary_entries')
-      .select('id')
-      .eq('learning_vocabulary_entry_id', suspended.vocabularyEntryId)
-      .single();
-    if (compatibilityError || !compatibilityEntry) throw compatibilityError ?? new Error('The compatibility Vocabulary Entry fixture is missing.');
-    const { error: suspensionError } = await client.rpc('set_vocabulary_entry_suspended', {
-      p_suspended: true,
-      p_vocabulary_entry_id: compatibilityEntry.id,
-    });
-    if (suspensionError) throw suspensionError;
+    await suspendEntry(client, suspended.vocabularyEntryId);
     await captureEntry(client, italian, 'en', 'gatto', 'cat');
     const other = await registerLearner('recognition-other', ['es']);
     await captureEntry(other.client, other.languageIds[0], 'en', 'privado', 'private');
