@@ -295,6 +295,29 @@ function translationIdentity(value: string): string | null {
   return identity || null;
 }
 
+function typedRecallAnswerIdentity(value: string): string | null {
+  const identity = value
+    .normalize('NFC')
+    .trim()
+    .replace(/\s+/gu, ' ')
+    .replace(/^[.,!?;:¿¡]+/u, '')
+    .replace(/[.,!?;:¿¡]+$/u, '')
+    .trim()
+    .replace(/[\u2018\u2019\u02BC]/gu, "'")
+    .replace(/[\u2011\u2013\u2014]/gu, '-')
+    .toLocaleLowerCase('und')
+    .replaceAll('\u03c2', '\u03c3');
+
+  return identity || null;
+}
+
+export function isTypedRecallAnswerCorrect(answer: string, expression: string): boolean {
+  const answerIdentity = typedRecallAnswerIdentity(answer);
+  const expressionIdentity = typedRecallAnswerIdentity(expression);
+
+  return answerIdentity !== null && answerIdentity === expressionIdentity;
+}
+
 type RecognitionTranslation = { identity: string; text: string };
 
 function compareStable(first: string, second: string): number {
