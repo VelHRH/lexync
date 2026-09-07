@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboarding';
-import { ScheduledRecognition, type LearningRecognitionCard } from './ScheduledRecognition';
+import { clearScheduledReviewEnded, ScheduledRecognition, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
 
 const destinations = [
@@ -270,7 +270,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
         <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
         <div>
           <label className="pair-selector-label" htmlFor="active-learning-language">Active Learning Language</label>
-          <select id="active-learning-language" aria-label="Active Learning Language" value={activeLanguage.id} onChange={(event) => void setActiveLanguage(event.target.value)}>
+          <select id="active-learning-language" aria-label="Active Learning Language" value={activeLanguage.id} disabled={activeSection === 'Review'} onChange={(event) => void setActiveLanguage(event.target.value)}>
             {languages.map((language) => <option key={language.id} value={language.id}>{languageName(language.languageTag)} · {language.languageTag}</option>)}
           </select>
           {online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>}
@@ -285,7 +285,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
           {activeSection === 'Home' && !recognitionLoading && <section className="due-counts" aria-label="Scheduled Review due counts">
-            <div className="due-count-row"><span>{languageName(activeLanguage.languageTag)} <strong>{recognitionCards.length} due</strong></span><Link className="secondary-button" href="/review">Start review</Link></div>
+            <div className="due-count-row"><span>{languageName(activeLanguage.languageTag)} <strong>{recognitionCards.length} due</strong></span><Link className="secondary-button" href="/review" onClick={() => clearScheduledReviewEnded(activeLanguage.id)}>Start review</Link></div>
           </section>}
           {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
           {activeSection === 'Review' && !recognitionLoading && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={activeLanguage} />}
