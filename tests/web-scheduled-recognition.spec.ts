@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { deriveRecognitionCardSchedule, type RecognitionReviewEvent } from '../packages/domain/src/index';
 import { expect, test, type Page } from '@playwright/test';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -80,6 +81,7 @@ async function signIn(page: Page, account: ReturnType<typeof credentials>) {
 type LearningReviewRow = {
   created_at: string;
   direction: 'recognition' | 'recall';
+  events: RecognitionReviewEvent[];
   expression: string;
   id: string;
   learning_language_id: string;
@@ -131,11 +133,32 @@ async function scheduledReviewRows(client: SupabaseClient, learningLanguageId: s
 
 function queueOrder(rows: LearningReviewRow[]) {
   return [...rows].sort((first, second) => {
-    const createdAtDifference = first.created_at.localeCompare(second.created_at);
-    if (createdAtDifference) return createdAtDifference;
+    const firstDue = deriveRecognitionCardSchedule({ createdAt: first.created_at, events: first.events }).due.getTime();
+    const secondDue = deriveRecognitionCardSchedule({ createdAt: second.created_at, events: second.events }).due.getTime();
+    const dueDifference = firstDue - secondDue;
+    if (dueDifference) return dueDifference;
     const directionDifference = (first.direction === 'recognition' ? 0 : 1) - (second.direction === 'recognition' ? 0 : 1);
     return directionDifference || first.id.localeCompare(second.id);
   });
+}
+
+async function recordFixtureReview(client: SupabaseClient, cardId: string, occurredAt: string) {
+  const { error } = await client.rpc('confirm_scheduled_review', {
+    p_card_id: cardId,
+    p_event_id: crypto.randomUUID(),
+    p_occurred_at: occurredAt,
+    p_rating: 'again',
+  });
+  if (error) throw error;
+}
+
+async function scheduledSessionItems(client: SupabaseClient, learningLanguageId: string) {
+  const { data, error } = await client.rpc('scheduled_review_session_overview', {
+    p_learning_language_id: learningLanguageId,
+  });
+  if (error || !data || typeof data !== 'object') throw error ?? new Error('The Scheduled Review session fixture is missing.');
+  const items = (data as { items?: Array<{ card_id: string; ordinal: number }> }).items ?? [];
+  return [...items].sort((first, second) => first.ordinal - second.ordinal);
 }
 
 async function expectProgress(page: Page, position: number, total: number) {
@@ -220,8 +243,9 @@ test.describe('web Scheduled Recognition', () => {
     await page.getByRole('link', { name: 'Add vocabulary' }).click();
     await page.getByLabel('Expression').fill('árbol');
     await page.getByLabel('Answer Language').fill('en');
-    await page.getByLabel('Translation').fill('tree');
-    await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    const translation = page.getByLabel('Translation');
+    await translation.fill('tree');
+    await translation.press('Enter');
     await page.getByRole('link', { name: 'Home', exact: true }).click();
     await expect(counts.getByText('Spanish 4 due', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Start review' }).click();
@@ -398,6 +422,82 @@ test.describe('web Scheduled Recognition', () => {
     await expect(page.getByText('gatto', { exact: true })).toHaveCount(0);
     await expect(page.getByLabel('Active Learning Language')).toHaveValue(fixture.learningLanguageId);
     await expectProgress(page, 1, fixture.rows.length);
+    await expectNoMobileOverflow(page);
+  });
+
+  test('keeps the Spanish session context when another tab switches the active Learning Language', async ({ page }) => {
+    const fixture = await seedSessionFixture('scheduled-session-language-tab', [['casa', 'house'], ['perro', 'dog']]);
+    await signIn(page, fixture.account);
+    await startScheduledReview(page);
+    const firstCard = fixture.rows[0];
+    const secondCard = fixture.rows[1];
+    await expectSessionCard(page, firstCard);
+    await expectProgress(page, 1, fixture.rows.length);
+
+    const secondPage = await page.context().newPage();
+    try {
+      await secondPage.goto('/');
+      await expect(secondPage.getByLabel('Active Learning Language')).toHaveValue(fixture.learningLanguageId);
+      await secondPage.getByLabel('Active Learning Language').selectOption(fixture.otherLearningLanguageId);
+      await expect(secondPage.getByLabel('Active Learning Language')).toHaveValue(fixture.otherLearningLanguageId);
+      await expect(page.getByLabel('Active Learning Language')).toBeDisabled();
+      await expect(page.getByLabel('Active Learning Language')).toHaveValue(fixture.learningLanguageId);
+      await expectSessionCard(page, firstCard);
+      await expectProgress(page, 1, fixture.rows.length);
+      await expect(page.getByText(/Translate from Spanish/i)).toBeVisible();
+      await expect(page.getByText(/Translate from Italian/i)).toHaveCount(0);
+      await expect(page.getByText('gatto', { exact: true })).toHaveCount(0);
+
+      await confirmCurrentSessionCard(page, firstCard.expression, firstCard.translations[0]);
+      await expectProgress(page, 2, fixture.rows.length);
+      await page.reload();
+      await expectSessionCard(page, secondCard);
+      await expectProgress(page, 2, fixture.rows.length);
+    } finally {
+      await secondPage.close();
+    }
+    await expectNoMobileOverflow(page);
+  });
+
+  test('persists derived due ordering with Recognition before Recall on equal due times', async ({ page }) => {
+    const fixture = await seedSessionFixture('scheduled-session-due-order', [['casa', 'house'], ['perro', 'dog']]);
+    const initialRows = await scheduledReviewRows(fixture.client, fixture.learningLanguageId);
+    const casaRecognition = initialRows.find((row) => row.expression === 'casa' && row.direction === 'recognition');
+    const casaRecall = initialRows.find((row) => row.expression === 'casa' && row.direction === 'recall');
+    const perroRecognition = initialRows.find((row) => row.expression === 'perro' && row.direction === 'recognition');
+    if (!casaRecognition || !casaRecall || !perroRecognition) throw new Error('The due-ordering Card fixtures are missing.');
+
+    const now = Date.now();
+    const casaReviewAt = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+    const perroReviewAt = new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString();
+    await recordFixtureReview(fixture.client, perroRecognition.id, perroReviewAt);
+    await recordFixtureReview(fixture.client, casaRecognition.id, casaReviewAt);
+    await recordFixtureReview(fixture.client, casaRecall.id, casaReviewAt);
+
+    const rows = await scheduledReviewRows(fixture.client, fixture.learningLanguageId);
+    const expectedRows = queueOrder(rows).filter((row) => deriveRecognitionCardSchedule({ createdAt: row.created_at, events: row.events }).due.getTime() <= Date.now());
+    const createdRows = [...rows].sort((first, second) => {
+      const createdAtDifference = first.created_at.localeCompare(second.created_at);
+      if (createdAtDifference) return createdAtDifference;
+      const directionDifference = (first.direction === 'recognition' ? 0 : 1) - (second.direction === 'recognition' ? 0 : 1);
+      return directionDifference || first.id.localeCompare(second.id);
+    });
+    expect(expectedRows).toHaveLength(rows.length);
+    expect(expectedRows.map((row) => row.id)).not.toEqual(createdRows.map((row) => row.id));
+    expect(expectedRows.slice(0, 3).map((row) => row.id)).toEqual([perroRecognition.id, casaRecognition.id, casaRecall.id]);
+
+    await signIn(page, fixture.account);
+    await startScheduledReview(page);
+    const sessionItems = await scheduledSessionItems(fixture.client, fixture.learningLanguageId);
+    expect(sessionItems.map((item) => item.card_id)).toEqual(expectedRows.map((row) => row.id));
+    await expectSessionCard(page, expectedRows[0]);
+    await expectProgress(page, 1, expectedRows.length);
+    await confirmCurrentSessionCard(page, expectedRows[0].expression, expectedRows[0].translations[0]);
+    await expectProgress(page, 2, expectedRows.length);
+    await expectSessionCard(page, expectedRows[1]);
+    await confirmCurrentSessionCard(page, expectedRows[1].expression, expectedRows[1].translations[0]);
+    await expectProgress(page, 3, expectedRows.length);
+    await expectSessionCard(page, expectedRows[2]);
     await expectNoMobileOverflow(page);
   });
 

@@ -40,12 +40,14 @@ type ScheduledReviewSessionItem = {
   review_event_id: string | null;
 };
 
+type ScheduledReviewSessionStatus = 'active' | 'completed' | 'ended';
+
 type ScheduledReviewSession = {
   created_at: string;
   id: string;
   items: ScheduledReviewSessionItem[];
   learning_language_id: string;
-  status: string;
+  status: ScheduledReviewSessionStatus;
 };
 
 type ScheduledReviewConfirmation = {
@@ -53,15 +55,33 @@ type ScheduledReviewConfirmation = {
   event_id: string;
   occurred_at: string;
   rating: ScheduledReviewRating;
-  session_status: string;
+  session_status: ScheduledReviewSessionStatus;
 };
 
 export function clearScheduledReviewEnded(learningLanguageId: string) {
   if (typeof window !== 'undefined') window.localStorage.removeItem(`lexync:scheduled-review-ended:${learningLanguageId}`);
 }
 
+export const scheduledReviewLanguageStorageKey = 'lexync:scheduled-review-language';
+
+export function getScheduledReviewLanguage() {
+  return typeof window === 'undefined' ? null : window.localStorage.getItem(scheduledReviewLanguageStorageKey);
+}
+
+export function setScheduledReviewLanguage(learningLanguageId: string) {
+  if (typeof window !== 'undefined') window.localStorage.setItem(scheduledReviewLanguageStorageKey, learningLanguageId);
+}
+
+export function clearScheduledReviewLanguage() {
+  if (typeof window !== 'undefined') window.localStorage.removeItem(scheduledReviewLanguageStorageKey);
+}
+
 function scheduledReviewEndedKey(learningLanguageId: string) {
   return `lexync:scheduled-review-ended:${learningLanguageId}`;
+}
+
+function isScheduledReviewSessionStatus(value: unknown): value is ScheduledReviewSessionStatus {
+  return value === 'active' || value === 'completed' || value === 'ended';
 }
 
 function orderedDueCards(cards: LearningRecognitionCard[], languageId: string, now: number) {
@@ -79,7 +99,7 @@ function orderedDueCards(cards: LearningRecognitionCard[], languageId: string, n
 function parseSession(data: unknown): ScheduledReviewSession | null {
   if (!data || typeof data !== 'object') return null;
   const value = data as Partial<ScheduledReviewSession>;
-  if (typeof value.id !== 'string' || typeof value.learning_language_id !== 'string' || typeof value.status !== 'string') return null;
+  if (typeof value.id !== 'string' || typeof value.learning_language_id !== 'string' || !isScheduledReviewSessionStatus(value.status)) return null;
   const items = Array.isArray(value.items) ? value.items.filter((item): item is ScheduledReviewSessionItem => {
     if (!item || typeof item !== 'object') return false;
     const candidate = item as Partial<ScheduledReviewSessionItem>;
@@ -100,7 +120,7 @@ function parseSession(data: unknown): ScheduledReviewSession | null {
 function parseConfirmation(data: unknown): ScheduledReviewConfirmation | null {
   if (!data || typeof data !== 'object') return null;
   const value = data as Partial<ScheduledReviewConfirmation>;
-  if (typeof value.event_id !== 'string' || typeof value.occurred_at !== 'string' || typeof value.rating !== 'string' || typeof value.already_confirmed !== 'boolean' || typeof value.session_status !== 'string') return null;
+  if (typeof value.event_id !== 'string' || typeof value.occurred_at !== 'string' || typeof value.rating !== 'string' || typeof value.already_confirmed !== 'boolean' || !isScheduledReviewSessionStatus(value.session_status)) return null;
   return {
     already_confirmed: value.already_confirmed,
     event_id: value.event_id,
@@ -171,19 +191,28 @@ export function ScheduledRecognition({
   cards,
   onReviewConfirmed,
   language,
+  onReviewLanguageChange,
 }: {
   cards: LearningRecognitionCard[];
   onReviewConfirmed: (cardId: string, event: RecognitionReviewEvent) => void;
   language: LearningLanguage;
+  onReviewLanguageChange?: (language: LearningLanguage | null) => void;
 }) {
   const [now] = useState(() => Date.now());
-  const [reviewLanguageId] = useState(language.id);
-  const [dueCardIds] = useState(() => orderedDueCards(cards, language.id, now).map((card) => card.id));
+  const [reviewLanguage] = useState(language);
+  const [reviewCards] = useState(cards);
+  const [reviewLanguageId] = useState(reviewLanguage.id);
+  const [dueCardIds] = useState(() => orderedDueCards(reviewCards, reviewLanguage.id, now).map((card) => card.id));
   const [session, setSession] = useState<ScheduledReviewSession | null>(null);
   const [sessionLoading, setSessionLoading] = useState(Boolean(dueCardIds.length));
   const [sessionError, setSessionError] = useState('');
   const [notice, setNotice] = useState('');
   const [ending, setEnding] = useState(false);
+
+  useEffect(() => {
+    onReviewLanguageChange?.(reviewLanguage);
+    return () => onReviewLanguageChange?.(null);
+  }, [onReviewLanguageChange, reviewLanguage]);
 
   useEffect(() => {
     const ids = dueCardIds;
@@ -203,6 +232,7 @@ export function ScheduledRecognition({
       }
       const overview = parseSession(overviewData);
       if (overview) {
+        setScheduledReviewLanguage(reviewLanguageId);
         clearScheduledReviewEnded(reviewLanguageId);
         setSession(overview);
         setSessionLoading(false);
@@ -227,6 +257,7 @@ export function ScheduledRecognition({
       if (!started) {
         setSessionError('The review session response was invalid.');
       } else {
+        setScheduledReviewLanguage(reviewLanguageId);
         setSession(started);
       }
       setSessionLoading(false);
@@ -256,6 +287,7 @@ export function ScheduledRecognition({
         : item),
     } : current);
     if (confirmation.already_confirmed) await refreshSession();
+    if (confirmation.session_status === 'completed') clearScheduledReviewLanguage();
   }
 
   async function endReviewEarly() {
@@ -273,13 +305,14 @@ export function ScheduledRecognition({
       return;
     }
     window.localStorage.setItem(scheduledReviewEndedKey(reviewLanguageId), 'ended');
+    clearScheduledReviewLanguage();
     setSession((current) => current ? { ...current, status: 'ended' } : current);
   }
 
   const sessionItems = [...(session?.items ?? [])].sort((first, second) => first.ordinal - second.ordinal);
-  const sessionCards = sessionItems.map((item) => cards.find((card) => card.id === item.card_id)).filter((card): card is LearningRecognitionCard => Boolean(card));
-  const currentItem = sessionItems.find((item) => !item.review_event_id && cards.some((card) => card.id === item.card_id));
-  const currentCard = currentItem ? cards.find((card) => card.id === currentItem.card_id) : undefined;
+  const sessionCards = sessionItems.map((item) => reviewCards.find((card) => card.id === item.card_id)).filter((card): card is LearningRecognitionCard => Boolean(card));
+  const currentItem = sessionItems.find((item) => !item.review_event_id && reviewCards.some((card) => card.id === item.card_id));
+  const currentCard = currentItem ? reviewCards.find((card) => card.id === currentItem.card_id) : undefined;
   const total = sessionItems.length;
   const confirmed = sessionItems.filter((item) => item.review_event_id).length;
   const complete = session?.status === 'completed' || (total > 0 && confirmed === total);
@@ -310,18 +343,18 @@ export function ScheduledRecognition({
       return <section className="scheduled-recognition" aria-labelledby="recognition-heading">
         <h2 id="recognition-heading">Review complete</h2>
         <p className="form-notice" role="status">Scheduled Review complete: {confirmed} of {total}.</p>
-        <p>No Scheduled Review Cards are due for {languageName(language.languageTag)}.</p>
+        <p>No Scheduled Review Cards are due for {languageName(reviewLanguage.languageTag)}.</p>
       </section>;
     }
     return <section className="scheduled-recognition" aria-labelledby="recognition-heading">
       <h2 id="recognition-heading">Scheduled Review</h2>
       {notice && <p className="form-notice" role="status">{notice}</p>}
-      <p>No Scheduled Review Cards are due for {languageName(language.languageTag)}.</p>
+      <p>No Scheduled Review Cards are due for {languageName(reviewLanguage.languageTag)}.</p>
     </section>;
   }
 
-  const reviewLanguage = currentCard.learningLanguageId === language.id
-    ? language
+  const currentCardLanguage = currentCard.learningLanguageId === reviewLanguage.id
+    ? reviewLanguage
     : { id: currentCard.learningLanguageId, languageTag: currentCard.learningLanguageTag };
 
   return <>
@@ -329,7 +362,7 @@ export function ScheduledRecognition({
     cards={sessionCards}
     currentCard={currentCard}
     key={currentCard.id}
-    language={reviewLanguage}
+    language={currentCardLanguage}
     notice={notice}
     onNotice={setNotice}
     onReviewConfirmed={onReviewConfirmed}

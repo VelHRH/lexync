@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboarding';
-import { clearScheduledReviewEnded, ScheduledRecognition, type LearningRecognitionCard } from './ScheduledRecognition';
+import { clearScheduledReviewEnded, clearScheduledReviewLanguage, getScheduledReviewLanguage, ScheduledRecognition, setScheduledReviewLanguage, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
 
 const destinations = [
@@ -80,15 +80,20 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
 }
 
 export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboarding = false }: { section?: string; publicContent?: ReactNode; forceOnboarding?: boolean }) {
+  const activeSection = sectionLabel(section);
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [languages, setLanguages] = useState<LearningLanguage[]>([]);
   const [activeLanguageId, setActiveLanguageId] = useState('');
+  const [reviewLanguage, setReviewLanguage] = useState<LearningLanguage | null>(null);
+  const [reviewLanguageId, setReviewLanguageId] = useState<string | null>(() => activeSection === 'Review' ? getScheduledReviewLanguage() : null);
+  const [reviewResolutionSection, setReviewResolutionSection] = useState(activeSection === 'Review' ? '' : activeSection);
   const [languagesLoading, setLanguagesLoading] = useState(true);
   const [languageError, setLanguageError] = useState('');
   const [pairs, setPairs] = useState<CompatibilityPair[]>([]);
   const [recognitionCards, setRecognitionCards] = useState<LearningRecognitionCard[]>([]);
+  const [recognitionCardsLanguageId, setRecognitionCardsLanguageId] = useState('');
   const [recognitionLoading, setRecognitionLoading] = useState(true);
   const [recognitionError, setRecognitionError] = useState('');
   const [languageDraft, setLanguageDraft] = useState('');
@@ -96,6 +101,9 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const [removingLanguageId, setRemovingLanguageId] = useState('');
   const recognitionRequestId = useRef(0);
   const online = useOnlineStatus();
+  const handleReviewLanguageChange = useCallback((nextLanguage: LearningLanguage | null) => {
+    setReviewLanguage(nextLanguage);
+  }, []);
 
   const loadLanguages = useCallback(async (): Promise<string | null> => {
     setLanguagesLoading(true);
@@ -130,11 +138,17 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     })));
   }, []);
 
+  const reviewPointerResolved = activeSection !== 'Review' || reviewResolutionSection === activeSection;
+  const reviewLanguageForCards = reviewLanguageId && languages.find((language) => language.id === reviewLanguageId)
+    ? reviewLanguageId
+    : activeLanguageId;
+
   const refreshRecognitionCards = useCallback(async (learningLanguageId = activeLanguageId) => {
     const requestId = ++recognitionRequestId.current;
     if (!learningLanguageId) {
       if (requestId !== recognitionRequestId.current) return;
       setRecognitionCards([]);
+      setRecognitionCardsLanguageId('');
       setRecognitionLoading(false);
       return;
     }
@@ -143,11 +157,13 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     if (requestId !== recognitionRequestId.current) return;
     if (error) {
       setRecognitionError(error.message);
+      setRecognitionCardsLanguageId('');
       setRecognitionLoading(false);
       return;
     }
     setRecognitionError('');
     setRecognitionCards((data ?? []).map((card: LearningReviewOverview) => toReviewCard(card)));
+    setRecognitionCardsLanguageId(learningLanguageId);
     setRecognitionLoading(false);
   }, [activeLanguageId]);
 
@@ -168,8 +184,31 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
 
   useEffect(() => {
     if (!session || !activeLanguageId) return;
-    queueMicrotask(() => void refreshRecognitionCards(activeLanguageId));
-  }, [activeLanguageId, refreshRecognitionCards, session]);
+    if (activeSection === 'Review' && !reviewPointerResolved) return;
+    queueMicrotask(() => void refreshRecognitionCards(activeSection === 'Review' ? reviewLanguageForCards : activeLanguageId));
+  }, [activeLanguageId, activeSection, refreshRecognitionCards, reviewLanguageForCards, reviewPointerResolved, session]);
+
+  useEffect(() => {
+    if (activeSection !== 'Review' || !session || languagesLoading || languages.length === 0) return;
+    queueMicrotask(() => {
+      const storedLanguageId = getScheduledReviewLanguage();
+      const validLanguage = storedLanguageId ? languages.find((language) => language.id === storedLanguageId) : undefined;
+      if (storedLanguageId && !validLanguage) {
+        clearScheduledReviewLanguage();
+      }
+      setReviewLanguageId(validLanguage?.id ?? null);
+      setReviewResolutionSection(activeSection);
+    });
+  }, [activeSection, languages, languagesLoading, session]);
+
+  useEffect(() => {
+    if (activeSection === 'Review') return;
+    queueMicrotask(() => {
+      setReviewLanguage(null);
+      setReviewLanguageId(null);
+      setReviewResolutionSection(activeSection);
+    });
+  }, [activeSection]);
 
   useEffect(() => {
     if (!session) return;
@@ -205,8 +244,11 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   if (languageError && languages.length === 0) return <AppLoadingShell section={section} message={`Unable to load your Learning Languages: ${languageError}`} alert />;
   if (languages.length === 0) return <AppLoadingShell section={section} message="Opening onboarding…" />;
 
-  const activeSection = sectionLabel(section);
   const activeLanguage = languages.find((language) => language.id === activeLanguageId) ?? languages[0];
+  const persistedReviewLanguage = reviewLanguageId ? languages.find((language) => language.id === reviewLanguageId) : undefined;
+  const displayedLanguage = activeSection === 'Review' && reviewPointerResolved
+    ? reviewLanguage ?? persistedReviewLanguage ?? activeLanguage
+    : activeLanguage;
   const activePairs = pairs.filter((pair) => pair.learningLanguageId === activeLanguage.id);
 
   async function signOut() {
@@ -270,7 +312,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
         <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
         <div>
           <label className="pair-selector-label" htmlFor="active-learning-language">Active Learning Language</label>
-          <select id="active-learning-language" aria-label="Active Learning Language" value={activeLanguage.id} disabled={activeSection === 'Review'} onChange={(event) => void setActiveLanguage(event.target.value)}>
+          <select id="active-learning-language" aria-label="Active Learning Language" value={displayedLanguage.id} disabled={activeSection === 'Review'} onChange={(event) => void setActiveLanguage(event.target.value)}>
             {languages.map((language) => <option key={language.id} value={language.id}>{languageName(language.languageTag)} · {language.languageTag}</option>)}
           </select>
           {online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>}
@@ -285,10 +327,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
           {activeSection === 'Home' && !recognitionLoading && <section className="due-counts" aria-label="Scheduled Review due counts">
-            <div className="due-count-row"><span>{languageName(activeLanguage.languageTag)} <strong>{recognitionCards.length} due</strong></span><Link className="secondary-button" href="/review" onClick={() => clearScheduledReviewEnded(activeLanguage.id)}>Start review</Link></div>
+            <div className="due-count-row"><span>{languageName(activeLanguage.languageTag)} <strong>{recognitionCards.length} due</strong></span><Link className="secondary-button" href="/review" onClick={() => { setScheduledReviewLanguage(activeLanguage.id); clearScheduledReviewEnded(activeLanguage.id); }}>Start review</Link></div>
           </section>}
           {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
-          {activeSection === 'Review' && !recognitionLoading && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={activeLanguage} />}
+          {activeSection === 'Review' && reviewPointerResolved && !recognitionLoading && recognitionCardsLanguageId === displayedLanguage.id && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={displayedLanguage} onReviewLanguageChange={handleReviewLanguageChange} />}
           {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
             <h2 id="learning-languages-heading">Learning Languages</h2>
