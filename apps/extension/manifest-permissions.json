@@ -18,5 +18,7 @@
   "webAccessibleResourceMatches": [
     "<all_urls>"
   ],
-  "externallyConnectableMatches": []
+  "externallyConnectableMatches": [
+    "https://lexync-web.vercel.app/*"
+  ]
 }

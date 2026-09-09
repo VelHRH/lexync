@@ -380,6 +380,55 @@ footer {
   font-size: 0.8rem;
 }
 
+.extension-recommendation {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--cream);
+}
+
+.extension-recommendation h2,
+.extension-recommendation p {
+  margin-top: 0;
+}
+
+.extension-recommendation h2 {
+  margin-bottom: 0.75rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+}
+
+.extension-recommendation p:not(.eyebrow) {
+  max-width: 42rem;
+  margin-bottom: 0;
+  color: rgba(25, 37, 30, 0.72);
+  line-height: 1.6;
+}
+
+.extension-recommendation .form-notice {
+  margin-top: 0.9rem;
+}
+
+.extension-recommendation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.extension-recommendation-actions a {
+  text-decoration: none;
+}
+
+.extension-recommendation-actions .text-button {
+  min-height: 2.8rem;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
 .scheduled-recognition h2 {
   margin: 0;
   font-family: Georgia, 'Times New Roman', serif;

@@ -30,8 +30,32 @@ import {
 } from '../lib/learning-language-messages';
 import { learningModeSiteKey } from '../lib/study-pairs';
 import { supabase } from '../lib/supabase';
+import {
+  defaultWebUrl,
+  isWebExtensionHandshakeRequest,
+  webOrigin,
+} from '../lib/web-extension-handshake';
 
 type SiteChoice = { enabled: boolean; learningLanguageId?: string };
+
+const trustedWebOrigin = webOrigin(import.meta.env.WXT_PUBLIC_WEB_URL ?? defaultWebUrl);
+
+function trustedExternalSender(sender: { url?: string }): boolean {
+  if (!sender.url) return false;
+  try {
+    return webOrigin(sender.url) === trustedWebOrigin;
+  } catch {
+    return false;
+  }
+}
+
+function externalHandshakeResponse() {
+  return {
+    capabilities: ['deliberate-capture', 'learning-mode'],
+    type: 'web-extension:handshake',
+    version: browser.runtime.getManifest().version,
+  };
+}
 
 async function loadSnapshot(): Promise<LearningLanguageSnapshot> {
   const { data, error } = await supabase.rpc('account_learning_snapshot');
@@ -309,6 +333,11 @@ async function handleLearningMode(message: LearningModeMessage, sender: { tab?: 
 
 export default defineBackground(() => {
   supabase.auth.startAutoRefresh();
+  browser.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+    if (!trustedExternalSender(sender) || !isWebExtensionHandshakeRequest(message)) return false;
+    sendResponse(externalHandshakeResponse());
+    return true;
+  });
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return undefined;
     const operation = isClozemasterCaptureMessage(message)

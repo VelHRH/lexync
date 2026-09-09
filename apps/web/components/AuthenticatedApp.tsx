@@ -10,6 +10,7 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboarding';
 import { clearScheduledReviewEnded, clearScheduledReviewLanguage, getScheduledReviewLanguage, ScheduledRecognition, setScheduledReviewLanguage, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
+import { ExtensionRecommendation } from './ExtensionRecommendation';
 
 const destinations = [
   ['Home', '/'],
@@ -79,7 +80,7 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
   </main>;
 }
 
-export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboarding = false }: { section?: string; publicContent?: ReactNode; forceOnboarding?: boolean }) {
+export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboarding = false, extensionId }: { section?: string; publicContent?: ReactNode; forceOnboarding?: boolean; extensionId?: string }) {
   const activeSection = sectionLabel(section);
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -329,6 +330,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
           {activeSection === 'Home' && !recognitionLoading && <section className="due-counts" aria-label="Scheduled Review due counts">
             <div className="due-count-row"><span>{languageName(activeLanguage.languageTag)} <strong>{recognitionCards.length} due</strong></span><Link className="secondary-button" href="/review" onClick={() => { setScheduledReviewLanguage(activeLanguage.id); clearScheduledReviewEnded(activeLanguage.id); }}>Start review</Link></div>
           </section>}
+          {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
           {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
           {activeSection === 'Review' && reviewPointerResolved && !recognitionLoading && recognitionCardsLanguageId === displayedLanguage.id && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={displayedLanguage} onReviewLanguageChange={handleReviewLanguageChange} />}
           {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}

@@ -8,6 +8,8 @@ test.describe('Lexync public landing page', () => {
     expect(response?.status()).toBe(200);
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { level: 1, name: 'Keep the words you choose.' })).toBeVisible();
+    await expect(page.getByText(/deliberate third-party webpage capture/i)).toBeVisible();
+    await expect(page.getByText(/Learning Mode/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Capture with intention' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Stay in sync' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Practice offline' })).toBeVisible();

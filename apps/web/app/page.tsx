@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { connection } from 'next/server';
 import { AuthenticatedApp } from '../components/AuthenticatedApp';
+import { getChromeExtensionId } from '../lib/extensionRecommendation';
 
 const Arrow = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -126,7 +128,7 @@ function PublicHome() {
             <div>
               <p className="surface-kicker">Where language finds you</p>
               <h3>Chromium extension</h3>
-              <p>Capture deliberately as you browse and look up the Expressions you already know. Site access stays on demand.</p>
+              <p>The optional extension adds deliberate third-party webpage capture and Learning Mode. Site access stays on demand.</p>
             </div>
           </article>
           <article>
@@ -155,6 +157,7 @@ function PublicHome() {
   );
 }
 
-export default function Home() {
-  return <AuthenticatedApp publicContent={<PublicHome />} />;
+export default async function Home() {
+  await connection();
+  return <AuthenticatedApp extensionId={getChromeExtensionId(process.env.CHROME_EXTENSION_ID)} publicContent={<PublicHome />} />;
 }
