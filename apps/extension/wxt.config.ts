@@ -1,4 +1,7 @@
 import { defineConfig } from 'wxt';
+import { defaultWebUrl, webOriginPattern } from './lib/web-extension-handshake';
+
+const webUrl = process.env.WXT_PUBLIC_WEB_URL ?? defaultWebUrl;
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
@@ -23,6 +26,9 @@ export default defineConfig({
       'http://*/*',
       'https://*/*',
     ],
+    externally_connectable: {
+      matches: [webOriginPattern(webUrl)],
+    },
     web_accessible_resources: [
       {
         resources: ['auth-callback.html'],

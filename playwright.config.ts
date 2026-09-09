@@ -1,4 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'node:path';
+import { unpackedExtensionId } from './tests/support/extension-id';
 
 export default defineConfig({
   testDir: './tests',
@@ -25,6 +27,16 @@ export default defineConfig({
     {
       name: 'web-authentication-mobile',
       testMatch: /web-authentication\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
+      name: 'web-extension-recommendation',
+      testMatch: /web-extension-recommendation\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-extension-recommendation-mobile',
+      testMatch: /web-extension-recommendation\.spec\.ts/,
       use: { ...devices['Pixel 7'] },
     },
     {
@@ -99,5 +111,6 @@ export default defineConfig({
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: { CHROME_EXTENSION_ID: unpackedExtensionId(path.resolve('apps/extension/.output/chrome-mv3')) },
   },
 });
