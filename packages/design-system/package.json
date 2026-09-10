@@ -1,0 +1,19 @@
+{
+  "name": "@lexync/design-system",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./styles.css": "./src/tokens.css",
+    "./shadow": "./src/shadow.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  }
+}

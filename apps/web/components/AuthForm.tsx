@@ -77,9 +77,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         <p className="eyebrow"><span /> Private learning</p>
         <h1>{title}</h1>
         <p className="auth-intro">{mode === 'sign-in' ? 'Sign in to continue.' : 'Your vocabulary stays personal, synchronized, and ready when you are.'}</p>
-        <form className="web-auth-form" onSubmit={submit} noValidate>
+        <form className="web-auth-form" onSubmit={submit} noValidate aria-describedby={notice ? 'auth-notice' : undefined}>
           <label htmlFor="email">Email</label>
-          <input id="email" name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+          <input id="email" name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} aria-invalid={noticeTone === 'error' && Boolean(notice)} required />
           {mode !== 'forgot-password' && <>
             <label htmlFor="password">Password</label>
             <input id="password" name="password" type="password" autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} required />
@@ -88,7 +88,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             <label htmlFor="confirm-password">Confirm password</label>
             <input id="confirm-password" name="confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
           </>}
-          {notice && <p className={noticeTone === 'error' ? 'form-notice error' : 'form-notice'} role={noticeTone === 'error' ? 'alert' : 'status'}>{notice}</p>}
+          {notice && <p id="auth-notice" className={noticeTone === 'error' ? 'form-notice error' : 'form-notice'} role={noticeTone === 'error' ? 'alert' : 'status'}>{notice}</p>}
           <button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Working…' : submitLabel}</button>
         </form>
         <nav className="auth-links" aria-label="Account actions">

@@ -57,7 +57,7 @@ function PublicHome() {
           <p className="eyebrow"><span /> Your language, in context</p>
           <h1>Keep the words<br />you choose.</h1>
           <p className="hero-intro">
-            Capture the language that matters while you browse. Lexync keeps it synchronized, personal, and ready to practise on your iPhone—even when you are offline.
+            Capture the language that matters while you browse. Lexync keeps it synchronized, personal, and ready to practise on your iPhone, even when you are offline.
           </p>
           <a className="text-link" href="#how-it-works">See how the loop works <Arrow /></a>
         </div>

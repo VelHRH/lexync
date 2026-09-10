@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 
 const status = document.getElementById('status');
+const statusAlert = document.getElementById('status-alert');
 const passwordForm = document.querySelector<HTMLFormElement>('#password-form');
 const passwordInput = document.querySelector<HTMLInputElement>('#password');
 const confirmPasswordInput = document.querySelector<HTMLInputElement>('#confirm-password');
@@ -20,6 +21,17 @@ const recoveryClient = createClient(
     },
   },
 );
+
+function showStatus(message: string, role: 'alert' | 'status' = 'status') {
+  if (status) {
+    status.textContent = message;
+  }
+
+  if (statusAlert) {
+    statusAlert.textContent = role === 'alert' ? message : '';
+    statusAlert.hidden = role !== 'alert';
+  }
+}
 
 async function completeAuthentication() {
   if (providerError) {
@@ -49,9 +61,7 @@ async function completeAuthentication() {
       refresh_token: data.session.refresh_token,
     };
 
-    if (status) {
-      status.textContent = 'Choose a new password.';
-    }
+    showStatus('Choose a new password.');
 
     if (passwordForm) {
       passwordForm.hidden = false;
@@ -60,9 +70,7 @@ async function completeAuthentication() {
     return;
   }
 
-  if (status) {
-    status.textContent = 'Signed in. You can close this tab.';
-  }
+  showStatus('Signed in. You can close this tab.');
 
   void browser.runtime.sendMessage({ type: 'auth-complete' }).catch(() => undefined);
 }
@@ -73,16 +81,12 @@ passwordForm?.addEventListener('submit', async (event) => {
   const confirmPassword = confirmPasswordInput?.value ?? '';
 
   if (password.length < 6) {
-    if (status) {
-      status.textContent = 'Password must contain at least 6 characters.';
-    }
+    showStatus('Password must contain at least 6 characters.', 'alert');
     return;
   }
 
   if (password !== confirmPassword) {
-    if (status) {
-      status.textContent = 'Passwords do not match.';
-    }
+    showStatus('Passwords do not match.', 'alert');
     return;
   }
 
@@ -104,17 +108,13 @@ passwordForm?.addEventListener('submit', async (event) => {
     const { error } = await recoveryClient.auth.updateUser({ password });
 
     if (error) {
-      if (status) {
-        status.textContent = error.message;
-      }
+      showStatus(error.message, 'alert');
       return;
     }
 
     passwordForm.hidden = true;
 
-    if (status) {
-      status.textContent = 'Password updated. You can close this tab.';
-    }
+    showStatus('Password updated. You can close this tab.');
 
     const { data } = await recoveryClient.auth.getSession();
 
@@ -127,9 +127,7 @@ passwordForm?.addEventListener('submit', async (event) => {
 
     void browser.runtime.sendMessage({ type: 'auth-complete' }).catch(() => undefined);
   } catch (error) {
-    if (status) {
-      status.textContent = error instanceof Error ? error.message : 'Password could not be updated.';
-    }
+    showStatus(error instanceof Error ? error.message : 'Password could not be updated.', 'alert');
   } finally {
     if (button) {
       button.disabled = false;
@@ -138,7 +136,5 @@ passwordForm?.addEventListener('submit', async (event) => {
 });
 
 void completeAuthentication().catch((error: unknown) => {
-  if (status) {
-    status.textContent = error instanceof Error ? error.message : 'Sign-in could not be completed.';
-  }
+  showStatus(error instanceof Error ? error.message : 'Sign-in could not be completed.', 'alert');
 });
