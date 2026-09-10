@@ -1,4 +1,5 @@
 import { canonicalLanguageTag, languageName, resolveAnswerLanguage } from '@lexync/domain';
+import { shadowTokenCss } from '@lexync/design-system';
 import type {
   LoadOrdinaryCaptureResponse,
   SaveOrdinaryCaptureResponse,
@@ -38,78 +39,88 @@ export default defineUnlistedScript(() => {
 
   root.innerHTML = `
     <style>
-      :host { all: initial; }
+      ${shadowTokenCss}
       * { box-sizing: border-box; }
       .prompt {
         position: fixed;
         right: 20px;
         bottom: 20px;
-        z-index: 2147483647;
+        z-index: var(--lexync-z-injected);
         max-width: 320px;
-        padding: 12px 16px;
-        border: 1px solid rgba(25, 37, 30, 0.18);
-        border-radius: 999px;
-        background: #19251e;
-        box-shadow: 0 12px 35px rgba(25, 37, 30, 0.22);
-        color: #fbf8ef;
-        font: 600 13px/1.4 Arial, Helvetica, sans-serif;
+        padding: var(--lexync-space-3) var(--lexync-space-4);
+        border: 1px solid var(--lexync-color-border-strong);
+        border-radius: var(--lexync-radius-pill);
+        background: var(--lexync-color-ink);
+        box-shadow: var(--lexync-elevation-medium);
+        color: var(--lexync-color-white);
+        font: var(--lexync-type-weight-semibold) var(--lexync-type-size-sm)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
       }
       .dialog {
         position: fixed;
         top: 50%;
         left: 50%;
-        z-index: 2147483647;
+        z-index: var(--lexync-z-injected);
         width: min(420px, calc(100vw - 32px));
-        padding: 24px;
+        max-height: calc(100vh - 32px);
+        overflow: auto;
+        padding: var(--lexync-space-6);
         transform: translate(-50%, -50%);
-        border: 1px solid rgba(25, 37, 30, 0.18);
-        border-radius: 18px;
-        background: #fbf8ef;
-        box-shadow: 0 24px 80px rgba(25, 37, 30, 0.3);
-        color: #19251e;
-        font: 14px/1.45 Arial, Helvetica, sans-serif;
+        border: 1px solid var(--lexync-color-border);
+        border-radius: var(--lexync-radius-lg);
+        background: var(--lexync-color-surface);
+        box-shadow: var(--lexync-elevation-high);
+        color: var(--lexync-color-ink);
+        font: var(--lexync-type-size-md)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
       }
       h2 {
-        margin: 0 0 20px;
-        font: 400 30px/1 Georgia, 'Times New Roman', serif;
+        margin: 0 0 var(--lexync-space-5);
+        color: var(--lexync-color-ink);
+        font: var(--lexync-type-weight-semibold) var(--lexync-type-size-2xl)/var(--lexync-type-line-tight) var(--lexync-type-family-display);
       }
       form, label { display: grid; }
-      form { gap: 14px; }
-      label { gap: 6px; color: rgba(25, 37, 30, 0.7); font-size: 11px; font-weight: 700; }
+      form { gap: var(--lexync-space-4); }
+      label { gap: var(--lexync-space-2); color: var(--lexync-color-ink-muted); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-semibold); }
       input, select, textarea, button { font: inherit; }
       input, select, textarea {
         width: 100%;
-        padding: 10px 12px;
-        border: 1px solid rgba(25, 37, 30, 0.18);
-        border-radius: 9px;
-        background: #fffdf7;
-        color: #19251e;
+        padding: var(--lexync-space-3);
+        border: 1px solid var(--lexync-color-border-strong);
+        border-radius: var(--lexync-radius-md);
+        outline: none;
+        background: var(--lexync-color-white);
+        color: var(--lexync-color-ink);
       }
+      input:focus, select:focus, textarea:focus { border-color: var(--lexync-color-brand-primary); }
       textarea { min-height: 76px; resize: vertical; }
-      .error { color: #9b3328; font-size: 11px; }
-      .actions { display: flex; gap: 10px; margin-top: 4px; }
+      .field-error, .validation-error { color: var(--lexync-color-danger); font-size: var(--lexync-type-size-xs); }
+      .validation-error { margin: 0; }
+      .actions { display: flex; flex-wrap: wrap; gap: var(--lexync-space-3); margin-top: var(--lexync-space-1); }
       button {
-        padding: 10px 14px;
-        border: 0;
-        border-radius: 999px;
+        min-height: 2.75rem;
+        padding: var(--lexync-space-3) var(--lexync-space-4);
+        border: 1px solid transparent;
+        border-radius: var(--lexync-radius-md);
         cursor: pointer;
-        font-weight: 700;
+        font-weight: var(--lexync-type-weight-bold);
       }
-      button[type='submit'] { background: #19251e; color: #fbf8ef; }
-      button[type='button'] { background: #e5e7de; color: #19251e; }
+      button[type='submit'] { border-color: var(--lexync-color-brand-primary); background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); }
+      button[type='button'] { border-color: var(--lexync-color-border-strong); background: var(--lexync-color-surface-subtle); color: var(--lexync-color-ink); }
+      button:active { transform: translateY(1px); }
+      button:disabled { cursor: wait; opacity: 0.55; }
       [hidden] { display: none !important; }
     </style>
     <div class="prompt" role="status" hidden></div>
-    <section class="dialog" role="dialog" aria-labelledby="lexync-capture-heading" hidden>
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="lexync-capture-heading" hidden>
       <h2 id="lexync-capture-heading">Capture Expression</h2>
       <form novalidate>
         <label>Expression<input name="expression" readonly></label>
-        <label>Learning Language<select name="learningLanguage"></select><span class="pair-error error" hidden></span></label>
-        <label>Translation<input name="translation"><span class="translation-error error" hidden></span></label>
-        <label>Answer Language<input name="answerLanguage" autocomplete="off"><span class="answer-language-error error" hidden></span></label>
+        <label>Learning Language<select name="learningLanguage"></select><span class="pair-error field-error" hidden></span></label>
+        <label>Translation<input name="translation"><span class="translation-error field-error" hidden></span></label>
+        <label>Answer Language<input name="answerLanguage" autocomplete="off"><span class="answer-language-error field-error" hidden></span></label>
         <label class="answer-language-confirmation" hidden><input name="confirmAnswerLanguage" type="checkbox"> Confirm this Answer Language</label>
         <fieldset class="sense-choice" hidden><legend>Choose a Sense</legend><div class="sense-options"></div><label><input name="createNewSense" type="radio" value="new"> Create a new Sense</label></fieldset>
         <label>Example <span>Optional</span><textarea name="example"></textarea></label>
+        <p class="validation-error" role="alert" hidden>Please complete the highlighted fields.</p>
         <div class="actions">
           <button type="submit">Save Vocabulary Entry</button>
           <button type="button">Cancel</button>
@@ -130,12 +141,19 @@ export default defineUnlistedScript(() => {
   const translationError = root.querySelector<HTMLElement>('.translation-error')!;
   const answerLanguageInput = root.querySelector<HTMLInputElement>('[name="answerLanguage"]')!;
   const answerLanguageError = root.querySelector<HTMLElement>('.answer-language-error')!;
+  const validationError = root.querySelector<HTMLElement>('.validation-error')!;
   const answerLanguageConfirmation = root.querySelector<HTMLLabelElement>('.answer-language-confirmation')!;
   const confirmAnswerLanguage = root.querySelector<HTMLInputElement>('[name="confirmAnswerLanguage"]')!;
   const senseChoice = root.querySelector<HTMLElement>('.sense-choice')!;
   const senseOptions = root.querySelector<HTMLElement>('.sense-options')!;
   const createNewSenseInput = root.querySelector<HTMLInputElement>('[name="createNewSense"]')!;
   const cancelButton = root.querySelector<HTMLButtonElement>('button[type="button"]')!;
+
+  function showPrompt(message: string, role: 'alert' | 'status' = 'status') {
+    prompt.setAttribute('role', role);
+    prompt.textContent = message;
+    prompt.hidden = false;
+  }
 
   function normalizedText(value: string | null): string {
     return value?.replace(/\s+/g, ' ').trim() ?? '';
@@ -250,14 +268,14 @@ export default defineUnlistedScript(() => {
     senseChoice.hidden = true;
     pairError.hidden = true;
     translationError.hidden = true;
+    validationError.hidden = true;
 
     try {
       await loadLearningLanguages();
       translationInput.focus();
     } catch (error) {
       dialog.hidden = true;
-      prompt.textContent = error instanceof Error ? error.message : 'Learning Languages could not be loaded.';
-      prompt.hidden = false;
+      showPrompt(error instanceof Error ? error.message : 'Learning Languages could not be loaded.', 'alert');
     }
   }
 
@@ -278,8 +296,7 @@ export default defineUnlistedScript(() => {
   function activate() {
     host.hidden = false;
     dialog.hidden = true;
-    prompt.textContent = 'Click a word or select a phrase. Press Escape to cancel.';
-    prompt.hidden = false;
+    showPrompt('Click a word or select a phrase. Press Escape to cancel.');
     active = true;
   }
 
@@ -383,6 +400,7 @@ export default defineUnlistedScript(() => {
     pairError.textContent = learningLanguageId ? '' : 'Learning Language is required.';
     translationError.textContent = translation ? '' : 'Translation is required.';
     answerLanguageError.textContent = answerLanguageTag ? '' : 'Answer Language is required.';
+    validationError.hidden = Boolean(learningLanguageId && translation && answerLanguageTag && (answerLanguageConfirmed || answerLanguageConfirmation.hidden));
 
     if (!learningLanguageId || !translation || !answerLanguageTag || (!answerLanguageConfirmed && answerLanguageConfirmation.hidden === false)) {
       return;
@@ -404,9 +422,8 @@ export default defineUnlistedScript(() => {
     submitButton.disabled = false;
 
     if ('error' in response) {
-      prompt.textContent = response.error;
       dialog.hidden = true;
-      prompt.hidden = false;
+      showPrompt(response.error, 'alert');
       return;
     }
 
@@ -434,14 +451,12 @@ export default defineUnlistedScript(() => {
         submitButton.disabled = !createNewSenseInput.checked;
       };
       submitButton.disabled = true;
-      prompt.textContent = 'Choose a Sense or create a new Sense before saving.';
-      prompt.hidden = false;
+      showPrompt('Choose a Sense or create a new Sense before saving.');
       return;
     }
 
     dialog.hidden = true;
-    prompt.textContent = 'Vocabulary Entry saved. Click another word or select a phrase.';
-    prompt.hidden = false;
+    showPrompt('Vocabulary Entry saved. Click another word or select a phrase.');
     active = true;
   });
 

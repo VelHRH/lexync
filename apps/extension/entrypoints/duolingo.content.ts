@@ -2,6 +2,7 @@ import type {
   LoadDuolingoCaptureResponse,
   SaveDuolingoCaptureResponse,
 } from '../lib/duolingo-messages';
+import { shadowTokenCss } from '@lexync/design-system';
 
 type LessonMaterial = {
   example: string | null;
@@ -56,36 +57,40 @@ export default defineContentScript({
     const root = host.attachShadow({ mode: 'open' });
     root.innerHTML = `
       <style>
-        :host { all: initial; }
+        ${shadowTokenCss}
         .capture {
           position: fixed;
           right: 20px;
           bottom: 20px;
-          z-index: 2147483647;
+          z-index: var(--lexync-z-injected);
           display: grid;
-          gap: 8px;
-          padding: 12px;
-          border: 1px solid rgba(25, 37, 30, 0.18);
-          border-radius: 16px;
-          background: #fbf8ef;
-          box-shadow: 0 12px 35px rgba(25, 37, 30, 0.22);
-          color: #19251e;
-          font: 600 13px/1.4 Arial, Helvetica, sans-serif;
+          gap: var(--lexync-space-2);
+          max-width: min(360px, calc(100vw - 32px));
+          padding: var(--lexync-space-3);
+          border: 1px solid var(--lexync-color-border);
+          border-radius: var(--lexync-radius-lg);
+          background: var(--lexync-color-surface);
+          box-shadow: var(--lexync-elevation-medium);
+          color: var(--lexync-color-ink);
+          font: var(--lexync-type-weight-semibold) var(--lexync-type-size-sm)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
         }
         button {
-          min-height: 44px;
-          padding: 10px 16px;
-          border: 0;
-          border-radius: 999px;
-          background: #19251e;
-          color: #fbf8ef;
+          min-height: 2.75rem;
+          padding: var(--lexync-space-2) var(--lexync-space-4);
+          border: 1px solid var(--lexync-color-brand-primary);
+          border-radius: var(--lexync-radius-md);
+          background: var(--lexync-color-brand-primary);
+          color: var(--lexync-color-white);
           cursor: pointer;
           font: inherit;
         }
-        button:disabled { cursor: default; opacity: 0.7; }
-        .sense-choice { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; font: inherit; }
-        .sense-options { display: grid; gap: 6px; }
-        .sense-choice label { display: flex; gap: 6px; align-items: flex-start; font-weight: 400; }
+        button:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); }
+        button:disabled { cursor: wait; opacity: 0.55; }
+        button:active { transform: translateY(1px); }
+        .sense-choice { display: grid; gap: var(--lexync-space-2); margin: 0; padding: 0; border: 0; font: inherit; }
+        .sense-options { display: grid; gap: var(--lexync-space-2); }
+        .sense-choice label { display: flex; gap: var(--lexync-space-2); align-items: flex-start; font-weight: var(--lexync-type-weight-regular); }
+        [role="status"] { color: var(--lexync-color-ink-muted); font-size: var(--lexync-type-size-xs); }
         [role="status"]:empty { display: none; }
         [hidden] { display: none; }
       </style>

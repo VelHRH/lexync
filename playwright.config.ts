@@ -80,6 +80,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-design-system',
+      testMatch: /web-design-system\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-design-system-mobile',
+      testMatch: /web-design-system\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'mobile-chromium',
       testMatch: /landing-page\.mobile\.spec\.ts/,
       use: { ...devices['Pixel 7'] },
@@ -92,6 +102,10 @@ export default defineConfig({
     {
       name: 'bundle-security',
       testMatch: /security\/.*\.spec\.ts/,
+    },
+    {
+      name: 'design-system-contract',
+      testMatch: /design-system-contract\.spec\.ts/,
     },
     {
       name: 'domain-contract',

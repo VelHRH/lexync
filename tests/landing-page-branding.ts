@@ -44,7 +44,7 @@ export async function expectBrandMetadata(page: Page) {
   expect(new URL(touchIcon!, page.url()).pathname).toBe('/brand/apple-touch-icon.png');
   expect(new URL(openGraphImage!, page.url()).pathname).toBe('/brand/social-preview.png');
   expect(twitterImage).toBe(openGraphImage);
-  await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute('content', 'Lexync — Keep the words you choose');
+  await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute('content', 'Lexync - Keep the words you choose');
   await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
   await expectPng(page, icon!, 48, 48);
   await expectPng(page, touchIcon!, 180, 180);

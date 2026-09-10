@@ -1,43 +1,8 @@
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { AuthenticatedApp } from '../components/AuthenticatedApp';
+import { BrandArtwork } from '../components/BrandArtwork';
 import { getChromeExtensionId } from '../lib/extensionRecommendation';
-
-const Arrow = () => (
-  <svg aria-hidden="true" viewBox="0 0 24 24">
-    <path d="M5 12h14M13 6l6 6-6 6" />
-  </svg>
-);
-
-const ExtensionMark = () => (
-  <svg aria-hidden="true" viewBox="0 0 48 48">
-    <path d="M11 15.5h26a4 4 0 0 1 4 4V34a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4V19.5a4 4 0 0 1 4-4Z" />
-    <path d="M15 10v7M24 10v7M33 10v7M15 26h8M15 31h14" />
-  </svg>
-);
-
-const PhoneMark = () => (
-  <svg aria-hidden="true" viewBox="0 0 48 48">
-    <rect x="13" y="5" width="22" height="38" rx="6" />
-    <path d="M20 10h8M22 37h4" />
-  </svg>
-);
-
-const brandArtworkByBackground = {
-  dark: 'light-on-dark',
-  light: 'dark-on-light',
-} as const;
-
-const BrandArtwork = ({ background }: { background: keyof typeof brandArtworkByBackground }) => {
-  const artwork = brandArtworkByBackground[background];
-
-  return (
-    <picture className="brand-artwork">
-      <source media="(max-width: 560px)" srcSet={`/brand/mark-${artwork}.png`} />
-      <img alt="" height="724" src={`/brand/wordmark-${artwork}.png`} width="2172" />
-    </picture>
-  );
-};
 
 function PublicHome() {
   return (
@@ -57,59 +22,32 @@ function PublicHome() {
           <p className="eyebrow"><span /> Your language, in context</p>
           <h1>Keep the words<br />you choose.</h1>
           <p className="hero-intro">
-            Capture the language that matters while you browse. Lexync keeps it synchronized, personal, and ready to practise on your iPhone—even when you are offline.
+            Capture meaningful language while you browse. Lexync syncs it privately for practice on your iPhone, even offline.
           </p>
-          <a className="text-link" href="#how-it-works">See how the loop works <Arrow /></a>
+          <a className="text-link" href="#how-it-works">See how the loop works</a>
         </div>
 
-        <div className="capture-scene" aria-label="An example of deliberate word capture">
-          <div className="browser-bar">
-            <span /><span /><span />
-            <p>field notes · italian</p>
-          </div>
-          <div className="reading-card">
-            <p className="reading-label">A passage worth keeping</p>
-            <p className="reading-copy">
-              Camminava piano, lasciando che la città gli venisse <mark>incontro</mark>.
-            </p>
-          </div>
-          <div className="save-card">
-            <div className="save-card-top">
-              <span>Expression</span>
-              <span className="saved-state">Ready to save</span>
-            </div>
-            <strong>incontro</strong>
-            <p>meeting · encounter</p>
-            <div className="save-meta">
-              <span>Italian → English</span>
-              <span>1 example</span>
-            </div>
-          </div>
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
+        <div className="hero-artwork" aria-hidden="true">
+          <img alt="" height="1024" src="/brand/mark-dark-on-light.png" width="1024" />
         </div>
       </section>
 
       <section className="principles" id="how-it-works">
         <div className="section-heading">
-          <p className="eyebrow"><span /> One continuous loop</p>
           <h2>A quieter way to build fluency.</h2>
           <p>No feeds. No bulk imports. Just the language you notice, carried into practice.</p>
         </div>
 
         <div className="principle-grid">
           <article>
-            <p className="step-number">01</p>
             <h3>Capture with intention</h3>
             <p>Save a word or exact phrase from the web only when you choose to. Keep its translation and the sentence that made it meaningful.</p>
           </article>
           <article>
-            <p className="step-number">02</p>
             <h3>Stay in sync</h3>
             <p>Your private vocabulary moves from the Chromium extension to your iPhone, preserving the Expressions, meanings, and Examples you selected.</p>
           </article>
           <article>
-            <p className="step-number">03</p>
             <h3>Practice offline</h3>
             <p>Review downloaded lessons wherever you are. Your iPhone keeps progress durable and synchronizes it when connectivity returns.</p>
           </article>
@@ -118,13 +56,11 @@ function PublicHome() {
 
       <section className="surfaces">
         <div className="surfaces-heading">
-          <p className="eyebrow light"><span /> Each tool has one job</p>
           <h2>From noticing<br />to knowing.</h2>
         </div>
 
         <div className="surface-list">
           <article>
-            <div className="surface-icon"><ExtensionMark /></div>
             <div>
               <p className="surface-kicker">Where language finds you</p>
               <h3>Chromium extension</h3>
@@ -132,7 +68,6 @@ function PublicHome() {
             </div>
           </article>
           <article>
-            <div className="surface-icon"><PhoneMark /></div>
             <div>
               <p className="surface-kicker">Where learning continues</p>
               <h3>iPhone app</h3>
@@ -144,9 +79,9 @@ function PublicHome() {
         <p className="web-boundary">This website is the front door, not another study surface.</p>
       </section>
 
-      <footer>
+      <footer className="landing-footer">
         <a className="brand footer-brand" href="#top" aria-label="Back to the top">
-          <BrandArtwork background="dark" />
+          <BrandArtwork background="light" />
         </a>
         <div className="footer-meta">
           <Link href="/privacy">Privacy Policy</Link>

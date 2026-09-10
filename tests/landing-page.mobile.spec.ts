@@ -17,7 +17,7 @@ test('uses compact canonical fox marks on mobile surfaces', async ({ page }) => 
   await page.goto('/');
 
   const lightDimensions = await expectBrandArtwork(page.getByRole('link', { name: 'Lexync home' }), 'mark-dark-on-light.png');
-  const darkDimensions = await expectBrandArtwork(page.getByRole('link', { name: 'Back to the top' }), 'mark-light-on-dark.png');
+  const darkDimensions = await expectBrandArtwork(page.getByRole('link', { name: 'Back to the top' }), 'mark-dark-on-light.png');
 
   expect(lightDimensions.naturalWidth).toBe(lightDimensions.naturalHeight);
   expect(lightDimensions.width).toBeCloseTo(lightDimensions.height, 1);

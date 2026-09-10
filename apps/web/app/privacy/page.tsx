@@ -1,24 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BrandArtwork } from '../../components/BrandArtwork';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — Lexync',
+  title: 'Privacy Policy - Lexync',
   description: 'How Lexync handles account, learning, and browser data.',
 };
-
-const BrandArtwork = () => (
-  <picture className="brand-artwork">
-    <source media="(max-width: 560px)" srcSet="/brand/mark-dark-on-light.png" />
-    <img alt="" height="724" src="/brand/wordmark-dark-on-light.png" width="2172" />
-  </picture>
-);
 
 export default function PrivacyPolicy() {
   return (
     <main className="privacy-page">
       <header className="site-header privacy-header">
         <Link className="brand" href="/" aria-label="Lexync home">
-          <BrandArtwork />
+          <BrandArtwork background="light" />
         </Link>
         <Link className="text-link" href="/">Back to Lexync</Link>
       </header>
@@ -105,10 +99,7 @@ export default function PrivacyPolicy() {
 
       <footer className="privacy-footer">
         <Link className="brand footer-brand" href="/" aria-label="Lexync home">
-          <picture className="brand-artwork">
-            <source media="(max-width: 560px)" srcSet="/brand/mark-light-on-dark.png" />
-            <img alt="" height="724" src="/brand/wordmark-light-on-dark.png" width="2172" />
-          </picture>
+          <BrandArtwork background="light" />
         </Link>
         <p>Privacy Policy · Effective September 3, 2026</p>
       </footer>

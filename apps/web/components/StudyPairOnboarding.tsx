@@ -55,11 +55,11 @@ export function StudyPairOnboarding({ onCreated, completeImmediately = false }: 
       <p className="eyebrow"><span /> Your language context</p>
       <h1>Set up your first Learning Language</h1>
       <p className="app-empty">Choose the language you are learning. You can add more languages later.</p>
-      <form className="web-auth-form" onSubmit={submit}>
+      <form className="web-auth-form" onSubmit={submit} aria-describedby={notice ? 'learning-language-notice' : undefined}>
         <label htmlFor="learning-language">Learning Language</label>
         <input id="learning-language" value={languageDraft} onChange={(event) => setLanguageDraft(event.target.value)} placeholder="es or pt-BR" autoComplete="off" />
-        {notice && <p className="form-notice error" role="alert">{notice}</p>}
-        <button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Creating…' : 'Create Learning Language'}</button>
+        {notice && <p id="learning-language-notice" className="form-notice error" role="alert">{notice}</p>}
+        <button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Creating...' : 'Create Learning Language'}</button>
       </form>
     </main>
   );

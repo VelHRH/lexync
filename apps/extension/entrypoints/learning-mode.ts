@@ -1,4 +1,5 @@
 import type { LearningModeEntry, LearningModeLoadResponse } from '../lib/learning-mode-messages';
+import { shadowTokenCss } from '@lexync/design-system';
 
 type LearningScope = typeof globalThis & {
   __lexyncLearningMode?: boolean;
@@ -32,70 +33,76 @@ export default defineUnlistedScript(async () => {
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `
     <style>
-      :host { all: initial; }
+      ${shadowTokenCss}
       * { box-sizing: border-box; }
       .card, .details {
         position: fixed;
         right: 20px;
         bottom: 20px;
-        z-index: 2147483647;
+        z-index: var(--lexync-z-injected);
         width: min(340px, calc(100vw - 40px));
-        padding: 18px;
-        border: 1px solid rgba(25, 37, 30, .18);
-        border-radius: 16px;
-        background: #fbf8ef;
-        box-shadow: 0 18px 55px rgba(25, 37, 30, .24);
-        color: #19251e;
-        font: 14px/1.45 Arial, Helvetica, sans-serif;
+        max-height: calc(100vh - 40px);
+        overflow: auto;
+        padding: var(--lexync-space-5);
+        border: 1px solid var(--lexync-color-border);
+        border-radius: var(--lexync-radius-lg);
+        background: var(--lexync-color-surface);
+        box-shadow: var(--lexync-elevation-high);
+        color: var(--lexync-color-ink);
+        font: var(--lexync-type-size-md)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
       }
-      h2 { margin: 0 0 8px; font: 400 25px/1.1 Georgia, 'Times New Roman', serif; }
-      p { margin: 0 0 14px; color: rgba(25, 37, 30, .7); }
-      label { display: grid; gap: 6px; margin: 12px 0; font-size: 11px; font-weight: 700; }
-      select { width: 100%; padding: 9px; border: 1px solid rgba(25, 37, 30, .18); border-radius: 8px; background: white; }
-      .actions { display: flex; gap: 9px; }
-      button { padding: 9px 13px; border: 0; border-radius: 999px; cursor: pointer; font: 700 13px Arial, sans-serif; }
-      .primary { background: #19251e; color: #fbf8ef; }
-      .secondary { background: #e5e7de; color: #19251e; }
+      h2 { margin: 0 0 var(--lexync-space-2); font: var(--lexync-type-weight-semibold) var(--lexync-type-size-xl)/var(--lexync-type-line-tight) var(--lexync-type-family-display); }
+      p { margin: 0 0 var(--lexync-space-4); color: var(--lexync-color-ink-muted); }
+      label { display: grid; gap: var(--lexync-space-2); margin: var(--lexync-space-3) 0; color: var(--lexync-color-ink-muted); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-semibold); }
+      select { width: 100%; min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-3); border: 1px solid var(--lexync-color-border-strong); border-radius: var(--lexync-radius-md); outline: none; background: var(--lexync-color-white); color: var(--lexync-color-ink); }
+      select:focus { border-color: var(--lexync-color-brand-primary); }
+      .actions { display: flex; flex-wrap: wrap; gap: var(--lexync-space-2); }
+      button { min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-3); border: 1px solid transparent; border-radius: var(--lexync-radius-md); cursor: pointer; font: var(--lexync-type-weight-bold) var(--lexync-type-size-sm)/var(--lexync-type-line-normal) var(--lexync-type-family-body); }
+      button:active { transform: translateY(1px); }
+      button:disabled { cursor: wait; opacity: .55; }
+      .primary { border-color: var(--lexync-color-brand-primary); background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); }
+      .secondary { border-color: var(--lexync-color-border-strong); background: var(--lexync-color-surface-subtle); color: var(--lexync-color-ink); }
       .mode-status {
         position: fixed;
         right: 20px;
         bottom: 20px;
-        z-index: 2147483646;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(25, 37, 30, .9);
-        color: #fbf8ef;
-        font: 600 11px Arial, sans-serif;
+        z-index: calc(var(--lexync-z-injected) - 1);
+        padding: var(--lexync-space-2) var(--lexync-space-3);
+        border-radius: var(--lexync-radius-pill);
+        border-color: var(--lexync-color-ink);
+        background: var(--lexync-color-ink);
+        color: var(--lexync-color-white);
+        font-size: var(--lexync-type-size-xs);
       }
       .add {
         position: fixed;
-        z-index: 2147483647;
-        padding: 5px 9px;
-        border-radius: 999px;
-        background: #526c48;
-        color: white;
-        box-shadow: 0 7px 20px rgba(25, 37, 30, .22);
-        font: 700 13px Arial, sans-serif;
+        z-index: var(--lexync-z-injected);
+        padding: var(--lexync-space-1) var(--lexync-space-2);
+        border-radius: var(--lexync-radius-pill);
+        background: var(--lexync-color-brand-primary);
+        color: var(--lexync-color-white);
+        box-shadow: var(--lexync-elevation-low);
+        font: var(--lexync-type-weight-bold) var(--lexync-type-size-xs)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
         pointer-events: none;
       }
-      .details { right: 20px; bottom: 58px; }
+      .details { right: 20px; bottom: 64px; }
       .translation-tooltip {
         position: fixed;
-        z-index: 2147483647;
+        z-index: var(--lexync-z-injected);
         max-width: min(280px, calc(100vw - 16px));
-        padding: 7px 10px;
-        border-radius: 8px;
-        background: rgba(25, 37, 30, .94);
-        box-shadow: 0 8px 24px rgba(25, 37, 30, .22);
-        color: #fbf8ef;
-        font: 600 12px/1.4 Arial, Helvetica, sans-serif;
+        padding: var(--lexync-space-2) var(--lexync-space-3);
+        border-radius: var(--lexync-radius-md);
+        background: var(--lexync-color-ink);
+        box-shadow: var(--lexync-elevation-medium);
+        color: var(--lexync-color-white);
+        font: var(--lexync-type-weight-semibold) var(--lexync-type-size-xs)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
         pointer-events: none;
       }
-      .sense { padding: 10px 0; border-top: 1px solid rgba(25, 37, 30, .12); }
+      .sense { padding: var(--lexync-space-3) 0; border-top: 1px solid var(--lexync-color-border); }
       .sense strong, .sense span { display: block; }
       [hidden] { display: none !important; }
     </style>
-    <section class="card" role="dialog" aria-labelledby="lexync-learning-heading" hidden>
+    <section class="card" role="dialog" aria-modal="true" aria-labelledby="lexync-learning-heading" hidden>
       <h2 id="lexync-learning-heading">Learning Mode</h2>
       <p class="proposal"></p>
       <label hidden>Learning Language<select></select></label>
@@ -108,7 +115,7 @@ export default defineUnlistedScript(async () => {
   `;
   document.documentElement.append(host);
   const hoverStyle = document.createElement('style');
-  hoverStyle.textContent = '[data-lexync-hover="true"] { cursor: pointer !important; text-decoration: underline 1px rgba(82, 108, 72, .25) !important; text-underline-offset: 3px; }';
+  hoverStyle.textContent = '[data-lexync-hover="true"] { cursor: pointer !important; text-decoration: underline 1px !important; text-underline-offset: 3px; }';
   document.documentElement.append(hoverStyle);
   const card = root.querySelector<HTMLElement>('.card')!;
   const proposal = root.querySelector<HTMLElement>('.proposal')!;
@@ -275,7 +282,7 @@ export default defineUnlistedScript(async () => {
         const mark = document.createElement('span');
         mark.dataset.lexyncSaved = 'true';
         mark.textContent = text.slice(match.start, match.end);
-        mark.style.textDecoration = 'underline 2px rgba(82, 108, 72, .85)';
+        mark.style.textDecoration = 'underline 2px';
         mark.style.textUnderlineOffset = '3px';
         mark.style.cursor = 'pointer';
         mark.addEventListener('mouseenter', () => showTranslationTooltip(match.entry, mark));

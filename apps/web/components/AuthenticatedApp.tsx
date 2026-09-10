@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboarding';
+import { BrandArtwork } from './BrandArtwork';
 import { clearScheduledReviewEnded, clearScheduledReviewLanguage, getScheduledReviewLanguage, ScheduledRecognition, setScheduledReviewLanguage, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
@@ -65,11 +66,11 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
 
   return <main className="app-shell" aria-busy={!alert}>
     <header className="app-header">
-      <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
+      <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
     </header>
     <div className="app-body">
       <nav className="app-navigation" aria-label="Main navigation">
-        {destinations.map(([label, href]) => <Link className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
+        {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
       </nav>
       <section className="app-content" aria-labelledby="app-heading">
         <p className="eyebrow"><span /> Your private learning space</p>
@@ -143,8 +144,9 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const reviewLanguageForCards = reviewLanguageId && languages.find((language) => language.id === reviewLanguageId)
     ? reviewLanguageId
     : activeLanguageId;
+  const effectiveRecognitionLanguageId = activeSection === 'Review' ? reviewLanguageForCards : activeLanguageId;
 
-  const refreshRecognitionCards = useCallback(async (learningLanguageId = activeLanguageId) => {
+  const refreshRecognitionCards = useCallback(async (learningLanguageId: string) => {
     const requestId = ++recognitionRequestId.current;
     if (!learningLanguageId) {
       if (requestId !== recognitionRequestId.current) return;
@@ -166,7 +168,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     setRecognitionCards((data ?? []).map((card: LearningReviewOverview) => toReviewCard(card)));
     setRecognitionCardsLanguageId(learningLanguageId);
     setRecognitionLoading(false);
-  }, [activeLanguageId]);
+  }, []);
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -184,10 +186,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }, [loadLanguages, loadPairs, session]);
 
   useEffect(() => {
-    if (!session || !activeLanguageId) return;
+    if (!session || !effectiveRecognitionLanguageId) return;
     if (activeSection === 'Review' && !reviewPointerResolved) return;
-    queueMicrotask(() => void refreshRecognitionCards(activeSection === 'Review' ? reviewLanguageForCards : activeLanguageId));
-  }, [activeLanguageId, activeSection, refreshRecognitionCards, reviewLanguageForCards, reviewPointerResolved, session]);
+    queueMicrotask(() => void refreshRecognitionCards(effectiveRecognitionLanguageId));
+  }, [activeSection, effectiveRecognitionLanguageId, refreshRecognitionCards, reviewPointerResolved, session]);
 
   useEffect(() => {
     if (activeSection !== 'Review' || !session || languagesLoading || languages.length === 0) return;
@@ -241,7 +243,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   if (loading) return <>{publicContent ?? <AppLoadingShell section={section} message="Opening your private library…" />}</>;
   if (!session) return <>{publicContent ?? <AppLoadingShell section={section} message="Opening sign in…" />}</>;
   if (forceOnboarding) return <StudyPairOnboarding onCreated={() => window.location.assign('/')} />;
-  if (languagesLoading) return <AppLoadingShell section={section} message="Loading your Learning Languages…" />;
+  if (languagesLoading) return <AppLoadingShell section={section} message="Loading your Learning Languages..." />;
   if (languageError && languages.length === 0) return <AppLoadingShell section={section} message={`Unable to load your Learning Languages: ${languageError}`} alert />;
   if (languages.length === 0) return <AppLoadingShell section={section} message="Opening onboarding…" />;
 
@@ -310,19 +312,22 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   return (
     <main className="app-shell">
       <header className="app-header">
-        <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
-        <div>
+        <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
+        <div className="app-header-controls">
           <label className="pair-selector-label" htmlFor="active-learning-language">Active Learning Language</label>
           <select id="active-learning-language" aria-label="Active Learning Language" value={displayedLanguage.id} disabled={activeSection === 'Review'} onChange={(event) => void setActiveLanguage(event.target.value)}>
             {languages.map((language) => <option key={language.id} value={language.id}>{languageName(language.languageTag)} · {language.languageTag}</option>)}
           </select>
           {online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>}
-          <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
+          <div className="profile-region" aria-label="Profile and account controls">
+            <span className="profile-email">{session.user.email}</span>
+            <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
+          </div>
         </div>
       </header>
       <div className="app-body">
         <nav className="app-navigation" aria-label="Main navigation">
-          {destinations.map(([label, href]) => <Link className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
+          {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
         </nav>
         <section className="app-content" aria-labelledby="app-heading">
           <p className="eyebrow"><span /> Your private learning space</p>
@@ -333,13 +338,13 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
           {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
           {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
           {activeSection === 'Review' && reviewPointerResolved && !recognitionLoading && recognitionCardsLanguageId === displayedLanguage.id && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={displayedLanguage} onReviewLanguageChange={handleReviewLanguageChange} />}
-          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary…</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
+          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary...</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
             <h2 id="learning-languages-heading">Learning Languages</h2>
             <form className="web-auth-form" onSubmit={addLanguage}>
               <label htmlFor="settings-learning-language">Learning Language</label>
               <input id="settings-learning-language" value={languageDraft} onChange={(event) => setLanguageDraft(event.target.value)} placeholder="fr-CA" autoComplete="off" />
-              <button className="primary-button" type="submit" disabled={!online || languageSaving}>{languageSaving ? 'Adding…' : 'Add Learning Language'}</button>
+              <button className="primary-button" type="submit" disabled={!online || languageSaving}>{languageSaving ? 'Adding...' : 'Add Learning Language'}</button>
             </form>
             {languageError && <p className="form-notice error" role="alert">{languageError}</p>}
             <ul>
