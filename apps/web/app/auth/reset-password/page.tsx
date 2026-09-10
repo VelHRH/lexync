@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from 'react';
 import Link from 'next/link';
+import { BrandArtwork } from '../../../components/BrandArtwork';
 import { supabase } from '../../../lib/supabase';
 
 export default function ResetPasswordPage() {
@@ -21,7 +22,7 @@ export default function ResetPasswordPage() {
   return (
     <main className="auth-page">
       <div className="auth-card">
-        <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
+        <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
         <p className="eyebrow"><span /> Account recovery</p>
         <h1>Choose a new password</h1>
         <form className="web-auth-form" onSubmit={submit} aria-describedby={notice ? 'reset-notice' : undefined}>

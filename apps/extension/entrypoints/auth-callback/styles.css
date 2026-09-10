@@ -43,17 +43,6 @@ main {
   line-height: var(--lexync-type-line-normal);
 }
 
-#status-alert {
-  margin: var(--lexync-space-4) 0 0;
-  padding: var(--lexync-space-3);
-  border: 1px solid var(--lexync-color-danger);
-  border-radius: var(--lexync-radius-md);
-  background: var(--lexync-color-danger-surface);
-  color: var(--lexync-color-danger);
-  font-size: var(--lexync-type-size-xs);
-  line-height: var(--lexync-type-line-normal);
-}
-
 form,
 label {
   display: grid;

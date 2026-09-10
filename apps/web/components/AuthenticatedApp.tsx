@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboarding';
+import { BrandArtwork } from './BrandArtwork';
 import { clearScheduledReviewEnded, clearScheduledReviewLanguage, getScheduledReviewLanguage, ScheduledRecognition, setScheduledReviewLanguage, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
@@ -65,7 +66,7 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
 
   return <main className="app-shell" aria-busy={!alert}>
     <header className="app-header">
-      <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
+      <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
     </header>
     <div className="app-body">
       <nav className="app-navigation" aria-label="Main navigation">
@@ -143,8 +144,9 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   const reviewLanguageForCards = reviewLanguageId && languages.find((language) => language.id === reviewLanguageId)
     ? reviewLanguageId
     : activeLanguageId;
+  const effectiveRecognitionLanguageId = activeSection === 'Review' ? reviewLanguageForCards : activeLanguageId;
 
-  const refreshRecognitionCards = useCallback(async (learningLanguageId = activeLanguageId) => {
+  const refreshRecognitionCards = useCallback(async (learningLanguageId: string) => {
     const requestId = ++recognitionRequestId.current;
     if (!learningLanguageId) {
       if (requestId !== recognitionRequestId.current) return;
@@ -166,7 +168,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
     setRecognitionCards((data ?? []).map((card: LearningReviewOverview) => toReviewCard(card)));
     setRecognitionCardsLanguageId(learningLanguageId);
     setRecognitionLoading(false);
-  }, [activeLanguageId]);
+  }, []);
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -184,10 +186,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }, [loadLanguages, loadPairs, session]);
 
   useEffect(() => {
-    if (!session || !activeLanguageId) return;
+    if (!session || !effectiveRecognitionLanguageId) return;
     if (activeSection === 'Review' && !reviewPointerResolved) return;
-    queueMicrotask(() => void refreshRecognitionCards(activeSection === 'Review' ? reviewLanguageForCards : activeLanguageId));
-  }, [activeLanguageId, activeSection, refreshRecognitionCards, reviewLanguageForCards, reviewPointerResolved, session]);
+    queueMicrotask(() => void refreshRecognitionCards(effectiveRecognitionLanguageId));
+  }, [activeSection, effectiveRecognitionLanguageId, refreshRecognitionCards, reviewPointerResolved, session]);
 
   useEffect(() => {
     if (activeSection !== 'Review' || !session || languagesLoading || languages.length === 0) return;
@@ -310,7 +312,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   return (
     <main className="app-shell">
       <header className="app-header">
-        <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
+        <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
         <div className="app-header-controls">
           <label className="pair-selector-label" htmlFor="active-learning-language">Active Learning Language</label>
           <select id="active-learning-language" aria-label="Active Learning Language" value={displayedLanguage.id} disabled={activeSection === 'Review'} onChange={(event) => void setActiveLanguage(event.target.value)}>

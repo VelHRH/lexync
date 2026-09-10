@@ -1,6 +1,6 @@
 # Lexync semantic design contract
 
-This is the shared light-mode contract for Lexync web, Chromium extension, Jetpack Compose, and future SwiftUI clients. The source of truth is [`packages/design-system/src/tokens.ts`](../packages/design-system/src/tokens.ts), with the consumable document stylesheet in [`packages/design-system/src/tokens.css`](../packages/design-system/src/tokens.css). Consumers use semantic roles rather than product-specific palette names or raw color literals.
+This is the shared light-mode contract for Lexync web, Chromium extension, Jetpack Compose, and future SwiftUI clients. The source of truth is [`packages/design-system/src/tokens.json`](../packages/design-system/src/tokens.json), with the generated, consumable document stylesheet in [`packages/design-system/src/tokens.css`](../packages/design-system/src/tokens.css). Consumers use semantic roles rather than product-specific palette names or raw color literals.
 
 ## Scope
 
@@ -41,7 +41,7 @@ Use the supplied artwork under `public/brand` (web) or the extension's packaged 
 
 ## Web and document CSS
 
-Import `@lexync/design-system/tokens.css` once from the web root stylesheet and from document-level extension pages (popup and auth callback). The stylesheet defines the `--lexync-*` custom properties on `:root`, keyboard focus treatment, and reduced-motion behavior. Web and extension CSS can then consume roles such as:
+Import `@lexync/design-system/tokens.css` once from the web root stylesheet and from document-level extension pages (popup and auth callback). The stylesheet is generated from the JSON source and defines the `--lexync-*` custom properties on `:root`, keyboard focus treatment, and reduced-motion behavior. Run `pnpm --filter @lexync/design-system generate` after changing the source; the package check fails if the generated stylesheet drifts. Web and extension CSS can then consume roles such as:
 
 ```css
 background: var(--lexync-color-surface-subtle);
@@ -53,7 +53,7 @@ The package is exported as CSS and source TypeScript so both Next.js and WXT can
 
 ## Extension Shadow DOM
 
-Injected Learning Mode, ordinary capture, Duolingo, and Clozemaster controls live in Shadow DOM so host-page styles cannot change their interaction contract. Import `shadowTokenStyle` (also exported as `LEXYNC_SHADOW_TOKENS` and `designSystemShadowCss`) from `@lexync/design-system/shadow` and place it in the root's first `<style>` element. The helper defines the same semantic roles on `:host`, adds `focus-visible`, and honors reduced motion. `attachShadowTokenStyles(root)` and `createTokenStyleElement(document)` are convenience primitives for imperative WXT entrypoints.
+Injected Learning Mode, ordinary capture, Duolingo, and Clozemaster controls live in Shadow DOM so host-page styles cannot change their interaction contract. Import `shadowTokenCss` from `@lexync/design-system` and place it in the root's first `<style>` element. The helper defines the same semantic roles on `:host`, adds `focus-visible`, and honors reduced motion.
 
 Injected controls use `--lexync-z-injected`, semantic surface/content roles, and accessible names/states. Their Shadow DOM style must reference `var(--lexync-...)`; it must not copy a host site's colors.
 

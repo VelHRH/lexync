@@ -1,6 +1,6 @@
 import { semanticTokens } from './tokens';
 
-export const shadowTokenStyle = `
+export const shadowTokenCss = `
 :host {
   all: initial;
   color-scheme: light;
@@ -10,9 +10,10 @@ export const shadowTokenStyle = `
   --lexync-color-ink: ${semanticTokens.color.ink};
   --lexync-color-ink-muted: ${semanticTokens.color.inkMuted};
   --lexync-color-white: ${semanticTokens.color.white};
-  --lexync-color-surface: ${semanticTokens.color.white};
-  --lexync-color-surface-subtle: ${semanticTokens.color.lavender};
-  --lexync-color-surface-strong: ${semanticTokens.color.lavenderStrong};
+  --lexync-color-surface: ${semanticTokens.color.surface};
+  --lexync-color-surface-subtle: ${semanticTokens.color.surfaceSubtle};
+  --lexync-color-surface-strong: ${semanticTokens.color.surfaceStrong};
+  --lexync-color-surface-deep: ${semanticTokens.color.surfaceDeep};
   --lexync-color-border: ${semanticTokens.color.border};
   --lexync-color-border-strong: ${semanticTokens.color.borderStrong};
   --lexync-color-success: ${semanticTokens.color.success};
@@ -78,31 +79,10 @@ export const shadowTokenStyle = `
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: 0s !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0s !important;
   }
 }
 `;
-
-export const LEXYNC_SHADOW_TOKENS = shadowTokenStyle;
-export const designSystemShadowCss = shadowTokenStyle;
-export const shadowTokenCss = shadowTokenStyle;
-
-export function createShadowTokenStyle(): string {
-  return shadowTokenStyle;
-}
-
-export function createTokenStyleElement(documentRef: Document): HTMLStyleElement {
-  const style = documentRef.createElement('style');
-  style.dataset.lexyncDesignSystem = 'tokens';
-  style.textContent = shadowTokenStyle;
-  return style;
-}
-
-export function attachShadowTokenStyles(root: ShadowRoot): HTMLStyleElement {
-  const style = createTokenStyleElement(root.ownerDocument);
-  root.prepend(style);
-  return style;
-}

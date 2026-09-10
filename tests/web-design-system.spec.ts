@@ -85,8 +85,12 @@ async function contrastRatio(page: Page, selector: string) {
 test.describe('web design system surfaces', () => {
   test('presents the public and auth surfaces with canonical artwork and semantic controls', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('link', { name: 'Lexync home' })).toBeVisible();
-    await expect(page.locator('img[src*="wordmark-dark-on-light"], img[src*="mark-dark-on-light"]')).toBeVisible();
+    const homeLink = page.getByRole('link', { name: 'Lexync home' });
+    await expect(homeLink).toBeVisible();
+    const homeArtwork = homeLink.locator('img');
+    await expect(homeArtwork).toBeVisible();
+    const expectedArtwork = (page.viewportSize()?.width ?? 0) <= 560 ? 'mark-dark-on-light.png' : 'wordmark-dark-on-light.png';
+    await expect.poll(() => homeArtwork.evaluate((element) => new URL((element as HTMLImageElement).currentSrc).pathname)).toBe(`/brand/${expectedArtwork}`);
     await expectPrimaryToken(page);
     await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
     await page.getByRole('link', { name: 'Sign in' }).click();

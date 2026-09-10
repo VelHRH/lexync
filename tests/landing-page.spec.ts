@@ -23,14 +23,14 @@ test.describe('Lexync public landing page', () => {
     await expect(page.getByText('This website is the front door, not another study surface.')).toBeVisible();
   });
 
-  test('uses canonical wordmarks on light and dark surfaces without distortion', async ({ page }) => {
+  test('uses canonical wordmarks on light surfaces without distortion', async ({ page }) => {
     await page.goto('/');
 
     const home = page.getByRole('link', { name: 'Lexync home' });
     const backToTop = page.getByRole('link', { name: 'Back to the top' });
 
     const lightDimensions = await expectBrandArtwork(home, 'wordmark-dark-on-light.png');
-    const darkDimensions = await expectBrandArtwork(backToTop, 'wordmark-light-on-dark.png');
+    const darkDimensions = await expectBrandArtwork(backToTop, 'wordmark-dark-on-light.png');
 
     expect(lightDimensions.naturalWidth).toBeGreaterThan(0);
     expect(lightDimensions.naturalHeight).toBeGreaterThan(0);

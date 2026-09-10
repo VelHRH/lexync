@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from 'react';
 import Link from 'next/link';
+import { BrandArtwork } from './BrandArtwork';
 import { supabase } from '../lib/supabase';
 
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
@@ -73,7 +74,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   return (
     <main className="auth-page">
       <div className="auth-card">
-        <Link className="auth-brand" href="/" aria-label="Lexync home">Lexync</Link>
+        <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
         <p className="eyebrow"><span /> Private learning</p>
         <h1>{title}</h1>
         <p className="auth-intro">{mode === 'sign-in' ? 'Sign in to continue.' : 'Your vocabulary stays personal, synchronized, and ready when you are.'}</p>

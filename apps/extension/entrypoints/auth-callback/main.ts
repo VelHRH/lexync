@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 
 const status = document.getElementById('status');
-const statusAlert = document.getElementById('status-alert');
 const passwordForm = document.querySelector<HTMLFormElement>('#password-form');
 const passwordInput = document.querySelector<HTMLInputElement>('#password');
 const confirmPasswordInput = document.querySelector<HTMLInputElement>('#confirm-password');
@@ -22,14 +21,9 @@ const recoveryClient = createClient(
   },
 );
 
-function showStatus(message: string, role: 'alert' | 'status' = 'status') {
+function showStatus(message: string) {
   if (status) {
     status.textContent = message;
-  }
-
-  if (statusAlert) {
-    statusAlert.textContent = role === 'alert' ? message : '';
-    statusAlert.hidden = role !== 'alert';
   }
 }
 
@@ -81,12 +75,12 @@ passwordForm?.addEventListener('submit', async (event) => {
   const confirmPassword = confirmPasswordInput?.value ?? '';
 
   if (password.length < 6) {
-    showStatus('Password must contain at least 6 characters.', 'alert');
+    showStatus('Password must contain at least 6 characters.');
     return;
   }
 
   if (password !== confirmPassword) {
-    showStatus('Passwords do not match.', 'alert');
+    showStatus('Passwords do not match.');
     return;
   }
 
@@ -108,7 +102,7 @@ passwordForm?.addEventListener('submit', async (event) => {
     const { error } = await recoveryClient.auth.updateUser({ password });
 
     if (error) {
-      showStatus(error.message, 'alert');
+      showStatus(error.message);
       return;
     }
 
@@ -127,7 +121,7 @@ passwordForm?.addEventListener('submit', async (event) => {
 
     void browser.runtime.sendMessage({ type: 'auth-complete' }).catch(() => undefined);
   } catch (error) {
-    showStatus(error instanceof Error ? error.message : 'Password could not be updated.', 'alert');
+    showStatus(error instanceof Error ? error.message : 'Password could not be updated.');
   } finally {
     if (button) {
       button.disabled = false;
@@ -136,5 +130,5 @@ passwordForm?.addEventListener('submit', async (event) => {
 });
 
 void completeAuthentication().catch((error: unknown) => {
-  showStatus(error instanceof Error ? error.message : 'Sign-in could not be completed.', 'alert');
+  showStatus(error instanceof Error ? error.message : 'Sign-in could not be completed.');
 });

@@ -1,5 +1,6 @@
 :root {
   color-scheme: light;
+
   --lexync-color-brand-primary: #6429f4;
   --lexync-color-brand-primary-hover: #5120d2;
   --lexync-color-brand-primary-active: #4218b5;
@@ -97,9 +98,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: 0s !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0s !important;
   }
 }

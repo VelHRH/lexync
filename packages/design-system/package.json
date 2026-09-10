@@ -11,7 +11,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "check": "tsc --noEmit"
+    "generate": "node scripts/generate-css.mjs",
+    "check": "tsc --noEmit && node scripts/generate-css.mjs --check"
   },
   "devDependencies": {
     "typescript": "5.9.2"
