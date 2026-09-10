@@ -21,7 +21,10 @@ export function CompleteAuth({ code, type }: { code?: string; type?: string }) {
     });
   }, [code, type]);
 
-  return <main className="auth-page">
+  return <main className="auth-page" data-design="auth-split">
+    <aside className="auth-aside">
+      <p className="auth-aside-quote">A small pause between noticing and knowing.</p>
+    </aside>
     <section className="auth-card" aria-busy="true">
       <p className="auth-intro" role="status">Completing authentication…</p>
     </section>

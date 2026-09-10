@@ -85,6 +85,14 @@ async function contrastRatio(page: Page, selector: string) {
 test.describe('web design system surfaces', () => {
   test('presents the public and auth surfaces with canonical artwork and semantic controls', async ({ page }) => {
     await page.goto('/');
+    await expect(page.locator('[data-design="editorial-landing"]')).toBeVisible();
+    await expect(page.locator('.hero')).toHaveClass(/hero-split/);
+    await expect(page.locator('.hero-copy')).toHaveCSS('max-width', /[7-9]\d\dpx/);
+    const principleColumns = await page.locator('.principles .principle-grid').evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).map((track) => Number.parseFloat(track)));
+    expect(principleColumns).toHaveLength((page.viewportSize()?.width ?? 0) <= 960 ? 1 : 3);
+    if (principleColumns.length === 3) expect(Math.max(...principleColumns) - Math.min(...principleColumns)).toBeGreaterThan(1);
+    const heroHeadingSize = await page.locator('.hero h1').evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+    expect(heroHeadingSize).toBeLessThanOrEqual(96);
     const homeLink = page.getByRole('link', { name: 'Lexync home' });
     await expect(homeLink).toBeVisible();
     const homeArtwork = homeLink.locator('img');
@@ -96,6 +104,8 @@ test.describe('web design system surfaces', () => {
     await page.getByRole('link', { name: 'Sign in' }).click();
     await expect(page).toHaveURL('/auth/sign-in');
     await expect(page.getByRole('heading', { name: /sign in|welcome back/i })).toBeVisible();
+    await expect(page.locator('[data-design="auth-split"]')).toBeVisible();
+    await expect(page.locator('.auth-page .auth-aside')).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Password')).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
@@ -107,6 +117,31 @@ test.describe('web design system surfaces', () => {
       return style.outlineStyle !== 'none' || style.boxShadow !== 'none' || style.borderColor !== getComputedStyle(element).backgroundColor;
     });
     expect(focusStyle).toBe(true);
+    await page.getByRole('link', { name: 'Forgot password?' }).click();
+    await expect(page).toHaveURL('/auth/forgot-password');
+    await expect(page.locator('[data-design="auth-split"] .auth-aside')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /reset your password/i })).toBeVisible();
+  });
+
+  test('presents privacy as an editorial document with summary and policy regions', async ({ page }) => {
+    await page.goto('/privacy');
+    await expect(page.locator('.privacy-layout')).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Policy summary' })).toBeVisible();
+    await expect(page.locator('.privacy-policy > header')).toBeVisible();
+    await expect(page.locator('.privacy-policy > section')).not.toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test('gives password recovery its own split editorial surface', async ({ page }) => {
+    await page.goto('/auth/reset-password');
+    await expect(page.locator('[data-design="auth-recovery"]')).toBeVisible();
+    await expect(page.locator('.auth-recovery-aside')).toBeVisible();
+    await expect(page.getByLabel('New password', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Confirm new password')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Update password' })).toBeVisible();
+    await page.getByLabel('New password', { exact: true }).focus();
+    await expect(page.getByLabel('New password', { exact: true })).toBeFocused();
+    await expectNoHorizontalOverflow(page);
   });
 
   test('groups the active language selector, profile identity, and sign-out controls', async ({ page }) => {
@@ -115,6 +150,9 @@ test.describe('web design system surfaces', () => {
     await signIn(page, account);
 
     const header = page.locator('header').first();
+    await expect(page.locator('[data-design="app-shell"]')).toBeVisible();
+    await expect(page.locator('.app-navigation')).toHaveClass(/app-navigation-rail/);
+    await expect(page.locator('.app-content')).toHaveClass(/app-content-canvas/);
     await expect(header.getByLabel('Active Learning Language')).toBeVisible();
     await expect(header).toContainText(account.email);
     await expect(header.getByRole('button', { name: /sign out/i })).toBeVisible();
@@ -148,6 +186,15 @@ test.describe('web design system surfaces', () => {
     await expect(page.getByRole('main')).toBeVisible();
     const visibleText = await page.locator('body').innerText();
     expect(visibleText).toContain('Lexync');
+  });
+
+  test('collapses the editorial hero to one column at tablet width', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.goto('/');
+    await expect(page.locator('[data-design="editorial-landing"]')).toBeVisible();
+    const heroColumns = await page.locator('.hero').evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/));
+    expect(heroColumns).toHaveLength(1);
+    await expectNoHorizontalOverflow(page);
   });
 
   test('supports readable contrast, 200 percent text scaling, and reduced motion', async ({ page }) => {

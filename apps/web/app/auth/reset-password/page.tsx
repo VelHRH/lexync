@@ -20,10 +20,16 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="auth-page">
+    <main className="auth-page auth-recovery" data-design="auth-recovery">
+      <aside className="auth-recovery-aside">
+        <Link className="auth-recovery-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
+        <div>
+          <p className="auth-recovery-title">Back to the words that matter.</p>
+          <p className="auth-recovery-detail">Your private library will be ready when you are.</p>
+        </div>
+      </aside>
       <div className="auth-card">
         <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
-        <p className="eyebrow"><span /> Account recovery</p>
         <h1>Choose a new password</h1>
         <form className="web-auth-form" onSubmit={submit} aria-describedby={notice ? 'reset-notice' : undefined}>
           <label htmlFor="new-password">New password</label>

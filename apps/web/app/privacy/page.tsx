@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicy() {
   return (
-    <main className="privacy-page">
+    <main className="privacy-page" data-design="privacy-workbench">
       <header className="site-header privacy-header">
         <Link className="brand" href="/" aria-label="Lexync home">
           <BrandArtwork background="light" />
@@ -26,7 +26,6 @@ export default function PrivacyPolicy() {
 
         <article className="privacy-policy">
           <header>
-            <p className="eyebrow"><span /> Privacy Policy</p>
             <h1>Your words stay yours.</h1>
             <p>This policy explains how Lexync handles information when you use its Chromium extension, website, and companion applications.</p>
           </header>

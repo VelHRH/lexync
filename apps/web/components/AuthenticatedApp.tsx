@@ -64,15 +64,15 @@ function sectionLabel(section: string) {
 function AppLoadingShell({ section, message, alert = false }: { section: string; message: string; alert?: boolean }) {
   const activeSection = sectionLabel(section);
 
-  return <main className="app-shell" aria-busy={!alert}>
+  return <main className="app-shell" data-design="app-shell" aria-busy={!alert}>
     <header className="app-header">
       <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
     </header>
     <div className="app-body">
-      <nav className="app-navigation" aria-label="Main navigation">
+      <nav className="app-navigation app-navigation-rail" aria-label="Main navigation">
         {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
       </nav>
-      <section className="app-content" aria-labelledby="app-heading">
+      <section className="app-content app-content-canvas" aria-labelledby="app-heading">
         <p className="eyebrow"><span /> Your private learning space</p>
         <h1 id="app-heading">{activeSection}</h1>
         <p className={`form-notice${alert ? ' error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
@@ -310,7 +310,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" data-design="app-shell">
       <header className="app-header">
         <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
         <div className="app-header-controls">
@@ -326,10 +326,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
         </div>
       </header>
       <div className="app-body">
-        <nav className="app-navigation" aria-label="Main navigation">
+        <nav className="app-navigation app-navigation-rail" aria-label="Main navigation">
           {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
         </nav>
-        <section className="app-content" aria-labelledby="app-heading">
+        <section className="app-content app-content-canvas" aria-labelledby="app-heading">
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
           {activeSection === 'Home' && !recognitionLoading && <section className="due-counts" aria-label="Scheduled Review due counts">

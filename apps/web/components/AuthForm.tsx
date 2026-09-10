@@ -72,10 +72,16 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const submitLabel = mode === 'sign-up' ? 'Create account' : mode === 'forgot-password' ? 'Send reset link' : 'Sign in';
 
   return (
-    <main className="auth-page">
+    <main className="auth-page" data-design="auth-split">
+      <aside className="auth-aside">
+        <Link className="auth-aside-brand" href="/" aria-label="Lexync home"><BrandArtwork background="dark" /></Link>
+        <div>
+          <p className="auth-aside-quote">The words you notice are the ones worth remembering.</p>
+          <p className="auth-aside-detail">Keep the context that made a phrase matter, then return to it when you have time to learn.</p>
+        </div>
+      </aside>
       <div className="auth-card">
         <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
-        <p className="eyebrow"><span /> Private learning</p>
         <h1>{title}</h1>
         <p className="auth-intro">{mode === 'sign-in' ? 'Sign in to continue.' : 'Your vocabulary stays personal, synchronized, and ready when you are.'}</p>
         <form className="web-auth-form" onSubmit={submit} noValidate aria-describedby={notice ? 'auth-notice' : undefined}>
