@@ -43,40 +43,55 @@ export default defineUnlistedScript(() => {
       * { box-sizing: border-box; }
       .prompt {
         position: fixed;
-        right: 20px;
-        bottom: 20px;
+        inset-inline-end: var(--lexync-space-6);
+        bottom: var(--lexync-space-6);
         z-index: var(--lexync-z-injected);
-        max-width: 320px;
+        max-width: 340px;
         padding: var(--lexync-space-3) var(--lexync-space-4);
         border: 1px solid var(--lexync-color-border-strong);
-        border-radius: var(--lexync-radius-pill);
-        background: var(--lexync-color-ink);
+        border-radius: var(--lexync-radius-md);
+        background: var(--lexync-color-surface);
         box-shadow: var(--lexync-elevation-medium);
-        color: var(--lexync-color-white);
+        color: var(--lexync-color-ink);
         font: var(--lexync-type-weight-semibold) var(--lexync-type-size-sm)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
       }
       .dialog {
         position: fixed;
-        top: 50%;
-        left: 50%;
+        inset-inline-end: var(--lexync-space-6);
+        bottom: var(--lexync-space-6);
         z-index: var(--lexync-z-injected);
-        width: min(420px, calc(100vw - 32px));
+        width: min(400px, calc(100vw - 32px));
         max-height: calc(100vh - 32px);
         overflow: auto;
-        padding: var(--lexync-space-6);
-        transform: translate(-50%, -50%);
+        padding: var(--lexync-space-5);
         border: 1px solid var(--lexync-color-border);
-        border-radius: var(--lexync-radius-lg);
+        border-radius: var(--lexync-radius-md);
         background: var(--lexync-color-surface);
         box-shadow: var(--lexync-elevation-high);
         color: var(--lexync-color-ink);
         font: var(--lexync-type-size-md)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
       }
-      h2 {
-        margin: 0 0 var(--lexync-space-5);
-        color: var(--lexync-color-ink);
-        font: var(--lexync-type-weight-semibold) var(--lexync-type-size-2xl)/var(--lexync-type-line-tight) var(--lexync-type-family-display);
+      .dialog-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--lexync-space-4);
+        margin-bottom: var(--lexync-space-5);
       }
+      .kicker {
+        margin: 0 0 var(--lexync-space-2);
+        color: var(--lexync-color-brand-primary);
+        font-size: 0.6875rem;
+        font-weight: var(--lexync-type-weight-bold);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      h2 {
+        margin: 0;
+        color: var(--lexync-color-ink);
+        font: var(--lexync-type-weight-semibold) var(--lexync-type-size-xl)/var(--lexync-type-line-tight) var(--lexync-type-family-display);
+      }
+      .context-mark { color: var(--lexync-color-ink-muted); font: var(--lexync-type-weight-bold) 0.6875rem/var(--lexync-type-line-normal) var(--lexync-type-family-mono); }
       form, label { display: grid; }
       form { gap: var(--lexync-space-4); }
       label { gap: var(--lexync-space-2); color: var(--lexync-color-ink-muted); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-semibold); }
@@ -91,15 +106,16 @@ export default defineUnlistedScript(() => {
         color: var(--lexync-color-ink);
       }
       input:focus, select:focus, textarea:focus { border-color: var(--lexync-color-brand-primary); }
+      input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); box-shadow: var(--lexync-focus-ring); }
       textarea { min-height: 76px; resize: vertical; }
       .field-error, .validation-error { color: var(--lexync-color-danger); font-size: var(--lexync-type-size-xs); }
       .validation-error { margin: 0; }
-      .actions { display: flex; flex-wrap: wrap; gap: var(--lexync-space-3); margin-top: var(--lexync-space-1); }
+      .actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--lexync-space-3); margin-top: var(--lexync-space-1); }
       button {
         min-height: 2.75rem;
         padding: var(--lexync-space-3) var(--lexync-space-4);
         border: 1px solid transparent;
-        border-radius: var(--lexync-radius-md);
+        border-radius: var(--lexync-radius-sm);
         cursor: pointer;
         font-weight: var(--lexync-type-weight-bold);
       }
@@ -110,8 +126,8 @@ export default defineUnlistedScript(() => {
       [hidden] { display: none !important; }
     </style>
     <div class="prompt" role="status" hidden></div>
-    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="lexync-capture-heading" hidden>
-      <h2 id="lexync-capture-heading">Capture Expression</h2>
+    <section class="dialog capture-sheet" role="dialog" aria-modal="true" aria-label="Capture Expression" hidden>
+      <header class="dialog-header"><div><p class="kicker">Quick capture</p><h2 id="lexync-capture-heading">Keep this expression</h2></div><span class="context-mark">LEXYNC</span></header>
       <form novalidate>
         <label>Expression<input name="expression" readonly></label>
         <label>Learning Language<select name="learningLanguage"></select><span class="pair-error field-error" hidden></span></label>
@@ -121,7 +137,7 @@ export default defineUnlistedScript(() => {
         <fieldset class="sense-choice" hidden><legend>Choose a Sense</legend><div class="sense-options"></div><label><input name="createNewSense" type="radio" value="new"> Create a new Sense</label></fieldset>
         <label>Example <span>Optional</span><textarea name="example"></textarea></label>
         <p class="validation-error" role="alert" hidden>Please complete the highlighted fields.</p>
-        <div class="actions">
+        <div class="actions sheet-actions">
           <button type="submit">Save Vocabulary Entry</button>
           <button type="button">Cancel</button>
         </div>

@@ -36,6 +36,52 @@ async function expectShadowSurface(page: Page, hostSelector: string) {
   expect(details.computed).not.toMatch(/25,\s*37,\s*30|243,\s*240,\s*231/i);
 }
 
+async function expectVisibleFocusIndicator(locator: ReturnType<Page['locator']>) {
+  const result = await locator.evaluate((element) => {
+    (element as HTMLElement).focus();
+    const root = element.getRootNode() as Document | ShadowRoot;
+    const style = getComputedStyle(element);
+    return {
+      focused: root.activeElement === element,
+      indicator: style.outlineStyle !== 'none' || style.boxShadow !== 'none',
+    };
+  });
+  expect(result.focused).toBe(true);
+  expect(result.indicator).toBe(true);
+}
+
+async function expectWithinViewport(page: Page, selectors: string[]) {
+  for (const selector of selectors) {
+    const elements = page.locator(selector).filter({ visible: true });
+    await expect(elements.first()).toBeVisible();
+    const bounds = await elements.evaluateAll((targets) => targets.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right };
+    }));
+    for (const bound of bounds) {
+      expect(bound.left, `${selector} left edge`).toBeGreaterThanOrEqual(0);
+      expect(bound.right, `${selector} right edge`).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+    }
+  }
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+}
+
+async function expectActionDock(page: Page, hostSelector: string, expression: string, translation: string) {
+  const host = page.locator(hostSelector);
+  const dock = host.locator('.action-bar');
+  await expect(dock).toBeVisible();
+  await expect(dock.locator('.context-detail')).toContainText(new RegExp(`${expression}.*${translation}`, 'i'));
+  const desktop = await dock.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return { columns: style.gridTemplateColumns.trim().split(/\s+/).length, width: rect.width, viewport: window.innerWidth };
+  });
+  if (desktop.viewport >= 520) expect(desktop.columns).toBeGreaterThan(1);
+  await page.setViewportSize({ width: 500, height: 800 });
+  await expect.poll(() => dock.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length)).toBe(1);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+}
+
 async function openReadingPage(context: BrowserContext, path = '/reading'): Promise<Page> {
   const origin = 'http://learning-mode.test';
   await context.route(`${origin}${path}`, (route) => route.fulfill({
@@ -80,6 +126,9 @@ test.describe('extension design system surfaces', () => {
   test('gives the popup a canonical token, identity grouping, focus, and language state', async ({ extensionPage, learnerClient }) => {
     await createLearningLanguage(learnerClient, 'it');
     await extensionPage.reload();
+    await expect(extensionPage.locator('[data-design="popup-command-center"]')).toBeVisible();
+    await expect(extensionPage.locator('.shell header')).toHaveClass(/popup-header/);
+    await expect(extensionPage.locator('.shell .panel')).toHaveCount(3);
     await expect(extensionPage.locator('header')).toContainText(/learner-/i);
     await expect(extensionPage.getByLabel('Active Learning Language')).toBeVisible();
     await expect(extensionPage.locator('img[src*="dark-on-light"]')).toBeVisible();
@@ -121,16 +170,39 @@ test.describe('extension design system surfaces', () => {
     await injectLearningMode(extensionContext, page);
     const modeStatus = page.getByRole('button', { name: 'Disable Learning Mode' });
     await expect(modeStatus).toBeVisible();
+    await expect(page.locator('#lexync-learning-mode .status-tab')).toBeVisible();
+    await expect(page.locator('#lexync-learning-mode .detail-sheet')).toHaveCount(1);
     await expectShadowSurface(page, '#lexync-learning-mode');
     await page.locator('#word').click();
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await expect(capture).toBeVisible();
+    await expect(page.locator('#lexync-ordinary-capture .capture-sheet')).toBeVisible();
+    await expect(capture.locator('header')).toBeVisible();
+    await expect(capture.locator('.actions')).toHaveClass(/sheet-actions/);
     await expectShadowSurface(page, '#lexync-ordinary-capture');
-    await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
-    await expect(capture.getByText('Translation is required.')).toBeVisible();
-    await expect(capture.locator('[role="alert"], .error')).toHaveCount(1);
-    await capture.getByLabel('Translation').focus();
-    await expect(capture.getByLabel('Translation')).toBeFocused();
+    await expectVisibleFocusIndicator(capture.getByLabel('Translation', { exact: true }));
+    await expectVisibleFocusIndicator(modeStatus);
+  });
+
+  test('keeps ordinary capture and Learning Mode inside an RTL tablet viewport', async ({
+    extensionContext,
+    extensionPage,
+    learnerClient,
+  }) => {
+    const learningLanguage = await createLearningLanguage(learnerClient, 'it');
+    const page = await openReadingPage(extensionContext);
+    await page.evaluate(() => { document.documentElement.dir = 'rtl'; });
+    await extensionPage.evaluate(([key, languageId]) => chrome.storage.local.set({ [key]: { enabled: true, learningLanguageId: languageId } }), [
+      `lexync.learningMode.${new URL(page.url()).origin}`,
+      learningLanguage.id,
+    ]);
+    await page.setViewportSize({ width: 768, height: 900 });
+    await injectLearningMode(extensionContext, page);
+    await expect(page.getByRole('button', { name: 'Disable Learning Mode' })).toBeVisible();
+    await expectWithinViewport(page, ['#lexync-learning-mode .mode-status']);
+    await page.locator('#word').click();
+    await expect(page.getByRole('dialog', { name: 'Capture Expression' })).toBeVisible();
+    await expectWithinViewport(page, ['#lexync-learning-mode .mode-status', '#lexync-ordinary-capture .dialog']);
   });
 
   test('uses the token and semantic status state in the Duolingo Shadow DOM adapter', async ({
@@ -144,6 +216,9 @@ test.describe('extension design system surfaces', () => {
     const host = page.locator('#lexync-duolingo-capture');
     const save = host.getByRole('button', { name: 'Save to Lexync' });
     await expect(save).toBeVisible();
+    await expect(host.locator('.action-bar')).toBeVisible();
+    await expect(host.locator('.action-bar')).toContainText('Save to Lexync');
+    await expectActionDock(page, '#lexync-duolingo-capture', 'renard', 'fox');
     await expectShadowSurface(page, '#lexync-duolingo-capture');
     await save.focus();
     await expect(save).toBeFocused();
@@ -162,6 +237,9 @@ test.describe('extension design system surfaces', () => {
     const host = page.locator('#lexync-clozemaster-capture');
     const add = host.getByRole('button', { name: 'Add to Lexync' });
     await expect(add).toBeVisible();
+    await expect(host.locator('.action-bar')).toBeVisible();
+    await expect(host.locator('.action-bar')).toContainText('Add to Lexync');
+    await expectActionDock(page, '#lexync-clozemaster-capture', 'gatto', 'cat');
     await expectShadowSurface(page, '#lexync-clozemaster-capture');
     await add.focus();
     await expect(add).toBeFocused();

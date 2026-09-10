@@ -6,7 +6,7 @@ import { getChromeExtensionId } from '../lib/extensionRecommendation';
 
 function PublicHome() {
   return (
-    <main>
+    <main data-design="editorial-landing">
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Lexync home">
           <BrandArtwork background="light" />
@@ -17,14 +17,16 @@ function PublicHome() {
         </div>
       </header>
 
-      <section className="hero" id="top">
+      <section className="hero hero-split" id="top">
         <div className="hero-copy">
-          <p className="eyebrow"><span /> Your language, in context</p>
-          <h1>Keep the words<br />you choose.</h1>
+          <h1>Keep the words you choose.</h1>
           <p className="hero-intro">
             Capture meaningful language while you browse. Lexync syncs it privately for practice on your iPhone, even offline.
           </p>
-          <a className="text-link" href="#how-it-works">See how the loop works</a>
+          <div className="hero-actions">
+            <Link className="header-action-primary" href="/auth/sign-up">Start your library</Link>
+            <a className="text-link" href="#how-it-works">See how the loop works</a>
+          </div>
         </div>
 
         <div className="hero-artwork" aria-hidden="true">
@@ -62,14 +64,12 @@ function PublicHome() {
         <div className="surface-list">
           <article>
             <div>
-              <p className="surface-kicker">Where language finds you</p>
               <h3>Chromium extension</h3>
               <p>The optional extension adds deliberate third-party webpage capture and Learning Mode. Site access stays on demand.</p>
             </div>
           </article>
           <article>
             <div>
-              <p className="surface-kicker">Where learning continues</p>
               <h3>iPhone app</h3>
               <p>Carry your synchronized library into focused review and Free Practice, with downloaded lessons available offline.</p>
             </div>

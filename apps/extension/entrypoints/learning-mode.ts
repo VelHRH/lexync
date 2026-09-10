@@ -37,25 +37,29 @@ export default defineUnlistedScript(async () => {
       * { box-sizing: border-box; }
       .card, .details {
         position: fixed;
-        right: 20px;
-        bottom: 20px;
+        inset-inline-end: var(--lexync-space-6);
+        bottom: var(--lexync-space-6);
         z-index: var(--lexync-z-injected);
-        width: min(340px, calc(100vw - 40px));
+        width: min(360px, calc(100vw - 32px));
         max-height: calc(100vh - 40px);
         overflow: auto;
         padding: var(--lexync-space-5);
         border: 1px solid var(--lexync-color-border);
-        border-radius: var(--lexync-radius-lg);
+        border-radius: var(--lexync-radius-md);
         background: var(--lexync-color-surface);
         box-shadow: var(--lexync-elevation-high);
         color: var(--lexync-color-ink);
         font: var(--lexync-type-size-md)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
       }
-      h2 { margin: 0 0 var(--lexync-space-2); font: var(--lexync-type-weight-semibold) var(--lexync-type-size-xl)/var(--lexync-type-line-tight) var(--lexync-type-family-display); }
+      .sheet-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--lexync-space-3); margin-bottom: var(--lexync-space-4); }
+      .kicker { margin: 0 0 var(--lexync-space-2); color: var(--lexync-color-brand-primary); font-size: 0.6875rem; font-weight: var(--lexync-type-weight-bold); letter-spacing: 0.1em; text-transform: uppercase; }
+      .sheet-mark { color: var(--lexync-color-ink-muted); font: var(--lexync-type-weight-bold) 0.6875rem/var(--lexync-type-line-normal) var(--lexync-type-family-mono); }
+      h2 { margin: 0; font: var(--lexync-type-weight-semibold) var(--lexync-type-size-xl)/var(--lexync-type-line-tight) var(--lexync-type-family-display); }
       p { margin: 0 0 var(--lexync-space-4); color: var(--lexync-color-ink-muted); }
       label { display: grid; gap: var(--lexync-space-2); margin: var(--lexync-space-3) 0; color: var(--lexync-color-ink-muted); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-semibold); }
       select { width: 100%; min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-3); border: 1px solid var(--lexync-color-border-strong); border-radius: var(--lexync-radius-md); outline: none; background: var(--lexync-color-white); color: var(--lexync-color-ink); }
       select:focus { border-color: var(--lexync-color-brand-primary); }
+      select:focus-visible, button:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); box-shadow: var(--lexync-focus-ring); }
       .actions { display: flex; flex-wrap: wrap; gap: var(--lexync-space-2); }
       button { min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-3); border: 1px solid transparent; border-radius: var(--lexync-radius-md); cursor: pointer; font: var(--lexync-type-weight-bold) var(--lexync-type-size-sm)/var(--lexync-type-line-normal) var(--lexync-type-family-body); }
       button:active { transform: translateY(1px); }
@@ -64,28 +68,32 @@ export default defineUnlistedScript(async () => {
       .secondary { border-color: var(--lexync-color-border-strong); background: var(--lexync-color-surface-subtle); color: var(--lexync-color-ink); }
       .mode-status {
         position: fixed;
-        right: 20px;
-        bottom: 20px;
+        inset-inline-end: var(--lexync-space-6);
+        bottom: var(--lexync-space-6);
         z-index: calc(var(--lexync-z-injected) - 1);
+        display: flex;
+        align-items: center;
+        gap: var(--lexync-space-2);
         padding: var(--lexync-space-2) var(--lexync-space-3);
-        border-radius: var(--lexync-radius-pill);
-        border-color: var(--lexync-color-ink);
-        background: var(--lexync-color-ink);
-        color: var(--lexync-color-white);
+        border: 1px solid var(--lexync-color-brand-primary);
+        border-radius: var(--lexync-radius-md);
+        background: var(--lexync-color-surface);
+        color: var(--lexync-color-ink);
         font-size: var(--lexync-type-size-xs);
       }
+      .mode-status::before { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--lexync-color-success); content: ''; }
       .add {
         position: fixed;
         z-index: var(--lexync-z-injected);
         padding: var(--lexync-space-1) var(--lexync-space-2);
-        border-radius: var(--lexync-radius-pill);
+        border-radius: var(--lexync-radius-sm);
         background: var(--lexync-color-brand-primary);
         color: var(--lexync-color-white);
         box-shadow: var(--lexync-elevation-low);
         font: var(--lexync-type-weight-bold) var(--lexync-type-size-xs)/var(--lexync-type-line-normal) var(--lexync-type-family-body);
         pointer-events: none;
       }
-      .details { right: 20px; bottom: 64px; }
+      .details { inset-inline-end: var(--lexync-space-6); bottom: calc(var(--lexync-space-12) + var(--lexync-space-6)); }
       .translation-tooltip {
         position: fixed;
         z-index: var(--lexync-z-injected);
@@ -103,15 +111,15 @@ export default defineUnlistedScript(async () => {
       [hidden] { display: none !important; }
     </style>
     <section class="card" role="dialog" aria-modal="true" aria-labelledby="lexync-learning-heading" hidden>
-      <h2 id="lexync-learning-heading">Learning Mode</h2>
+      <div class="sheet-header"><div><p class="kicker">Page context</p><h2 id="lexync-learning-heading">Learning Mode</h2></div><span class="sheet-mark">LEXYNC</span></div>
       <p class="proposal"></p>
       <label hidden>Learning Language<select></select></label>
       <div class="actions"><button class="primary enable">Enable</button><button class="secondary decline">Not now</button></div>
     </section>
-    <button class="mode-status" type="button" aria-label="Disable Learning Mode" title="Turn off Learning Mode" hidden>Learning Mode is on</button>
+    <button class="mode-status status-tab" type="button" aria-label="Disable Learning Mode" title="Turn off Learning Mode" hidden>Learning Mode is on</button>
     <div class="add" role="tooltip" hidden></div>
     <div class="translation-tooltip" role="tooltip" hidden></div>
-    <section class="details" role="dialog" aria-label="Saved expression" hidden></section>
+    <section class="details detail-sheet" role="dialog" aria-label="Saved expression" hidden></section>
   `;
   document.documentElement.append(host);
   const hoverStyle = document.createElement('style');
