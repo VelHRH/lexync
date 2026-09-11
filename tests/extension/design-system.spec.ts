@@ -38,16 +38,45 @@ async function expectShadowSurface(page: Page, hostSelector: string) {
 
 async function expectVisibleFocusIndicator(locator: ReturnType<Page['locator']>) {
   const result = await locator.evaluate((element) => {
+    const before = getComputedStyle(element);
     (element as HTMLElement).focus();
     const root = element.getRootNode() as Document | ShadowRoot;
     const style = getComputedStyle(element);
     return {
       focused: root.activeElement === element,
-      indicator: style.outlineStyle !== 'none' || style.boxShadow !== 'none',
+      indicator: style.outlineStyle !== 'none' || style.boxShadow !== 'none' || style.borderColor !== before.borderColor,
     };
   });
   expect(result.focused).toBe(true);
   expect(result.indicator).toBe(true);
+}
+
+async function expectCustomSelect(field: ReturnType<Page['locator']>) {
+  await expect(field).toBeVisible();
+  const select = field.getByLabel('Active Learning Language');
+  await expectStyledSelect(select);
+  const indicator = field.locator('[data-ui="select-indicator"]');
+  if (await indicator.count()) await expect(indicator).toBeVisible();
+  else expect((await select.evaluate((element) => getComputedStyle(element).backgroundImage))).not.toBe('none');
+}
+
+async function expectStyledSelect(select: ReturnType<Page['locator']>) {
+  await expect(select).toBeVisible();
+  const style = await select.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      appearance: computed.getPropertyValue('appearance'),
+      backgroundColor: computed.backgroundColor,
+      backgroundImage: computed.backgroundImage,
+      borderRadius: Number.parseFloat(computed.borderRadius),
+      paddingInlineEnd: Number.parseFloat(computed.paddingInlineEnd),
+    };
+  });
+  expect(style.appearance).toBe('none');
+  expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(style.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(style.paddingInlineEnd).toBeGreaterThanOrEqual(32);
+  await expectVisibleFocusIndicator(select);
 }
 
 async function expectWithinViewport(page: Page, selectors: string[]) {
@@ -123,20 +152,43 @@ async function injectLearningMode(context: BrowserContext, page: Page) {
 }
 
 test.describe('extension design system surfaces', () => {
-  test('gives the popup a canonical token, identity grouping, focus, and language state', async ({ extensionPage, learnerClient }) => {
+  test('gives the popup task-first grouping, a custom language control, and useful empty state', async ({ extensionPage, learnerClient }) => {
     await createLearningLanguage(learnerClient, 'it');
     await extensionPage.reload();
-    await expect(extensionPage.locator('[data-design="popup-command-center"]')).toBeVisible();
-    await expect(extensionPage.locator('.shell header')).toHaveClass(/popup-header/);
-    await expect(extensionPage.locator('.shell .panel')).toHaveCount(3);
-    await expect(extensionPage.locator('header')).toContainText(/learner-/i);
-    await expect(extensionPage.getByLabel('Active Learning Language')).toBeVisible();
+    const popup = extensionPage.locator('[data-ui="extension-popup"]');
+    await expect(popup).toBeVisible();
+    await expect(extensionPage.locator('[data-design="popup-command-center"]')).toHaveCount(0);
+    await expect(popup.locator('[data-ui="popup-header"]')).toBeVisible();
+    await expect(popup.locator('[data-ui="profile-account"]')).toContainText(/learner-/i);
+    await expect(popup.locator('[data-ui="task-first-panel"]')).toHaveCount(3);
+    await expect(popup.locator('[data-ui="empty-state"]')).toBeVisible();
     await expect(extensionPage.locator('img[src*="dark-on-light"]')).toBeVisible();
     await expectDocumentToken(extensionPage);
-    const control = extensionPage.getByLabel('Active Learning Language');
-    await control.focus();
-    await expect(control).toBeFocused();
-    await expect(control).toHaveAttribute('aria-label', 'Active Learning Language');
+    await expectCustomSelect(popup.locator('[data-ui="language-switcher"]'));
+    const headingTypography = await popup.getByRole('heading', { level: 2 }).last().evaluate((element) => ({
+      actual: getComputedStyle(element).fontFamily,
+      expected: getComputedStyle(document.documentElement).getPropertyValue('--lexync-type-family-body'),
+    }));
+    expect(headingTypography.actual.replace(/["']/g, '')).toContain(headingTypography.expected.split(',')[0].replace(/["']/g, '').trim());
+  });
+
+  test('offers a direct setup action instead of an unusable capture field without a language', async ({ extensionPage }) => {
+    await expect(extensionPage.getByLabel('Expression')).toHaveCount(0);
+    const setup = extensionPage.getByRole('link', { name: /add a learning language/i });
+    await expect(setup).toBeVisible();
+    await expect(setup).toHaveAttribute('href', /settings/);
+  });
+
+  test('keeps popup controls usable at narrow widths and under reduced motion', async ({ extensionPage, learnerClient }) => {
+    await createLearningLanguage(learnerClient, 'it');
+    await extensionPage.reload();
+    await extensionPage.setViewportSize({ width: 420, height: 720 });
+    await expect(extensionPage.locator('[data-ui="extension-popup"]')).toBeVisible();
+    await expect.poll(() => extensionPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await expectVisibleFocusIndicator(extensionPage.getByLabel('Expression'));
+    await extensionPage.emulateMedia({ reducedMotion: 'reduce' });
+    const motion = await extensionPage.evaluate(() => Array.from(document.querySelectorAll('body *')).map((element) => getComputedStyle(element)).filter((style) => style.animationDuration !== '0s' || style.transitionDuration !== '0s').length);
+    expect(motion).toBe(0);
   });
 
   test('keeps the auth callback status and password controls semantic and focusable', async ({ extensionContext }) => {
@@ -178,10 +230,16 @@ test.describe('extension design system surfaces', () => {
     await expect(capture).toBeVisible();
     await expect(page.locator('#lexync-ordinary-capture .capture-sheet')).toBeVisible();
     await expect(capture.locator('header')).toBeVisible();
+    await expectStyledSelect(capture.getByLabel('Learning Language'));
     await expect(capture.locator('.actions')).toHaveClass(/sheet-actions/);
     await expectShadowSurface(page, '#lexync-ordinary-capture');
     await expectVisibleFocusIndicator(capture.getByLabel('Translation', { exact: true }));
     await expectVisibleFocusIndicator(modeStatus);
+    const modeCard = page.locator('#lexync-learning-mode .card');
+    await modeCard.evaluate((element) => { (element as HTMLElement).hidden = false; });
+    const modeLabel = modeCard.locator('label').filter({ hasText: 'Learning Language' });
+    await modeLabel.evaluate((element) => { (element as HTMLElement).hidden = false; });
+    await expectStyledSelect(modeLabel.getByRole('combobox'));
   });
 
   test('keeps ordinary capture and Learning Mode inside an RTL tablet viewport', async ({

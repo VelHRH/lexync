@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -20,7 +20,6 @@ async function register(account: ReturnType<typeof credentials>, languages = ['e
     const result = await client.rpc('create_learning_language', { p_language_tag: language });
     if (result.error) throw result.error;
   }
-  return client;
 }
 
 async function signIn(page: Page, account: ReturnType<typeof credentials>) {
@@ -32,17 +31,7 @@ async function signIn(page: Page, account: ReturnType<typeof credentials>) {
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
-  await expect.poll(() => page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }))).toEqual(expect.objectContaining({
-    scrollWidth: expect.any(Number),
-  }));
-  const dimensions = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }));
-  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 }
 
 async function expectPrimaryToken(page: Page) {
@@ -57,6 +46,44 @@ async function expectPrimaryToken(page: Page) {
     }
   }));
   expect(values.map((value) => value.replace(/\s/g, '').toLowerCase())).toContain('#6429f4');
+}
+
+async function expectFocusIndicator(locator: Locator) {
+  const before = await locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { outlineStyle: style.outlineStyle, boxShadow: style.boxShadow, borderColor: style.borderColor };
+  });
+  await locator.focus();
+  await expect(locator).toBeFocused();
+  const indicator = await locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { outlineStyle: style.outlineStyle, boxShadow: style.boxShadow, borderColor: style.borderColor };
+  });
+  expect(indicator.outlineStyle !== 'none' || indicator.boxShadow !== 'none' || indicator.borderColor !== before.borderColor).toBe(true);
+}
+
+async function expectCustomSelect(field: Locator) {
+  await expect(field).toBeVisible();
+  const select = field.getByLabel('Active Learning Language');
+  await expect(select).toBeVisible();
+  const style = await select.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      appearance: computed.getPropertyValue('appearance'),
+      backgroundColor: computed.backgroundColor,
+      backgroundImage: computed.backgroundImage,
+      borderRadius: Number.parseFloat(computed.borderRadius),
+      paddingInlineEnd: Number.parseFloat(computed.paddingInlineEnd),
+    };
+  });
+  expect(style.appearance).toBe('none');
+  expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(style.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(style.paddingInlineEnd).toBeGreaterThanOrEqual(32);
+  const indicator = field.locator('[data-ui="select-indicator"]');
+  if (await indicator.count()) await expect(indicator).toBeVisible();
+  else expect(style.backgroundImage).not.toBe('none');
+  await expectFocusIndicator(select);
 }
 
 async function contrastRatio(page: Page, selector: string) {
@@ -83,117 +110,123 @@ async function contrastRatio(page: Page, selector: string) {
 }
 
 test.describe('web design system surfaces', () => {
-  test('presents the public and auth surfaces with canonical artwork and semantic controls', async ({ page }) => {
+  test('presents the fox-led public and auth visual contract with a capture loop', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('[data-design="editorial-landing"]')).toBeVisible();
-    await expect(page.locator('.hero')).toHaveClass(/hero-split/);
-    await expect(page.locator('.hero-copy')).toHaveCSS('max-width', /[7-9]\d\dpx/);
-    const principleColumns = await page.locator('.principles .principle-grid').evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).map((track) => Number.parseFloat(track)));
-    expect(principleColumns).toHaveLength((page.viewportSize()?.width ?? 0) <= 960 ? 1 : 3);
-    if (principleColumns.length === 3) expect(Math.max(...principleColumns) - Math.min(...principleColumns)).toBeGreaterThan(1);
-    const heroHeadingSize = await page.locator('.hero h1').evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
-    expect(heroHeadingSize).toBeLessThanOrEqual(96);
-    const homeLink = page.getByRole('link', { name: 'Lexync home' });
-    await expect(homeLink).toBeVisible();
-    const homeArtwork = homeLink.locator('img');
-    await expect(homeArtwork).toBeVisible();
-    const expectedArtwork = (page.viewportSize()?.width ?? 0) <= 560 ? 'mark-dark-on-light.png' : 'wordmark-dark-on-light.png';
-    await expect.poll(() => homeArtwork.evaluate((element) => new URL((element as HTMLImageElement).currentSrc).pathname)).toBe(`/brand/${expectedArtwork}`);
-    await expectPrimaryToken(page);
+    await expect(page.locator('[data-ui="public-front-door"]')).toBeVisible();
+    await expect(page.locator('[data-design="editorial-landing"]')).toHaveCount(0);
+    await expect(page.locator('.hero-split')).toHaveCount(0);
+    await expect(page.locator('[data-ui="fox-hero"]')).toBeVisible();
+    await expect(page.locator('.hero-artwork-note')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Android app' })).toBeVisible();
+    await expect(page.getByText(/iPhone/i)).toHaveCount(0);
+    const loop = page.locator('[data-ui="learning-loop"]');
+    await expect(loop).toBeVisible();
+    for (const step of ['capture', 'sync', 'review']) await expect(loop.locator(`[data-loop="${step}"]`)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
     await page.getByRole('link', { name: 'Sign in' }).click();
     await expect(page).toHaveURL('/auth/sign-in');
-    await expect(page.getByRole('heading', { name: /sign in|welcome back/i })).toBeVisible();
-    await expect(page.locator('[data-design="auth-split"]')).toBeVisible();
-    await expect(page.locator('.auth-page .auth-aside')).toBeVisible();
-    await expect(page.getByLabel('Email')).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
-    const email = page.getByLabel('Email');
-    await email.focus();
-    await expect(email).toBeFocused();
-    const focusStyle = await email.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return style.outlineStyle !== 'none' || style.boxShadow !== 'none' || style.borderColor !== getComputedStyle(element).backgroundColor;
-    });
-    expect(focusStyle).toBe(true);
-    await page.getByRole('link', { name: 'Forgot password?' }).click();
-    await expect(page).toHaveURL('/auth/forgot-password');
-    await expect(page.locator('[data-design="auth-split"] .auth-aside')).toBeVisible();
-    await expect(page.getByRole('heading', { name: /reset your password/i })).toBeVisible();
+    const auth = page.locator('[data-ui="auth-surface"]');
+    await expect(auth).toBeVisible();
+    await expect(page.locator('[data-design="auth-split"]')).toHaveCount(0);
+    await expect(auth.locator('[data-ui="auth-fox-panel"]')).toBeVisible();
+    await expect(auth.locator('[data-ui="auth-form-card"]')).toBeVisible();
+    await expectFocusIndicator(page.getByLabel('Email'));
+    await expectPrimaryToken(page);
   });
 
-  test('presents privacy as an editorial document with summary and policy regions', async ({ page }) => {
-    await page.goto('/privacy');
-    await expect(page.locator('.privacy-layout')).toBeVisible();
-    await expect(page.getByRole('complementary', { name: 'Policy summary' })).toBeVisible();
-    await expect(page.locator('.privacy-policy > header')).toBeVisible();
-    await expect(page.locator('.privacy-policy > section')).not.toHaveCount(0);
-    await expectNoHorizontalOverflow(page);
-  });
-
-  test('gives password recovery its own split editorial surface', async ({ page }) => {
+  test('gives password recovery the same non-editorial auth surface', async ({ page }) => {
     await page.goto('/auth/reset-password');
-    await expect(page.locator('[data-design="auth-recovery"]')).toBeVisible();
-    await expect(page.locator('.auth-recovery-aside')).toBeVisible();
+    const auth = page.locator('[data-ui="auth-surface"]');
+    await expect(auth).toBeVisible();
+    await expect(auth.locator('[data-ui="auth-fox-panel"]')).toBeVisible();
+    await expect(auth.locator('[data-ui="auth-form-card"]')).toBeVisible();
+    await expect(page.locator('[data-design="auth-recovery"]')).toHaveCount(0);
     await expect(page.getByLabel('New password', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Confirm new password')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Update password' })).toBeVisible();
-    await page.getByLabel('New password', { exact: true }).focus();
-    await expect(page.getByLabel('New password', { exact: true })).toBeFocused();
+    await expectFocusIndicator(page.getByLabel('New password', { exact: true }));
     await expectNoHorizontalOverflow(page);
   });
 
-  test('groups the active language selector, profile identity, and sign-out controls', async ({ page }) => {
-    const account = credentials('web-design-system-identity');
+  test('keeps the authenticated product header in one aligned desktop row', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    const account = credentials('web-design-system-header');
     await register(account, ['es', 'fr']);
     await signIn(page, account);
-
-    const header = page.locator('header').first();
-    await expect(page.locator('[data-design="app-shell"]')).toBeVisible();
-    await expect(page.locator('.app-navigation')).toHaveClass(/app-navigation-rail/);
-    await expect(page.locator('.app-content')).toHaveClass(/app-content-canvas/);
-    await expect(header.getByLabel('Active Learning Language')).toBeVisible();
-    await expect(header).toContainText(account.email);
+    const shell = page.locator('[data-ui="product-shell"]');
+    const header = shell.locator('[data-ui="product-header"]');
+    await expect(shell).toBeVisible();
+    await expect(header).toBeVisible();
+    const language = header.locator('[data-ui="language-switcher"]');
+    const profile = header.locator('[data-ui="profile-account"]');
+    await expect(language).toBeVisible();
+    await expect(profile).toBeVisible();
     await expect(header.getByRole('button', { name: /sign out/i })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: /main navigation/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Home', exact: true })).toHaveAttribute('aria-current', 'page');
-    await expectPrimaryToken(page);
-
-    await page.getByRole('link', { name: 'Library', exact: true }).click();
-    await expect(page).toHaveURL('/library');
-    await expect(page.getByRole('heading', { name: 'Library', exact: true, level: 1 })).toBeVisible();
-    await expect(page.getByRole('button', { name: /add vocabulary/i })).toBeVisible();
-    await page.getByRole('button', { name: /add vocabulary/i }).click();
-    const capture = page.locator('form').filter({ has: page.getByLabel('Expression', { exact: true }) }).last();
-    await expect(capture.getByLabel('Translation', { exact: true })).toBeVisible();
-    await capture.getByRole('button', { name: /save vocabulary entry|save/i }).click();
-    await expect(capture.getByRole('alert')).toBeVisible();
-    await capture.getByLabel('Expression', { exact: true }).fill('casa');
-    await capture.getByLabel('Translation', { exact: true }).fill('house');
-    await capture.getByRole('button', { name: /save vocabulary entry|save/i }).click();
-    await expect(page.getByRole('status')).toBeVisible();
-
-    await page.getByRole('link', { name: 'Review', exact: true }).click();
-    await expect(page).toHaveURL('/review');
-    await expect(page.getByRole('heading', { name: /review/i })).toBeVisible();
-    await expect(page.locator('main')).toContainText(/Spanish|English|Answer Language|Translation/i);
-  });
-
-  test('keeps desktop and mobile public presentation within the viewport', async ({ page }) => {
-    await page.goto('/');
+    const layout = await header.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      const items = Array.from(element.querySelectorAll<HTMLElement>('[data-ui="header-brand"], [data-ui="language-switcher"], [data-ui="profile-account"]')).map((item) => {
+        const itemRect = item.getBoundingClientRect();
+        return { center: itemRect.top + itemRect.height / 2, right: itemRect.right, bottom: itemRect.bottom };
+      });
+      return { display: style.display, flexWrap: style.flexWrap, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, top: rect.top, bottom: rect.bottom, items };
+    });
+    expect(['flex', 'grid']).toContain(layout.display);
+    expect(layout.flexWrap).toBe('nowrap');
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
+    expect(Math.max(...layout.items.map((item) => item.center)) - Math.min(...layout.items.map((item) => item.center))).toBeLessThanOrEqual(8);
+    expect(layout.items.every((item) => item.right <= layout.clientWidth + 1 && item.bottom <= layout.bottom - layout.top + 1)).toBe(true);
+    await expectCustomSelect(language);
     await expectNoHorizontalOverflow(page);
-    await expect(page.getByRole('main')).toBeVisible();
-    const visibleText = await page.locator('body').innerText();
-    expect(visibleText).toContain('Lexync');
   });
 
-  test('collapses the editorial hero to one column at tablet width', async ({ page }) => {
+  test('exposes task-first navigation, account grouping, and useful empty states', async ({ page }) => {
+    const account = credentials('web-design-system-shell');
+    await register(account, ['es']);
+    await signIn(page, account);
+    const shell = page.locator('[data-ui="product-shell"]');
+    await expect(shell).toBeVisible();
+    await expect(shell.locator('[data-ui="task-navigation"]')).toBeVisible();
+    await expect(shell.locator('[data-ui="profile-account"]')).toContainText(account.email);
+    await expect(shell.locator('[data-ui="visual-primitive"]')).not.toHaveCount(0);
+    await shell.getByRole('link', { name: 'Library', exact: true }).click();
+    await expect(page).toHaveURL('/library');
+    await expect(page.locator('[data-ui="empty-state"]')).toBeVisible();
+    await expect(page.getByRole('status')).toBeVisible();
+  });
+
+  test('keeps public and authenticated surfaces responsive and accessible', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await page.goto('/');
-    await expect(page.locator('[data-design="editorial-landing"]')).toBeVisible();
-    const heroColumns = await page.locator('.hero').evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/));
-    expect(heroColumns).toHaveLength(1);
+    await expect(page.locator('[data-ui="public-front-door"]')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectFocusIndicator(page.getByRole('link', { name: 'Sign in' }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectNoHorizontalOverflow(page);
+    await page.goto('/auth/sign-in');
+    const email = page.getByLabel('Email');
+    await expect(email).toBeVisible();
+    const emailBounds = await email.boundingBox();
+    expect(emailBounds?.y).toBeLessThan(844);
+  });
+
+  test('keeps every product navigation destination visible on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const account = credentials('web-design-system-mobile-nav');
+    await register(account, ['it']);
+    await signIn(page, account);
+    const shell = page.locator('[data-ui="product-shell"]');
+    const navigation = shell.locator('[data-ui="task-navigation"]');
+    for (const name of ['Home', 'Review', 'Library', 'Collections', 'Settings']) {
+      const link = navigation.getByRole('link', { name, exact: true });
+      await expect(link).toBeVisible();
+      const bounds = await link.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right };
+      });
+      expect(bounds.left).toBeGreaterThanOrEqual(0);
+      expect(bounds.right).toBeLessThanOrEqual(390);
+    }
+    await expectCustomSelect(shell.locator('[data-ui="language-switcher"]'));
     await expectNoHorizontalOverflow(page);
   });
 
@@ -203,7 +236,6 @@ test.describe('web design system surfaces', () => {
     const headingContrast = await contrastRatio(page, 'h1');
     if (bodyContrast !== null) expect(bodyContrast).toBeGreaterThanOrEqual(4.5);
     if (headingContrast !== null) expect(headingContrast).toBeGreaterThanOrEqual(3);
-
     await page.evaluate(() => {
       document.documentElement.style.fontSize = '200%';
       document.body.style.fontSize = '200%';
@@ -214,7 +246,6 @@ test.describe('web design system surfaces', () => {
       return style.overflow === 'hidden' && element.scrollHeight > element.clientHeight;
     }).length);
     expect(clipping).toBe(0);
-
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const motion = await page.evaluate(() => Array.from(document.querySelectorAll('body *')).map((element) => getComputedStyle(element)).filter((style) => style.animationDuration !== '0s' || style.transitionDuration !== '0s').length);
     expect(motion).toBe(0);

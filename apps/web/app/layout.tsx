@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Lexync - Keep the words you choose',
-  description: 'Deliberately capture language on the web, synchronize it, and practise offline on iPhone.',
+  description: 'Deliberately capture language on the web, synchronize it, and practise offline on Android.',
   metadataBase: new URL('https://lexync-web.vercel.app'),
   icons: {
     icon: { url: '/brand/favicon.png', sizes: '48x48', type: 'image/png' },
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     title: 'Lexync - Keep the words you choose',
-    description: 'Deliberately capture language on the web, synchronize it, and practise offline on iPhone.',
+    description: 'Deliberately capture language on the web, synchronize it, and practise offline on Android.',
     siteName: 'Lexync',
     images: [{
       url: '/brand/social-preview.png',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Lexync - Keep the words you choose',
-    description: 'Deliberately capture language on the web, synchronize it, and practise offline on iPhone.',
+    description: 'Deliberately capture language on the web, synchronize it, and practise offline on Android.',
     images: ['/brand/social-preview.png'],
   },
 };

@@ -20,15 +20,15 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="auth-page auth-recovery" data-design="auth-recovery">
-      <aside className="auth-recovery-aside">
-        <Link className="auth-recovery-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
+    <main className="auth-page" data-design="auth-surface" data-ui="auth-surface">
+      <aside className="auth-aside" data-ui="auth-fox-panel">
+        <Link className="auth-aside-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
         <div>
-          <p className="auth-recovery-title">Back to the words that matter.</p>
-          <p className="auth-recovery-detail">Your private library will be ready when you are.</p>
+          <p className="auth-aside-quote">Back to the words that matter.</p>
+          <p className="auth-aside-detail">Your private library will be ready when you are.</p>
         </div>
       </aside>
-      <div className="auth-card">
+      <div className="auth-card" data-ui="auth-form-card">
         <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
         <h1>Choose a new password</h1>
         <form className="web-auth-form" onSubmit={submit} aria-describedby={notice ? 'reset-notice' : undefined}>

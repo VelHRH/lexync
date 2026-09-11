@@ -341,7 +341,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         </fieldset>}
       </form>}
       {loading && <p className="app-empty">Loading your vocabulary…</p>}
-      {!loading && visibleEntries.length === 0 && <p className="app-empty" role="status">{noResultsMessage}</p>}
+      {!loading && visibleEntries.length === 0 && <p className="app-empty" data-ui="empty-state" role="status">{noResultsMessage}</p>}
       {suspensionNotice && <p className="form-notice" role="status">{suspensionNotice}</p>}
       {notice && !showForm && !draft && <p className="form-notice error" role="alert">{notice}</p>}
       <div className="vocabulary-entry-list">

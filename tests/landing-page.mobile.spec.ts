@@ -10,7 +10,7 @@ test('keeps the public story usable on a mobile screen', async ({ page }) => {
   await page.getByRole('heading', { name: 'A quieter way to build fluency.' }).scrollIntoViewIfNeeded();
   await expect(page.getByRole('heading', { name: 'A quieter way to build fluency.' })).toBeInViewport();
   await expect(page.getByRole('heading', { name: 'Chromium extension' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'iPhone app' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Android app' })).toBeVisible();
 });
 
 test('uses compact canonical fox marks on mobile surfaces', async ({ page }) => {

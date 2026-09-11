@@ -15,11 +15,11 @@ test.describe('Lexync public landing page', () => {
     await expect(page.getByRole('heading', { name: 'Practice offline' })).toBeVisible();
   });
 
-  test('distinguishes the extension and iPhone app from the public website', async ({ page }) => {
+  test('distinguishes the extension and Android app from the public website', async ({ page }) => {
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: 'Chromium extension' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'iPhone app' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Android app' })).toBeVisible();
     await expect(page.getByText('This website is the front door, not another study surface.')).toBeVisible();
   });
 
