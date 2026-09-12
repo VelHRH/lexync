@@ -81,7 +81,7 @@ export default defineUnlistedScript(() => {
       .kicker {
         margin: 0 0 var(--lexync-space-2);
         color: var(--lexync-color-brand-primary);
-        font-size: 0.6875rem;
+        font-size: var(--lexync-type-size-xs);
         font-weight: var(--lexync-type-weight-bold);
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -89,9 +89,9 @@ export default defineUnlistedScript(() => {
       h2 {
         margin: 0;
         color: var(--lexync-color-ink);
-        font: var(--lexync-type-weight-semibold) var(--lexync-type-size-xl)/var(--lexync-type-line-tight) var(--lexync-type-family-display);
+        font: var(--lexync-type-weight-semibold) var(--lexync-type-size-xl)/var(--lexync-type-line-tight) var(--lexync-type-family-body);
       }
-      .context-mark { color: var(--lexync-color-ink-muted); font: var(--lexync-type-weight-bold) 0.6875rem/var(--lexync-type-line-normal) var(--lexync-type-family-mono); }
+      .context-mark { color: var(--lexync-color-ink-muted); font: var(--lexync-type-weight-bold) var(--lexync-type-size-xs)/var(--lexync-type-line-normal) var(--lexync-type-family-mono); }
       form, label { display: grid; }
       form { gap: var(--lexync-space-4); }
       label { gap: var(--lexync-space-2); color: var(--lexync-color-ink-muted); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-semibold); }
@@ -104,6 +104,15 @@ export default defineUnlistedScript(() => {
         outline: none;
         background: var(--lexync-color-white);
         color: var(--lexync-color-ink);
+      }
+      select {
+        appearance: none;
+        -webkit-appearance: none;
+        padding-inline-end: var(--lexync-space-10);
+        background-image: linear-gradient(45deg, transparent 50%, var(--lexync-color-brand-primary) 50%), linear-gradient(135deg, var(--lexync-color-brand-primary) 50%, transparent 50%);
+        background-position: calc(100% - var(--lexync-space-3)) center, calc(100% - var(--lexync-space-2)) center;
+        background-repeat: no-repeat;
+        background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
       }
       input:focus, select:focus, textarea:focus { border-color: var(--lexync-color-brand-primary); }
       input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); box-shadow: var(--lexync-focus-ring); }

@@ -64,12 +64,12 @@ function sectionLabel(section: string) {
 function AppLoadingShell({ section, message, alert = false }: { section: string; message: string; alert?: boolean }) {
   const activeSection = sectionLabel(section);
 
-  return <main className="app-shell" data-design="app-shell" aria-busy={!alert}>
-    <header className="app-header">
-      <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
+  return <main className="app-shell" data-design="app-shell" data-ui="product-shell" aria-busy={!alert}>
+    <header className="app-header" data-ui="product-header">
+      <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
     </header>
     <div className="app-body">
-      <nav className="app-navigation app-navigation-rail" aria-label="Main navigation">
+      <nav className="app-navigation app-navigation-rail" data-ui="task-navigation" aria-label="Main navigation">
         {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
       </nav>
       <section className="app-content app-content-canvas" aria-labelledby="app-heading">
@@ -310,29 +310,31 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }
 
   return (
-    <main className="app-shell" data-design="app-shell">
-      <header className="app-header">
-        <Link className="auth-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
+    <main className="app-shell" data-design="app-shell" data-ui="product-shell">
+      <header className="app-header" data-ui="product-header">
+        <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
         <div className="app-header-controls">
-          <label className="pair-selector-label" htmlFor="active-learning-language">Active Learning Language</label>
-          <select id="active-learning-language" aria-label="Active Learning Language" value={displayedLanguage.id} disabled={activeSection === 'Review'} onChange={(event) => void setActiveLanguage(event.target.value)}>
-            {languages.map((language) => <option key={language.id} value={language.id}>{languageName(language.languageTag)} · {language.languageTag}</option>)}
-          </select>
+          <div className="language-switcher" data-ui="language-switcher">
+            <label className="pair-selector-label" htmlFor="active-learning-language">Active Learning Language</label>
+            <select id="active-learning-language" aria-label="Active Learning Language" value={displayedLanguage.id} disabled={activeSection === 'Review'} onChange={(event) => void setActiveLanguage(event.target.value)}>
+              {languages.map((language) => <option key={language.id} value={language.id}>{languageName(language.languageTag)} · {language.languageTag}</option>)}
+            </select>
+          </div>
           {online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>}
-          <div className="profile-region" aria-label="Profile and account controls">
+          <div className="profile-region" data-ui="profile-account" aria-label="Profile and account controls">
             <span className="profile-email">{session.user.email}</span>
             <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
           </div>
         </div>
       </header>
       <div className="app-body">
-        <nav className="app-navigation app-navigation-rail" aria-label="Main navigation">
+        <nav className="app-navigation app-navigation-rail" data-ui="task-navigation" aria-label="Main navigation">
           {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
         </nav>
         <section className="app-content app-content-canvas" aria-labelledby="app-heading">
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
-          {activeSection === 'Home' && !recognitionLoading && <section className="due-counts" aria-label="Scheduled Review due counts">
+          {activeSection === 'Home' && !recognitionLoading && <section className="due-counts" data-ui="visual-primitive" aria-label="Scheduled Review due counts">
             <div className="due-count-row"><span>{languageName(activeLanguage.languageTag)} <strong>{recognitionCards.length} due</strong></span><Link className="secondary-button" href="/review" onClick={() => { setScheduledReviewLanguage(activeLanguage.id); clearScheduledReviewEnded(activeLanguage.id); }}>Start review</Link></div>
           </section>}
           {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}

@@ -1,12 +1,14 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { connection } from 'next/server';
+import readingDesk from '../public/brand/reading-desk.png';
 import { AuthenticatedApp } from '../components/AuthenticatedApp';
 import { BrandArtwork } from '../components/BrandArtwork';
 import { getChromeExtensionId } from '../lib/extensionRecommendation';
 
 function PublicHome() {
   return (
-    <main data-design="editorial-landing">
+    <main data-design="private-reading-desk" data-ui="public-front-door">
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Lexync home">
           <BrandArtwork background="light" />
@@ -17,11 +19,11 @@ function PublicHome() {
         </div>
       </header>
 
-      <section className="hero hero-split" id="top">
+      <section className="hero" id="top" data-ui="fox-hero">
         <div className="hero-copy">
           <h1>Keep the words you choose.</h1>
           <p className="hero-intro">
-            Capture meaningful language while you browse. Lexync syncs it privately for practice on your iPhone, even offline.
+            Capture a useful phrase in the moment, keep the context that made it matter, and return when you are ready to practise.
           </p>
           <div className="hero-actions">
             <Link className="header-action-primary" href="/auth/sign-up">Start your library</Link>
@@ -29,29 +31,30 @@ function PublicHome() {
           </div>
         </div>
 
-        <div className="hero-artwork" aria-hidden="true">
-          <img alt="" height="1024" src="/brand/mark-dark-on-light.png" width="1024" />
+        <div className="hero-artwork">
+          <Image alt="A quiet reading desk with an open book, laptop, and plant" preload src={readingDesk} sizes="(max-width: 960px) 100vw, 56vw" />
+          <Image alt="Lexync fox mark" className="hero-mark" height={1254} src="/brand/mark-dark-on-light.png" width={1254} />
         </div>
       </section>
 
-      <section className="principles" id="how-it-works">
+      <section className="learning-loop" id="how-it-works" data-ui="learning-loop">
         <div className="section-heading">
           <h2>A quieter way to build fluency.</h2>
           <p>No feeds. No bulk imports. Just the language you notice, carried into practice.</p>
         </div>
 
         <div className="principle-grid">
-          <article>
+          <article className="process-step process-step-capture" data-loop="capture">
             <h3>Capture with intention</h3>
             <p>Save a word or exact phrase from the web only when you choose to. Keep its translation and the sentence that made it meaningful.</p>
           </article>
-          <article>
+          <article className="process-step process-step-sync" data-loop="sync">
             <h3>Stay in sync</h3>
-            <p>Your private vocabulary moves from the Chromium extension to your iPhone, preserving the Expressions, meanings, and Examples you selected.</p>
+            <p>Your private vocabulary moves from the Chromium extension to your Android app, preserving the Expressions, meanings, and Examples you selected.</p>
           </article>
-          <article>
+          <article className="process-step process-step-review" data-loop="review">
             <h3>Practice offline</h3>
-            <p>Review downloaded lessons wherever you are. Your iPhone keeps progress durable and synchronizes it when connectivity returns.</p>
+            <p>Review downloaded lessons wherever you are. Your Android app keeps progress durable and synchronizes it when connectivity returns.</p>
           </article>
         </div>
       </section>
@@ -70,7 +73,7 @@ function PublicHome() {
           </article>
           <article>
             <div>
-              <h3>iPhone app</h3>
+              <h3>Android app</h3>
               <p>Carry your synchronized library into focused review and Free Practice, with downloaded lessons available offline.</p>
             </div>
           </article>

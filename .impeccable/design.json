@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-11T00:00:00.000Z",
+  "title": "Design System: Lexync",
+  "extensions": {
+    "colorMeta": {
+      "fox-purple": {
+        "role": "primary",
+        "displayName": "Fox Purple",
+        "canonical": "#6429f4",
+        "tonalRamp": ["#21006b", "#35109a", "#5120d2", "#6429f4", "#865df7", "#aa90fa", "#d3c2ff", "#f3efff"]
+      },
+      "deep-ink": {
+        "role": "neutral",
+        "displayName": "Deep Ink",
+        "canonical": "#20153f",
+        "tonalRamp": ["#120a27", "#20153f", "#382b59", "#5f5872", "#827b91", "#aaa5b4", "#d5d1dc", "#f7f5fa"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Brand Display",
+        "purpose": "Public hero and exceptional brand moments only."
+      },
+      "body": {
+        "displayName": "Product Body",
+        "purpose": "Task-focused interface copy and learner material."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ambient-low",
+        "value": "0 0.25rem 1rem rgba(32, 21, 63, 0.08)",
+        "purpose": "Menus and compact floating surfaces."
+      },
+      {
+        "name": "ambient-medium",
+        "value": "0 0.75rem 2rem rgba(32, 21, 63, 0.14)",
+        "purpose": "Dialogs, capture sheets, and injected controls."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "120ms cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Press, hover, and focus feedback."
+      },
+      {
+        "name": "state-normal",
+        "value": "180ms cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Menus, disclosures, and product state transitions."
+      }
+    ],
+    "breakpoints": [
+      { "name": "phone", "value": "560px" },
+      { "name": "tablet", "value": "768px" },
+      { "name": "desktop", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single dominant action on a surface.",
+      "html": "<button class=\"ds-button-primary\">Save vocabulary</button>",
+      "css": ".ds-button-primary { min-height: 44px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); font: 600 0.875rem/1.2 var(--lexync-type-family-body); transition: background 120ms cubic-bezier(0.2, 0, 0, 1), transform 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-button-primary:hover { background: var(--lexync-color-brand-primary-hover); } .ds-button-primary:active { background: var(--lexync-color-brand-primary-active); transform: translateY(1px); } .ds-button-primary:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); }"
+    },
+    {
+      "name": "Select Field",
+      "kind": "input",
+      "refersTo": "select",
+      "description": "A native semantic select with deliberate Lexync chrome.",
+      "html": "<label class=\"ds-select-label\">Learning Language<select class=\"ds-select\"><option>Spanish</option></select></label>",
+      "css": ".ds-select-label { display: grid; gap: 8px; color: var(--lexync-color-ink); font: 600 0.875rem/1.2 var(--lexync-type-family-body); } .ds-select { min-height: 44px; appearance: none; padding: 0 42px 0 14px; border: 1px solid var(--lexync-color-border-strong); border-radius: 10px; background: var(--lexync-color-surface); color: var(--lexync-color-ink); font: 500 1rem/1.2 var(--lexync-type-family-body); } .ds-select:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); }"
+    },
+    {
+      "name": "Product Navigation",
+      "kind": "nav",
+      "description": "Quiet task navigation with a clear current destination.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-current\" href=\"#\">Library</a><a class=\"ds-nav-item\" href=\"#\">Review</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 8px; padding: 8px; border-radius: 16px; background: var(--lexync-color-surface-subtle); } .ds-nav-item { padding: 10px 12px; border-radius: 10px; color: var(--lexync-color-ink-muted); font: 600 0.875rem/1.2 var(--lexync-type-family-body); text-decoration: none; } .ds-nav-item:hover { color: var(--lexync-color-ink); background: var(--lexync-color-surface); } .ds-nav-current { color: var(--lexync-color-brand-primary-active); background: var(--lexync-color-surface-strong); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Private Reading Desk",
+    "overview": "Lexync turns something noticed in real reading into material worth keeping. Public surfaces make that transformation tangible, while product surfaces stay calm, dense, and task-first.",
+    "keyCharacteristics": [
+      "Fox-led identity with product-derived learning visuals",
+      "One dominant task per surface",
+      "Fixed, compact product typography",
+      "Custom-styled, accessible controls",
+      "Restrained lavender layering with decisive purple actions"
+    ],
+    "rules": [
+      {
+        "name": "Purple Has a Job",
+        "body": "Purple marks identity, the primary action, focus, or current selection.",
+        "section": "colors"
+      },
+      {
+        "name": "Task Scale",
+        "body": "Authenticated web and extension UI use fixed sizes.",
+        "section": "typography"
+      },
+      {
+        "name": "Earned Elevation",
+        "body": "A shadow must explain stacking or interaction.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Show the real capture, synchronization, and practice relationship on public surfaces.",
+      "Keep the active Learning Language visually attached to the task it scopes.",
+      "Style every select, field, menu, focus ring, empty state, and validation state as one control system."
+    ],
+    "donts": [
+      "Do not resemble a generic AI-generated editorial landing page.",
+      "Do not ship a default unstyled HTML application or browser-default dropdown.",
+      "Do not build a compressed dashboard from repeated bordered cards.",
+      "Do not allow the desktop header to wrap or misalign."
+    ]
+  }
+}

@@ -21,11 +21,11 @@ export function CompleteAuth({ code, type }: { code?: string; type?: string }) {
     });
   }, [code, type]);
 
-  return <main className="auth-page" data-design="auth-split">
-    <aside className="auth-aside">
+  return <main className="auth-page" data-design="auth-surface" data-ui="auth-surface">
+    <aside className="auth-aside" data-ui="auth-fox-panel">
       <p className="auth-aside-quote">A small pause between noticing and knowing.</p>
     </aside>
-    <section className="auth-card" aria-busy="true">
+    <section className="auth-card" data-ui="auth-form-card" aria-busy="true">
       <p className="auth-intro" role="status">Completing authentication…</p>
     </section>
   </main>;
