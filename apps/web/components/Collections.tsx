@@ -200,7 +200,16 @@ export function Collections({ language }: { language: LearningLanguage }) {
     </div>
     {!online && <p className="form-notice" role="status">{offlineMessage}</p>}
     {notice && !showCollectionForm && <p className="form-notice error" role="alert">{notice}</p>}
-    {loading && <p className="app-empty" role="status">Loading your Collections…</p>}
+    {loading && <>
+      <p className="collections-sr-only" role="status">Loading your Collections…</p>
+      <div className="collection-list collection-list-skeleton" aria-hidden="true">
+        {[0, 1].map((item) => <div className="collection-card collection-card-skeleton" key={item}>
+          <div className="collection-card-header"><div><span className="collection-skeleton-heading" /><span className="collection-skeleton-meta" /></div><span className="collection-skeleton-actions" /></div>
+          <span className="collection-skeleton-line" />
+          <span className="collection-skeleton-control" />
+        </div>)}
+      </div>
+    </>}
     {!loading && collections.length === 0 && <p className="app-empty" role="status">No Collections yet. Add one to organize this Learning Language.</p>}
     {!loading && <div className="collection-list">
       {collections.map((collection) => {

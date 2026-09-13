@@ -287,7 +287,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
 .collection-add-form select { margin: 0; }
 .collection-filter-button { width: fit-content; }
 .collection-dialog { z-index: var(--lexync-z-dialog); width: min(calc(100% - 2rem), 34rem); max-width: calc(100% - 2rem); padding: 1.5rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-lg); background: var(--web-surface); box-shadow: var(--lexync-elevation-high); color: var(--web-ink); }
-.collection-dialog::backdrop { background: rgb(32 21 63 / .35); }
+.collection-dialog::backdrop { background: var(--lexync-color-scrim); }
 .collection-dialog form { display: grid; gap: .75rem; }
 .collection-dialog h2 { margin: 0; font-size: var(--lexync-type-size-xl); }
 .collection-dialog p { margin: 0; color: var(--web-muted); line-height: var(--lexync-type-line-relaxed); }
@@ -296,6 +296,15 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
 .library-collection-filter { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-md); background: var(--web-subtle); color: var(--web-ink); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
 .library-collections { display: grid; gap: .5rem; min-width: 0; margin: 1rem 0; padding: 1rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-md); }
 .library-collections .secondary-button { width: fit-content; }
+.collection-list-skeleton { display: grid; }
+.collection-card-skeleton { min-height: 12rem; }
+.collection-skeleton-heading, .collection-skeleton-meta, .collection-skeleton-actions, .collection-skeleton-line, .collection-skeleton-control { display: block; border-radius: var(--lexync-radius-sm); background: var(--web-strong); }
+.collection-skeleton-heading { width: min(14rem, 70vw); height: 1.35rem; }
+.collection-skeleton-meta { width: 5rem; height: .9rem; margin-top: .55rem; }
+.collection-skeleton-actions { width: 9rem; height: 2.75rem; }
+.collection-skeleton-line { width: 70%; height: 1rem; }
+.collection-skeleton-control { width: min(12rem, 70vw); height: 2.75rem; }
+.collections-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; margin: -1px; padding: 0; border: 0; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
 @media (max-width: 44rem) {
   .collections-toolbar, .collection-card-header, .collection-members li, .library-collection-filter { align-items: stretch; flex-direction: column; }
