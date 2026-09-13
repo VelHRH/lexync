@@ -11,6 +11,7 @@ import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboardin
 import { BrandArtwork } from './BrandArtwork';
 import { clearScheduledReviewEnded, clearScheduledReviewLanguage, getScheduledReviewLanguage, ScheduledRecognition, setScheduledReviewLanguage, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
+import { Collections } from './Collections';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
 
 const destinations = [
@@ -341,6 +342,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
           {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
           {activeSection === 'Review' && reviewPointerResolved && !recognitionLoading && recognitionCardsLanguageId === displayedLanguage.id && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={displayedLanguage} onReviewLanguageChange={handleReviewLanguageChange} />}
           {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary...</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
+          {activeSection === 'Collections' && <Collections key={activeLanguage.id} language={activeLanguage} />}
           {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
             <h2 id="learning-languages-heading">Learning Languages</h2>
             <form className="web-auth-form" onSubmit={addLanguage}>
@@ -356,7 +358,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
               </li>)}
             </ul>
           </section>}
-          {!['Home', 'Review', 'Library', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
+          {!['Home', 'Review', 'Library', 'Collections', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
         </section>
       </div>
     </main>

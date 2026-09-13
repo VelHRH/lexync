@@ -3,14 +3,16 @@
 import { canonicalLanguageTag, languageName, type StudyPair } from '@lexync/domain';
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 
 type Translation = { answer_language_tag: string; id: string; text: string };
 type Example = { id: string; text: string };
 type Sense = { id: string; translations: Translation[]; examples: Example[] };
-type LibraryEntry = { id: string; expression: string; senses: Sense[]; suspended: boolean };
+type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean };
+type Collection = { id: string; name: string };
+type Membership = { collection_id: string; learning_vocabulary_entry_id: string };
 type LearningLanguage = { id: string; languageTag: string };
 type PendingSense = { id: string; translations: Translation[] };
 type VocabularyStatus = 'active' | 'all' | 'suspended';
@@ -37,7 +39,10 @@ function toDraft(entry: LibraryEntry): EntryDraft {
 
 export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEntriesChanged: () => Promise<void>; language: LearningLanguage; pairs: Array<StudyPair & { learningLanguageId: string }> }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [expression, setExpression] = useState('');
   const [translation, setTranslation] = useState('');
@@ -51,7 +56,27 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   const [status, setStatus] = useState<VocabularyStatus>('all');
   const [suspensionNotice, setSuspensionNotice] = useState('');
   const [pendingSenses, setPendingSenses] = useState<PendingSense[]>([]);
+  const [changingMembership, setChangingMembership] = useState('');
   const online = useOnlineStatus();
+
+  const loadCollections = useCallback(async () => {
+    const { data: collectionData, error: collectionError } = await supabase.from('collections').select('id,name').eq('learning_language_id', language.id).order('created_at');
+    if (collectionError) {
+      setNotice(collectionError.message);
+      return;
+    }
+    const nextCollections = (collectionData ?? []) as Collection[];
+    const collectionIds = nextCollections.map((collection) => collection.id);
+    const { data: membershipData, error: membershipError } = collectionIds.length
+      ? await supabase.from('collection_memberships').select('collection_id,learning_vocabulary_entry_id').in('collection_id', collectionIds)
+      : { data: [], error: null };
+    if (membershipError) {
+      setNotice(membershipError.message);
+      return;
+    }
+    setCollections(nextCollections);
+    setMemberships((membershipData ?? []) as Membership[]);
+  }, [language.id]);
 
   const loadEntries = useCallback(async () => {
     setLoading(true);
@@ -61,7 +86,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase.from('vocabulary_entries').select('id,expression,suspended,study_pair_id').in('study_pair_id', pairIds).order('created_at');
+    const { data, error } = await supabase.from('vocabulary_entries').select('id,learning_vocabulary_entry_id,expression,suspended,study_pair_id').in('study_pair_id', pairIds).order('created_at');
     if (error) {
       setNotice(error.message);
       setLoading(false);
@@ -101,7 +126,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         existing.senses = [...existing.senses, ...nextSenses];
         existing.suspended = existing.suspended && entry.suspended;
       } else {
-        merged.set(key, { id: entry.id, expression: entry.expression.trim(), suspended: entry.suspended, senses: nextSenses });
+        merged.set(key, { id: entry.id, learningVocabularyEntryId: entry.learning_vocabulary_entry_id, expression: entry.expression.trim(), suspended: entry.suspended, senses: nextSenses });
       }
     }
     setEntries([...merged.values()]);
@@ -110,13 +135,14 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
 
   useEffect(() => {
     queueMicrotask(() => void loadEntries());
+    queueMicrotask(() => void loadCollections());
     queueMicrotask(() => {
       if (searchParams.get('add') === '1') {
         setShowForm(true);
         window.history.replaceState(null, '', '/library');
       }
     });
-  }, [loadEntries, searchParams]);
+  }, [loadCollections, loadEntries, searchParams]);
 
   async function capture(senseId: string | null = null, createNewSense = false) {
     setNotice('');
@@ -285,17 +311,43 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
     setSuspensionNotice(`${entry.expression} is ${suspended ? 'suspended' : 'active'}.`);
   }
 
+  async function changeMembership(entry: LibraryEntry, collection: Collection, member: boolean) {
+    setChangingMembership(`${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`);
+    setNotice('');
+    const { error } = member
+      ? await supabase.rpc('remove_collection_membership', {
+        p_collection_id: collection.id,
+        p_learning_vocabulary_entry_id: entry.learningVocabularyEntryId,
+      })
+      : await supabase.rpc('add_collection_membership', {
+        p_collection_id: collection.id,
+        p_learning_vocabulary_entry_id: entry.learningVocabularyEntryId,
+      });
+    setChangingMembership('');
+    if (error) {
+      setNotice(`Collection membership could not be ${member ? 'removed' : 'added'}. ${error.message}`);
+      return;
+    }
+    await loadCollections();
+  }
+
   const draftExamples = draft?.senses.flatMap((sense) => sense.examples) ?? [];
   const normalizedQuery = query.normalize('NFC').trim().toLocaleLowerCase();
+  const selectedCollectionId = searchParams.get('collection') ?? '';
+  const selectedCollection = collections.find((collection) => collection.id === selectedCollectionId);
+  const selectedCollectionEntryIds = new Set(memberships.filter((membership) => membership.collection_id === selectedCollectionId).map((membership) => membership.learning_vocabulary_entry_id));
   const visibleEntries = entries.filter((entry) => {
     const matchesStatus = status === 'all' || (status === 'suspended' ? entry.suspended : !entry.suspended);
+    const matchesCollection = !selectedCollectionId || selectedCollectionEntryIds.has(entry.learningVocabularyEntryId);
     const searchableText = [entry.expression, ...entry.senses.flatMap((sense) => sense.translations.map((item) => item.text))]
       .join('\n')
       .normalize('NFC')
       .toLocaleLowerCase();
-    return matchesStatus && (!normalizedQuery || searchableText.includes(normalizedQuery));
+    return matchesStatus && matchesCollection && (!normalizedQuery || searchableText.includes(normalizedQuery));
   });
-  const noResultsMessage = normalizedQuery
+  const noResultsMessage = selectedCollection
+    ? `No vocabulary entries in “${selectedCollection.name}”.`
+    : normalizedQuery
     ? `No ${status === 'all' ? '' : `${status} `}Vocabulary Entries match “${query.trim()}”.`
     : status === 'all' && entries.length === 0
       ? 'No vocabulary entries yet. Add your first one.'
@@ -311,6 +363,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         <button className="primary-button" type="button" disabled={!online} onClick={() => { setNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
       </div>
       {!online && <p className="form-notice" role="status">You are offline. Vocabulary changes require a connection.</p>}
+      {selectedCollection && <div className="library-collection-filter" role="status"><span>Filtered by {selectedCollection.name}</span><button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button></div>}
       <div className="vocabulary-discovery-controls">
         <label htmlFor="vocabulary-search">Search vocabulary</label>
         <input id="vocabulary-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -388,6 +441,14 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
                 {sense.translations.map((item) => <p key={item.id}>{item.text} <span>{item.answer_language_tag}</span></p>)}
                 {sense.examples.length ? sense.examples.map((item) => <p className="vocabulary-example" key={item.id}>{item.text}</p>) : <p className="app-empty">No Example added</p>}
               </div>)}
+              {collections.length > 0 && <fieldset className="library-collections" aria-labelledby={`entry-collections-${entry.id}`}>
+                <legend id={`entry-collections-${entry.id}`}>Collections</legend>
+                {collections.map((collection) => {
+                  const member = memberships.some((membership) => membership.collection_id === collection.id && membership.learning_vocabulary_entry_id === entry.learningVocabularyEntryId);
+                  const changing = changingMembership === `${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`;
+                  return <button className="secondary-button" type="button" key={collection.id} disabled={!online || changing} onClick={() => void changeMembership(entry, collection, member)}>{changing ? `${member ? 'Removing' : 'Adding'}…` : member ? `Remove ${entry.expression} from ${collection.name}` : `Add ${entry.expression} to ${collection.name}`}</button>;
+                })}
+              </fieldset>}
               <div className="vocabulary-entry-actions">
                 <button className="secondary-button" type="button" disabled={!online} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit {entry.expression}</button>
                 <button className="secondary-button danger" type="button" disabled={!online} onClick={() => void deleteEntry(entry)}>Delete {entry.expression}</button>

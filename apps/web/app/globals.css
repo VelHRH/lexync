@@ -265,3 +265,41 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0s !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0s !important; }
 }
+
+.collections-page { display: grid; gap: 1.5rem; margin-top: 2.5rem; }
+.collections-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; }
+.collections-toolbar h2 { margin: 0; font-size: var(--lexync-type-size-2xl); line-height: 1.1; }
+.collections-intro { margin: .6rem 0 0; color: var(--web-muted); line-height: var(--lexync-type-line-relaxed); }
+.collection-list { display: grid; gap: 1.25rem; }
+.collection-card { display: grid; gap: 1.25rem; padding: 1.25rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-lg); background: var(--web-subtle); }
+.collection-card-header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.collection-card-header h3 { margin: 0; font-size: var(--lexync-type-size-lg); }
+.collection-card-header p { margin: .35rem 0 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
+.collection-card-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: .35rem .7rem; }
+.collection-card .text-button { min-height: 2.75rem; }
+.collection-members { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.collection-members li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 2.75rem; padding: .35rem 0; border-bottom: 1px solid var(--web-line); }
+.collection-empty { margin: 0; }
+.collection-add-entry { display: grid; gap: .75rem; }
+.collection-add-entry > .secondary-button { width: fit-content; }
+.collection-add-form { display: grid; gap: .65rem; max-width: 34rem; }
+.collection-add-form label, .collection-dialog label, .library-collections legend { color: var(--web-ink); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); }
+.collection-add-form select { margin: 0; }
+.collection-filter-button { width: fit-content; }
+.collection-dialog { z-index: var(--lexync-z-dialog); width: min(calc(100% - 2rem), 34rem); max-width: calc(100% - 2rem); padding: 1.5rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-lg); background: var(--web-surface); box-shadow: var(--lexync-elevation-high); color: var(--web-ink); }
+.collection-dialog::backdrop { background: rgb(32 21 63 / .35); }
+.collection-dialog form { display: grid; gap: .75rem; }
+.collection-dialog h2 { margin: 0; font-size: var(--lexync-type-size-xl); }
+.collection-dialog p { margin: 0; color: var(--web-muted); line-height: var(--lexync-type-line-relaxed); }
+.collection-dialog input { width: 100%; min-height: 3rem; box-sizing: border-box; padding: .7rem .8rem; border: 1px solid var(--web-line-strong); border-radius: var(--lexync-radius-md); background: var(--web-surface); color: var(--web-ink); }
+.collection-dialog-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .5rem; }
+.library-collection-filter { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-md); background: var(--web-subtle); color: var(--web-ink); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
+.library-collections { display: grid; gap: .5rem; min-width: 0; margin: 1rem 0; padding: 1rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-md); }
+.library-collections .secondary-button { width: fit-content; }
+
+@media (max-width: 44rem) {
+  .collections-toolbar, .collection-card-header, .collection-members li, .library-collection-filter { align-items: stretch; flex-direction: column; }
+  .collections-toolbar > *, .collection-card-actions, .collection-card-actions > *, .collection-filter-button, .collection-add-entry > .secondary-button, .library-collection-filter > * { width: 100%; }
+  .collection-card-actions { align-items: stretch; }
+  .collection-filter-button { text-align: center; }
+}
