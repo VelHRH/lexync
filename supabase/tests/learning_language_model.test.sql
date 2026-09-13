@@ -1,6 +1,6 @@
 begin;
 
-select plan(35);
+select plan(37);
 
 select ok(
   exists (
@@ -99,6 +99,12 @@ select is(jsonb_array_length(public.account_learning_snapshot()->'languagePairs'
 select ok(jsonb_path_exists(public.account_learning_snapshot(), '$.learningLanguages[*].vocabularyEntries[*].senses[*].translations[*].answerLanguageTag'), 'the new snapshot exposes multilingual Translations');
 select ok(jsonb_path_exists(public.account_learning_snapshot(), '$.learningLanguages[*].collections[*].vocabularyEntryIds[*]'), 'Collections remain scoped to a Learning Language in the snapshot');
 select ok(jsonb_path_exists(public.account_learning_snapshot(), '$.cards[*].direction'), 'the new snapshot exposes Card directions');
+select public.rename_collection(
+  (select id from public.collections where learner_id = '79797979-7979-7979-7979-797979797979'),
+  'Homes renamed'
+);
+select ok(jsonb_path_exists(public.account_learning_snapshot(), '$.learningLanguages[*].collections[*] ? (@.name == "Homes renamed")'), 'the Learning Language snapshot reflects a Collection rename');
+select ok(not jsonb_path_exists(public.account_learning_snapshot(), '$.learningLanguages[*].collections[*] ? (@.name == "Homes")'), 'the Learning Language snapshot omits the stale Collection payload');
 select is(public.account_vocabulary_snapshot()->>'schemaVersion', '1', 'the compatibility snapshot remains schema version 1');
 select is(jsonb_array_length(public.account_vocabulary_snapshot()->'studyPairs'), 3, 'legacy clients can still read Study Pairs');
 select ok(
