@@ -1,5 +1,5 @@
 import { AuthenticatedApp } from '../../../components/AuthenticatedApp';
 
 export default function StudyPairOnboardingPage() {
-  return <AuthenticatedApp forceOnboarding />;
+  return <AuthenticatedApp onboardingPath="/onboarding/study-pair" />;
 }

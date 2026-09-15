@@ -11,7 +11,7 @@ function credentials() {
   };
 }
 
-async function registerLearner(email: string, password: string, withPair = false) {
+async function registerLearner(email: string, password: string, withLanguage = false) {
   if (!supabasePublishableKey) {
     throw new Error('LEXYNC_SUPABASE_PUBLISHABLE_KEY is required for web acceptance tests.');
   }
@@ -24,9 +24,9 @@ async function registerLearner(email: string, password: string, withPair = false
   if (error) {
     throw error;
   }
-  if (withPair && data.session) {
-    const { error: pairError } = await client.rpc('create_study_pair', { p_target_language_tag: 'es', p_reference_language_tag: 'en' });
-    if (pairError) throw pairError;
+  if (withLanguage && data.session) {
+    const { error: languageError } = await client.rpc('create_learning_language', { p_language_tag: 'es' });
+    if (languageError) throw languageError;
   }
 }
 
@@ -74,13 +74,11 @@ test.describe('authenticated web learning client', () => {
     await page.getByLabel('Confirm password').fill(account.password);
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    await expect(page).toHaveURL('/onboarding/study-pair');
+    await expect(page).toHaveURL('/onboarding/learning-language');
     await expect(page.getByRole('heading', { name: /Learning Language/i })).toBeVisible();
     await expect(page.getByLabel(/Answer Language|Reference Language/i)).toHaveCount(0);
     await page.getByLabel('Learning Language').fill('es');
     await page.getByRole('button', { name: 'Create Learning Language' }).click();
-    await expect(page.getByRole('heading', { name: 'Your Learning Language is ready' })).toBeVisible();
-    await page.getByRole('button', { name: 'Continue to dashboard' }).click();
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
     await expect(page.getByLabel('Active Learning Language')).toContainText(/Spanish|es/i);

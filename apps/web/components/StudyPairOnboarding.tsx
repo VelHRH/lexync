@@ -6,10 +6,9 @@ import { supabase } from '../lib/supabase';
 
 export type LearningLanguage = { id: string; languageTag: string };
 
-export function StudyPairOnboarding({ onCreated, completeImmediately = false }: { onCreated: (language: LearningLanguage) => void; completeImmediately?: boolean }) {
+export function StudyPairOnboarding({ onCreated }: { onCreated: (language: LearningLanguage) => void }) {
   const [languageDraft, setLanguageDraft] = useState('');
   const [notice, setNotice] = useState('');
-  const [createdLanguage, setCreatedLanguage] = useState<LearningLanguage | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -18,6 +17,7 @@ export function StudyPairOnboarding({ onCreated, completeImmediately = false }: 
     const languageTag = canonicalLanguageTag(languageDraft);
     if (!languageTag) {
       setNotice('Enter a valid BCP 47 language tag.');
+      document.getElementById('learning-language')?.focus();
       return;
     }
     setSubmitting(true);
@@ -25,29 +25,11 @@ export function StudyPairOnboarding({ onCreated, completeImmediately = false }: 
     setSubmitting(false);
     if (error) {
       setNotice(error.message.includes('already exists') ? 'This Learning Language already exists.' : error.message);
+      document.getElementById('learning-language')?.focus();
       return;
     }
     const language = { id: data.id, languageTag: data.language_tag } satisfies LearningLanguage;
-    if (completeImmediately) {
-      onCreated(language);
-      return;
-    }
-    setCreatedLanguage(language);
-  }
-
-  if (createdLanguage) {
-    return (
-      <section className="pair-onboarding" aria-labelledby="language-ready-heading">
-        <p className="eyebrow"><span /> First step</p>
-        <h1 id="language-ready-heading">Your Learning Language is ready</h1>
-        <p className="app-empty">{createdLanguage.languageTag} is now your active learning context.</p>
-        <div className="pair-onboarding-actions">
-          <button className="primary-button" type="button" onClick={() => onCreated(createdLanguage)}>Continue to dashboard</button>
-          <button className="secondary-button" type="button" onClick={() => window.location.assign('/library?add=1')}>Add a Vocabulary Entry</button>
-          <button className="secondary-button" type="button" onClick={() => window.location.assign('/#extension')}>Install extension</button>
-        </div>
-      </section>
-    );
+    onCreated(language);
   }
 
   return (
@@ -57,9 +39,9 @@ export function StudyPairOnboarding({ onCreated, completeImmediately = false }: 
       <p className="app-empty">Choose the language you are learning. You can add more languages later.</p>
       <form className="web-auth-form" onSubmit={submit} aria-describedby={notice ? 'learning-language-notice' : undefined}>
         <label htmlFor="learning-language">Learning Language</label>
-        <input id="learning-language" value={languageDraft} onChange={(event) => setLanguageDraft(event.target.value)} placeholder="es or pt-BR" autoComplete="off" />
+        <input id="learning-language" value={languageDraft} onChange={(event) => setLanguageDraft(event.target.value)} placeholder="es or pt-BR" autoComplete="off" aria-invalid={Boolean(notice)} />
         {notice && <p id="learning-language-notice" className="form-notice error" role="alert">{notice}</p>}
-        <button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Creating...' : 'Create Learning Language'}</button>
+        <button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Creating…' : 'Create Learning Language'}</button>
       </form>
     </main>
   );
