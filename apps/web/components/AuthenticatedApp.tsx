@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboarding';
+import { LearningLanguageOnboarding, type LearningLanguage } from './LearningLanguageOnboarding';
 import { BrandArtwork } from './BrandArtwork';
 import { clearScheduledReviewEnded, clearScheduledReviewLanguage, getScheduledReviewLanguage, ScheduledRecognition, setScheduledReviewLanguage, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
@@ -84,9 +84,16 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
 }
 
 function OnboardingLoadingShell({ message, alert = false }: { message: string; alert?: boolean }) {
-  return <main className="pair-onboarding" aria-label="Learning Language onboarding" aria-busy={!alert}>
-    <p className="eyebrow"><span /> Your language context</p>
-    <p className={`form-notice${alert ? ' error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
+  return <main className="pair-onboarding onboarding-loading" aria-label="Learning Language onboarding" aria-busy={!alert}>
+    <div className="onboarding-loading-skeleton" aria-hidden="true">
+      <p className="eyebrow"><span /> Your language context</p>
+      <div className="onboarding-loading-heading" />
+      <div className="onboarding-loading-copy" />
+      <div className="onboarding-loading-label" />
+      <div className="onboarding-loading-field" />
+      <div className="onboarding-loading-button" />
+    </div>
+    <p className={`onboarding-loading-message${alert ? ' form-notice error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
   </main>;
 }
 
@@ -265,7 +272,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   if (languageError && languages.length === 0) return onboardingPath
     ? <OnboardingLoadingShell message={`Unable to load your Learning Languages: ${languageError}`} alert />
     : <AppLoadingShell section={section} message={`Unable to load your Learning Languages: ${languageError}`} alert />;
-  if (onboardingPath === canonicalOnboardingPath && languages.length === 0) return <StudyPairOnboarding onCreated={() => router.replace('/')} />;
+  if (onboardingPath === canonicalOnboardingPath && languages.length === 0) return <LearningLanguageOnboarding onCreated={() => router.replace('/')} />;
   if (onboardingPath && ((languages.length > 0) || onboardingPath !== canonicalOnboardingPath)) return <OnboardingLoadingShell message="Opening your private library…" />;
   if (languages.length === 0) return <AppLoadingShell section={section} message="Opening onboarding…" />;
 

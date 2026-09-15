@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 
 export type LearningLanguage = { id: string; languageTag: string };
 
-export function StudyPairOnboarding({ onCreated }: { onCreated: (language: LearningLanguage) => void }) {
+export function LearningLanguageOnboarding({ onCreated }: { onCreated: (language: LearningLanguage) => void }) {
   const [languageDraft, setLanguageDraft] = useState('');
   const [notice, setNotice] = useState('');
   const [submitting, setSubmitting] = useState(false);

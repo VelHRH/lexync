@@ -10,7 +10,7 @@ import {
 } from '@lexync/domain';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import type { LearningLanguage } from './StudyPairOnboarding';
+import type { LearningLanguage } from './LearningLanguageOnboarding';
 
 export type LearningRecognitionCard = {
   answerLanguageTag: string;

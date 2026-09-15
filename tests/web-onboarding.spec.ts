@@ -26,14 +26,8 @@ async function createLearner(withLanguage = false): Promise<Account> {
   return account;
 }
 
-async function signIn(page: Page, account: Account) {
-  await page.goto('/auth/sign-in');
-  await page.getByLabel('Email').fill(account.email);
-  await page.getByLabel('Password').fill(account.password);
-  await page.getByLabel('Password').press('Enter');
-}
-
-async function signInFromCurrentRoute(page: Page, account: Account) {
+async function signIn(page: Page, account: Account, navigateToSignIn = true) {
+  if (navigateToSignIn) await page.goto('/auth/sign-in');
   await page.getByLabel('Email').fill(account.email);
   await page.getByLabel('Password').fill(account.password);
   await page.getByLabel('Password').press('Enter');
@@ -128,7 +122,7 @@ test.describe('web Learning Language onboarding protection', () => {
     await watchOnboarding(page);
     await page.goto('/onboarding/learning-language');
     await expectSignInDestination(page, '/onboarding/learning-language');
-    await signInFromCurrentRoute(page, account);
+    await signIn(page, account, false);
     await expect(page).toHaveURL('/onboarding/learning-language');
     await expect(page.getByRole('heading', { name: 'Set up your first Learning Language' })).toBeVisible();
   });
@@ -138,7 +132,7 @@ test.describe('web Learning Language onboarding protection', () => {
     await watchOnboarding(page);
     await page.goto('/onboarding/study-pair');
     await expectSignInDestination(page, '/onboarding/study-pair');
-    await signInFromCurrentRoute(page, account);
+    await signIn(page, account, false);
     await expect(page).toHaveURL('/onboarding/learning-language');
     await expect(page).not.toHaveURL(/onboarding\/study-pair/);
     await expect(page.getByRole('heading', { name: 'Set up your first Learning Language' })).toBeVisible();
@@ -148,7 +142,7 @@ test.describe('web Learning Language onboarding protection', () => {
     const account = await createLearner(true);
     await page.goto('/onboarding/learning-language');
     await expectSignInDestination(page, '/onboarding/learning-language');
-    await signInFromCurrentRoute(page, account);
+    await signIn(page, account, false);
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
     await expectNoOnboarding(page);
@@ -158,7 +152,7 @@ test.describe('web Learning Language onboarding protection', () => {
     const account = await createLearner(true);
     await page.goto('/onboarding/study-pair');
     await expectSignInDestination(page, '/onboarding/study-pair');
-    await signInFromCurrentRoute(page, account);
+    await signIn(page, account, false);
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
     await expectNoOnboarding(page);
