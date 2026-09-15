@@ -21,7 +21,8 @@
     "extension:release": "node scripts/release-extension.mjs",
     "test": "pnpm backend:start && pnpm backend:reset && pnpm test:db && node scripts/with-local-supabase.mjs pnpm run test:local",
     "test:db": "pnpm dlx supabase@2.115.0 test db",
-    "test:local": "pnpm build && playwright test"
+    "test:local": "pnpm build && playwright test",
+    "db:push": "dlx supabase@2.115.0 db push --linked --skip-vault"
   },
   "devDependencies": {
     "@playwright/test": "1.61.0",
