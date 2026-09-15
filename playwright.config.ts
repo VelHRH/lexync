@@ -30,6 +30,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-onboarding',
+      testMatch: /web-onboarding\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-onboarding-mobile',
+      testMatch: /web-onboarding\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-extension-recommendation',
       testMatch: /web-extension-recommendation\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },

@@ -5,9 +5,10 @@ import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { Suspense, type ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { StudyPairOnboarding, type LearningLanguage } from './StudyPairOnboarding';
+import { LearningLanguageOnboarding, type LearningLanguage } from './LearningLanguageOnboarding';
 import { BrandArtwork } from './BrandArtwork';
 import { clearScheduledReviewEnded, clearScheduledReviewLanguage, getScheduledReviewLanguage, ScheduledRecognition, setScheduledReviewLanguage, type LearningRecognitionCard } from './ScheduledRecognition';
 import { VocabularyLibrary } from './VocabularyLibrary';
@@ -82,8 +83,27 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
   </main>;
 }
 
-export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboarding = false, extensionId }: { section?: string; publicContent?: ReactNode; forceOnboarding?: boolean; extensionId?: string }) {
+function OnboardingLoadingShell({ message, alert = false }: { message: string; alert?: boolean }) {
+  return <main className="pair-onboarding onboarding-loading" aria-label="Learning Language onboarding" aria-busy={!alert}>
+    <div className="onboarding-loading-skeleton" aria-hidden="true">
+      <p className="eyebrow"><span /> Your language context</p>
+      <div className="onboarding-loading-heading" />
+      <div className="onboarding-loading-copy" />
+      <div className="onboarding-loading-label" />
+      <div className="onboarding-loading-field" />
+      <div className="onboarding-loading-button" />
+    </div>
+    <p className={`onboarding-loading-message${alert ? ' form-notice error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
+  </main>;
+}
+
+export type OnboardingPath = '/onboarding/learning-language' | '/onboarding/study-pair';
+
+const canonicalOnboardingPath: OnboardingPath = '/onboarding/learning-language';
+
+export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPath, extensionId }: { section?: string; publicContent?: ReactNode; onboardingPath?: OnboardingPath; extensionId?: string }) {
   const activeSection = sectionLabel(section);
+  const router = useRouter();
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
@@ -234,18 +254,26 @@ export function AuthenticatedApp({ section = 'Home', publicContent, forceOnboard
   }, [session]);
 
   useEffect(() => {
-    if (!forceOnboarding && !languagesLoading && session && languages.length === 0) window.location.assign('/onboarding/study-pair');
-  }, [forceOnboarding, languages.length, languagesLoading, session]);
+    if (loading || !session || languagesLoading || languageError) return;
+    if (languages.length > 0 && onboardingPath) {
+      router.replace('/');
+      return;
+    }
+    if (languages.length === 0 && (onboardingPath !== canonicalOnboardingPath || !onboardingPath)) router.replace(canonicalOnboardingPath);
+  }, [languageError, languages.length, languagesLoading, loading, onboardingPath, router, session]);
 
   useEffect(() => {
-    if (!loading && !session && !publicContent && !signingOut) window.location.assign(`/auth/sign-in?next=${encodeURIComponent(window.location.pathname)}`);
-  }, [loading, publicContent, session, signingOut]);
+    if (!loading && !session && !publicContent && !signingOut) router.replace(`/auth/sign-in?next=${encodeURIComponent(window.location.pathname)}`);
+  }, [loading, publicContent, router, session, signingOut]);
 
-  if (loading) return <>{publicContent ?? <AppLoadingShell section={section} message="Opening your private library…" />}</>;
-  if (!session) return <>{publicContent ?? <AppLoadingShell section={section} message="Opening sign in…" />}</>;
-  if (forceOnboarding) return <StudyPairOnboarding onCreated={() => window.location.assign('/')} />;
-  if (languagesLoading) return <AppLoadingShell section={section} message="Loading your Learning Languages..." />;
-  if (languageError && languages.length === 0) return <AppLoadingShell section={section} message={`Unable to load your Learning Languages: ${languageError}`} alert />;
+  if (loading) return <>{publicContent ?? (onboardingPath ? <OnboardingLoadingShell message="Opening your private learning space…" /> : <AppLoadingShell section={section} message="Opening your private library…" />)}</>;
+  if (!session) return <>{publicContent ?? (onboardingPath ? <OnboardingLoadingShell message="Opening sign in…" /> : <AppLoadingShell section={section} message="Opening sign in…" />)}</>;
+  if (languagesLoading) return onboardingPath ? <OnboardingLoadingShell message="Loading your Learning Languages…" /> : <AppLoadingShell section={section} message="Loading your Learning Languages..." />;
+  if (languageError && languages.length === 0) return onboardingPath
+    ? <OnboardingLoadingShell message={`Unable to load your Learning Languages: ${languageError}`} alert />
+    : <AppLoadingShell section={section} message={`Unable to load your Learning Languages: ${languageError}`} alert />;
+  if (onboardingPath === canonicalOnboardingPath && languages.length === 0) return <LearningLanguageOnboarding onCreated={() => router.replace('/')} />;
+  if (onboardingPath && ((languages.length > 0) || onboardingPath !== canonicalOnboardingPath)) return <OnboardingLoadingShell message="Opening your private library…" />;
   if (languages.length === 0) return <AppLoadingShell section={section} message="Opening onboarding…" />;
 
   const activeLanguage = languages.find((language) => language.id === activeLanguageId) ?? languages[0];

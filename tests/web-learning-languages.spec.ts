@@ -11,18 +11,16 @@ function credentials(prefix = 'web-learning-language') {
   };
 }
 
-async function register(account: ReturnType<typeof credentials>, pairs: Array<[string, string]> = []) {
+async function register(account: ReturnType<typeof credentials>, languages: string[] = []) {
   if (!supabasePublishableKey) throw new Error('LEXYNC_SUPABASE_PUBLISHABLE_KEY is required.');
   const client = createClient(supabaseUrl, supabasePublishableKey, { auth: { persistSession: false } });
   const { data, error } = await client.auth.signUp({ email: account.email, password: account.password });
   if (error || !data.session) throw error ?? new Error('The local learner session is missing.');
-  const pairIds: string[] = [];
-  for (const [target, reference] of pairs) {
-    const result = await client.rpc('create_study_pair', { p_reference_language_tag: reference, p_target_language_tag: target });
+  for (const language of languages) {
+    const result = await client.rpc('create_learning_language', { p_language_tag: language });
     if (result.error) throw result.error;
-    pairIds.push((result.data as { id: string }).id);
   }
-  return { client, pairIds };
+  return { client };
 }
 
 async function signIn(page: Page, account: ReturnType<typeof credentials>) {
@@ -46,7 +44,7 @@ test.describe('web Learning Language settings', () => {
     await page.getByLabel('Confirm password').fill(account.password);
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    await expect(page).toHaveURL(/\/onboarding(?:\/|$)/);
+    await expect(page).toHaveURL('/onboarding/learning-language');
     await expect(page.getByRole('heading', { name: /Learning Language/i })).toBeVisible();
     const form = page.locator('form').last();
     const language = form.getByLabel('Learning Language', { exact: true });
@@ -62,16 +60,14 @@ test.describe('web Learning Language settings', () => {
 
     await language.fill('pt-BR');
     await submitForm(form);
-    const continueButton = page.getByRole('button', { name: /Continue to dashboard/i });
-    await expect(continueButton).toBeVisible();
-    await continueButton.click();
     await expect(page).toHaveURL('/');
+    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
     await expect(page.getByLabel('Active Learning Language')).toContainText(/Portuguese|pt-BR/i);
   });
 
   test('manages later language additions and protects the last language', async ({ page }) => {
     const account = credentials('web-language-settings');
-    await register(account, [['es', 'en']]);
+    await register(account, ['es']);
     await signIn(page, account);
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
@@ -105,7 +101,7 @@ test.describe('web Learning Language settings', () => {
 
   test('uses one account-wide selector and receives external changes without a focus refresh', async ({ page }) => {
     const account = credentials('web-active-language');
-    const setup = await register(account, [['es', 'en'], ['fr', 'en']]);
+    const setup = await register(account, ['es', 'fr']);
     const { data: languages, error } = await setup.client.from('learning_languages').select('id,language_tag').order('created_at');
     if (error || !languages || languages.length < 2) throw error ?? new Error('The Learning Language fixtures are missing.');
     const spanish = languages.find((language) => language.language_tag === 'es');

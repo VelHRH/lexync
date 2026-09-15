@@ -2,12 +2,14 @@
 
 import { type FormEvent, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { BrandArtwork } from './BrandArtwork';
 import { supabase } from '../lib/supabase';
 
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
 
-export function AuthForm({ mode }: { mode: AuthMode }) {
+export function AuthForm({ mode, nextPath = '/' }: { mode: AuthMode; nextPath?: string }) {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -59,7 +61,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
         if (error) throw error;
-        window.location.assign('/');
+        router.replace(nextPath);
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Authentication could not be completed.');
