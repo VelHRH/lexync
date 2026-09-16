@@ -124,6 +124,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   const [removingLanguageId, setRemovingLanguageId] = useState('');
   const recognitionRequestId = useRef(0);
   const online = useOnlineStatus();
+  const learnerId = session?.user.id;
   const handleReviewLanguageChange = useCallback((nextLanguage: LearningLanguage | null) => {
     setReviewLanguage(nextLanguage);
   }, []);
@@ -201,10 +202,10 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!learnerId) return;
     queueMicrotask(() => void loadLanguages());
     queueMicrotask(() => void loadPairs());
-  }, [loadLanguages, loadPairs, session]);
+  }, [learnerId, loadLanguages, loadPairs]);
 
   useEffect(() => {
     if (!session || !effectiveRecognitionLanguageId) return;

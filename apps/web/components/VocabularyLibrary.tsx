@@ -144,6 +144,14 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
     });
   }, [loadCollections, loadEntries, searchParams]);
 
+  function resetCaptureDraft() {
+    setExpression('');
+    setAnswerLanguage('');
+    setTranslation('');
+    setExample('');
+    setPendingSenses([]);
+  }
+
   async function capture(senseId: string | null = null, createNewSense = false) {
     setNotice('');
     const answerTag = canonicalLanguageTag(answerLanguage);
@@ -171,12 +179,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       setPendingSenses(data.senses ?? []);
       return;
     }
-    setExpression('');
-    setAnswerLanguage('');
-    setTranslation('');
-    setExample('');
-    setPendingSenses([]);
-    setShowForm(false);
+    resetCaptureDraft();
     await loadEntries();
     await onEntriesChanged();
   }
@@ -184,6 +187,12 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await capture();
+  }
+
+  function cancelCapture() {
+    resetCaptureDraft();
+    setNotice('');
+    setShowForm(false);
   }
 
   function updateSense(index: number, update: (sense: DraftSense) => DraftSense) {
@@ -384,7 +393,10 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         <label htmlFor="example">Example <span>(optional)</span></label>
         <textarea id="example" value={example} disabled={!online} onChange={(event) => setExample(event.target.value)} />
         {notice && <p className="form-notice error" role="alert">{notice}</p>}
-        <button className="primary-button" type="submit" disabled={saving || !online}>{saving ? 'Saving…' : 'Save Vocabulary Entry'}</button>
+        <div className="vocabulary-editor-actions">
+          <button className="primary-button" type="submit" disabled={saving || !online}>{saving ? 'Saving…' : 'Save Vocabulary Entry'}</button>
+          <button className="secondary-button" type="button" disabled={saving} onClick={cancelCapture}>Cancel</button>
+        </div>
         {pendingSenses.length > 0 && <fieldset aria-labelledby="sense-choice-heading">
           <legend id="sense-choice-heading">Choose an existing Sense or create a new Sense</legend>
           {pendingSenses.map((sense, index) => <button className="secondary-button" key={sense.id} type="button" disabled={saving || !online} onClick={() => void capture(sense.id)}>
