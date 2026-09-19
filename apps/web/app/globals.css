@@ -181,6 +181,21 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
 .recognition-choices label { overflow-wrap: anywhere; }
 .recognition-correctness label:hover, .recognition-ratings label:hover, .recognition-choices label:hover, .recognition-choices label:has(input:checked) { border-color: var(--web-primary); background: var(--web-subtle); }
 .recognition-correctness input, .recognition-ratings input, .recognition-choices input { flex: 0 0 auto; accent-color: var(--web-primary); }
+.review-session { display: grid; gap: 1rem; margin-top: 2.5rem; padding: 1.25rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-lg); background: var(--web-subtle); }
+.review-session h2 { margin-bottom: 0; font-size: var(--lexync-type-size-2xl); }
+.review-session-intro, .review-session-language { margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }
+.review-session-prompt { max-width: 52rem; margin: .35rem 0 0; color: var(--web-ink); font-family: var(--lexync-type-family-display); font-size: var(--lexync-type-size-2xl); font-weight: var(--lexync-type-weight-semibold); letter-spacing: -.04em; line-height: 1.1; }
+.review-session-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; border: 0; padding: 0; }
+.review-session-choices legend { width: 100%; margin-bottom: .25rem; color: var(--web-ink); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); }
+.review-session-choices label { display: inline-flex; align-items: center; gap: .45rem; min-width: 0; min-height: 2.75rem; padding: .6rem .9rem; border: 1px solid var(--web-line-strong); border-radius: var(--lexync-radius-md); background: var(--web-surface); cursor: pointer; overflow-wrap: anywhere; }
+.review-session-choices label:hover, .review-session-choices label:has(input:checked) { border-color: var(--web-primary); background: var(--web-surface-strong); }
+.review-session-choices label:focus-within { border-color: var(--web-primary); box-shadow: var(--lexync-focus-ring); }
+.review-session-choices input { flex: 0 0 auto; accent-color: var(--web-primary); }
+.review-session-result { display: grid; gap: .75rem; }
+.review-session-choice-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.review-session-choice-list li { min-height: 2.75rem; padding: .6rem .9rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-md); background: var(--web-surface); overflow-wrap: anywhere; }
+.review-session-choice-list li.selected { border-color: var(--web-primary); background: var(--web-surface-strong); }
+.review-session-region { margin-top: 2.5rem; }
 .vocabulary-library { margin-top: 2.5rem; }
 .library-toolbar, .vocabulary-entry-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
 .library-toolbar .eyebrow { margin-bottom: .75rem; }
@@ -250,7 +265,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
   .privacy-layout { gap: 2rem; }
   .library-toolbar, .vocabulary-entry-actions, .vocabulary-editor-actions, .pair-row, .pair-row-actions, .pair-delete-dialog > div { align-items: stretch; flex-direction: column; }
   .library-toolbar > *, .vocabulary-entry-actions > *, .vocabulary-editor-actions > *, .pair-row-actions > * { width: 100%; }
-  .vocabulary-discovery-controls, .recognition-choices { grid-template-columns: 1fr; }
+  .vocabulary-discovery-controls, .recognition-choices, .review-session-choices { grid-template-columns: 1fr; }
   .vocabulary-editor-row, .vocabulary-example-editor { grid-template-columns: 1fr; }
   .vocabulary-editor-row label:first-child, .vocabulary-example-editor label:first-child { grid-column: auto; }
   .scheduled-review-progress { align-items: stretch; flex-direction: column; }

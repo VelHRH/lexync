@@ -11,6 +11,7 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { LearningLanguageOnboarding, type LearningLanguage } from './LearningLanguageOnboarding';
 import { BrandArtwork } from './BrandArtwork';
 import { clearScheduledReviewEnded, clearScheduledReviewLanguage, getScheduledReviewLanguage, ScheduledRecognition, setScheduledReviewLanguage, type LearningRecognitionCard } from './ScheduledRecognition';
+import { ReviewSession } from './ReviewSession';
 import { VocabularyLibrary } from './VocabularyLibrary';
 import { Collections } from './Collections';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
@@ -369,7 +370,8 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
           </section>}
           {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
           {recognitionError && <p className="form-notice error" role="alert">Unable to load Scheduled Reviews: {recognitionError}</p>}
-          {activeSection === 'Review' && reviewPointerResolved && !recognitionLoading && recognitionCardsLanguageId === displayedLanguage.id && <ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={displayedLanguage} onReviewLanguageChange={handleReviewLanguageChange} />}
+          {activeSection === 'Review' && reviewPointerResolved && <ReviewSession learningLanguageId={displayedLanguage.id} />}
+          {activeSection === 'Review' && reviewPointerResolved && !recognitionLoading && recognitionCardsLanguageId === displayedLanguage.id && <section aria-label="Scheduled Review"><ScheduledRecognition cards={recognitionCards} onReviewConfirmed={recordReview} language={displayedLanguage} onReviewLanguageChange={handleReviewLanguageChange} /></section>}
           {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary...</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Collections' && <Collections key={activeLanguage.id} language={activeLanguage} />}
           {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
