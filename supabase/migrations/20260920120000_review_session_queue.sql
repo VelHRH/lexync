@@ -159,6 +159,17 @@ begin
   from surviving
   where questions.id = surviving.id;
 
+  delete from public.review_sessions as sessions
+  where sessions.id = p_session_id
+    and sessions.learner_id = p_learner_id
+    and sessions.status = 'active'
+    and not exists (
+      select 1
+      from public.review_session_questions
+      where session_id = p_session_id
+        and learner_id = p_learner_id
+    );
+
   update public.review_sessions
   set total_count = (
     select count(*)
@@ -274,6 +285,15 @@ begin
     limit 1;
   else
     perform public.review_session_prune_unavailable(selected_session_id, current_learner_id);
+    if not exists (
+      select 1
+      from public.review_sessions
+      where id = selected_session_id
+        and learner_id = current_learner_id
+        and status = 'active'
+    ) then
+      return null;
+    end if;
   end if;
 
   if selected_session_id is null then
@@ -337,10 +357,23 @@ begin
 
   if selected_session_id is not null then
     perform public.review_session_prune_unavailable(selected_session_id, current_learner_id);
-    return public.review_session_payload(selected_session_id, current_learner_id);
+    perform 1
+    from public.review_sessions
+    where id = selected_session_id
+      and learner_id = current_learner_id
+      and status = 'active';
+
+    if found then
+      return public.review_session_payload(selected_session_id, current_learner_id);
+    end if;
+
+    selected_session_id := null;
   end if;
 
-  setting_value := current_setting('app.review_session_min_size', true);
+  setting_value := current_setting('app.review_session_min_questions', true);
+  if setting_value is null then
+    setting_value := current_setting('app.review_session_min_size', true);
+  end if;
   begin
     minimum_target := setting_value::integer;
   exception when others then
@@ -350,7 +383,10 @@ begin
     minimum_target := 8;
   end if;
 
-  setting_value := current_setting('app.review_session_max_size', true);
+  setting_value := current_setting('app.review_session_max_questions', true);
+  if setting_value is null then
+    setting_value := current_setting('app.review_session_max_size', true);
+  end if;
   begin
     maximum_target := setting_value::integer;
   exception when others then
@@ -689,6 +725,17 @@ begin
     raise exception 'Review Session is unavailable.';
   end if;
 
+  perform public.review_session_prune_unavailable(p_session_id, current_learner_id);
+
+  select * into selected_session
+  from public.review_sessions
+  where id = p_session_id and learner_id = current_learner_id
+  for update;
+
+  if not found then
+    return null;
+  end if;
+
   select * into selected_question
   from public.review_session_questions
   where id = p_question_id
@@ -697,7 +744,7 @@ begin
   for update;
 
   if not found then
-    raise exception 'Review Question is unavailable.';
+    return public.review_session_payload(p_session_id, current_learner_id);
   end if;
 
   if selected_question.selected_answer is not null then
@@ -709,7 +756,7 @@ begin
   end if;
 
   if p_selected_choice is null or not (p_selected_choice = any(selected_question.choices)) then
-    raise exception 'Selected choice is unavailable.';
+    return public.review_session_payload(p_session_id, current_learner_id);
   end if;
 
   answer_timestamp := now();
@@ -797,6 +844,17 @@ begin
     raise exception 'Review Session is unavailable.';
   end if;
 
+  perform public.review_session_prune_unavailable(p_session_id, current_learner_id);
+
+  select * into selected_session
+  from public.review_sessions
+  where id = p_session_id and learner_id = current_learner_id
+  for update;
+
+  if not found then
+    return null;
+  end if;
+
   select * into selected_question
   from public.review_session_questions
   where id = p_question_id
@@ -805,7 +863,7 @@ begin
   for update;
 
   if not found then
-    raise exception 'Review Question is unavailable.';
+    return public.review_session_payload(p_session_id, current_learner_id);
   end if;
 
   if selected_session.status = 'completed' or selected_question.continued_at is not null then

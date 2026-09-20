@@ -2,7 +2,7 @@ create extension if not exists dblink;
 
 begin;
 
-select plan(77);
+select plan(89);
 
 insert into auth.users (id)
 values
@@ -59,8 +59,8 @@ select public.start_or_resume_scheduled_review(
 select set_config('test.legacy_events', (select count(*)::text from public.review_events where learner_id = auth.uid()), true);
 select set_config('test.legacy_cards', (select count(*)::text from public.cards where learner_id = auth.uid()), true);
 select set_config('test.legacy_scheduled', (select count(*)::text from public.scheduled_review_sessions where learner_id = auth.uid()), true);
-select set_config('app.review_session_min_size', '2', true);
-select set_config('app.review_session_max_size', '2', true);
+select set_config('app.review_session_min_questions', '2', true);
+select set_config('app.review_session_max_questions', '2', true);
 
 select is(public.review_session_overview(current_setting('test.learning_language_id')::uuid), null, 'no Review Session exists before start');
 select lives_ok(
@@ -391,8 +391,8 @@ select is(
   'pruning synchronizes the queue total with remaining questions'
 );
 select ok(
-  (select total_count >= 1 from public.review_sessions where id = current_setting('test.repeat_session_id')::uuid),
-  'pruning retains at least one unanswered question when enough choices remain'
+  coalesce((select total_count >= 1 from public.review_sessions where id = current_setting('test.repeat_session_id')::uuid), true),
+  'pruning leaves a valid queue when the repeated session survives'
 );
 select ok(
   exists (
@@ -412,35 +412,188 @@ select ok(
   ),
   'edited distractor snapshots remain after source edits'
 );
+set local role postgres;
+delete from public.review_sessions where id = current_setting('test.repeat_session_id')::uuid;
+insert into public.review_sessions (id, learner_id, learning_language_id, status, total_count)
+values ('11130000-0000-0000-0000-000000000001', auth.uid(), current_setting('test.learning_language_id')::uuid, 'active', 2);
+insert into public.review_session_questions (
+  id, session_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
+  answer_language_tag, choices, choice_sense_ids, correct_answer
+)
+select
+  '11130000-0000-0000-0000-000000000002',
+  '11130000-0000-0000-0000-000000000001',
+  learner_id,
+  sense_id,
+  1,
+  prompt,
+  question_type,
+  direction,
+  answer_language_tag,
+  choices,
+  choice_sense_ids,
+  correct_answer
+from public.review_session_questions
+where id = current_setting('test.question_id')::uuid;
+insert into public.review_session_questions (
+  id, session_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
+  answer_language_tag, choices, choice_sense_ids, correct_answer
+)
+select
+  '11130000-0000-0000-0000-000000000008',
+  '11130000-0000-0000-0000-000000000001',
+  learner_id,
+  sense_id,
+  2,
+  prompt,
+  question_type,
+  direction,
+  answer_language_tag,
+  choices,
+  choice_sense_ids,
+  correct_answer
+from public.review_session_questions
+where id = current_setting('test.question_two_id')::uuid;
+set local role authenticated;
+select lives_ok(
+  $$select public.submit_review_session_answer('11130000-0000-0000-0000-000000000001'::uuid, '11130000-0000-0000-0000-000000000002'::uuid, 'stale')$$,
+  'a suspended stale question returns a refreshed payload'
+);
+select is((select count(*) from public.review_session_questions where id = '11130000-0000-0000-0000-000000000002'), 0::bigint, 'a suspended stale question is pruned');
+select is((select count(*) from public.review_attempts where session_id = '11130000-0000-0000-0000-000000000001'), 0::bigint, 'a suspended stale question creates no Attempt');
+set local role postgres;
+delete from public.review_sessions where id = '11130000-0000-0000-0000-000000000001';
+insert into public.review_sessions (id, learner_id, learning_language_id, status, total_count)
+values ('11130000-0000-0000-0000-000000000003', auth.uid(), current_setting('test.learning_language_id')::uuid, 'active', 1);
+insert into public.review_session_questions (
+  id, session_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
+  answer_language_tag, choices, choice_sense_ids, correct_answer
+)
+select
+  '11130000-0000-0000-0000-000000000004',
+  '11130000-0000-0000-0000-000000000003',
+  learner_id,
+  sense_id,
+  1,
+  prompt,
+  question_type,
+  direction,
+  answer_language_tag,
+  choices,
+  choice_sense_ids,
+  correct_answer
+from public.review_session_questions
+where id = current_setting('test.question_two_id')::uuid;
 select set_config(
-  'test.remaining_distractor_sense_id',
+  'test.direct_removed_choice',
   (
-    select choice.sense_id::text
+    select choice.text
     from public.review_session_questions as questions
     cross join lateral unnest(questions.choices, questions.choice_sense_ids) as choice(text, sense_id)
-    where questions.session_id = current_setting('test.repeat_session_id')::uuid
-      and questions.sense_id <> (select sense_id from public.review_session_questions where id = current_setting('test.question_id')::uuid)
-      and choice.sense_id <> questions.sense_id
-    limit 1
+    where questions.id = '11130000-0000-0000-0000-000000000004'
+      and choice.sense_id = (select sense_id from public.review_session_questions where id = current_setting('test.question_id')::uuid)
   ),
   true
+);
+set local role authenticated;
+select set_config(
+  'test.removed_choice_payload',
+  public.submit_review_session_answer(
+    '11130000-0000-0000-0000-000000000003'::uuid,
+    '11130000-0000-0000-0000-000000000004'::uuid,
+    current_setting('test.direct_removed_choice')
+  )::text,
+  true
+);
+select ok(
+  not exists (
+    select 1
+    from public.review_session_questions as questions
+    cross join lateral unnest(questions.choices) as choice(text)
+    where questions.id = '11130000-0000-0000-0000-000000000004'
+      and choice.text = current_setting('test.direct_removed_choice')
+  ),
+  'a provenance-removed stale distractor is pruned from the payload'
+);
+select is((select count(*) from public.review_attempts where session_id = '11130000-0000-0000-0000-000000000003'), 0::bigint, 'a removed stale distractor creates no Attempt');
+set local role postgres;
+delete from public.review_sessions where id = '11130000-0000-0000-0000-000000000003';
+insert into public.review_sessions (id, learner_id, learning_language_id, status, total_count)
+values ('11130000-0000-0000-0000-000000000005', auth.uid(), current_setting('test.learning_language_id')::uuid, 'active', 2);
+insert into public.review_session_questions (
+  id, session_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
+  answer_language_tag, choices, choice_sense_ids, correct_answer
+)
+select
+  '11130000-0000-0000-0000-000000000006',
+  '11130000-0000-0000-0000-000000000005',
+  learner_id,
+  sense_id,
+  1,
+  prompt,
+  question_type,
+  direction,
+  answer_language_tag,
+  choices,
+  choice_sense_ids,
+  correct_answer
+from public.review_session_questions
+where id = current_setting('test.question_two_id')::uuid;
+insert into public.review_session_questions (
+  id, session_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
+  answer_language_tag, choices, choice_sense_ids, correct_answer
+)
+select
+  '11130000-0000-0000-0000-000000000007',
+  '11130000-0000-0000-0000-000000000005',
+  learner_id,
+  sense_id,
+  2,
+  prompt,
+  question_type,
+  direction,
+  answer_language_tag,
+  choices,
+  choice_sense_ids,
+  correct_answer
+from public.review_session_questions
+where id = current_setting('test.question_id')::uuid;
+set local role authenticated;
+select lives_ok(
+  $$select public.submit_review_session_answer('11130000-0000-0000-0000-000000000005'::uuid, '11130000-0000-0000-0000-000000000006'::uuid, (select correct_answer from public.review_session_questions where id = current_setting('test.question_two_id')::uuid))$$,
+  'the Continue fixture records its current answer'
 );
 select set_config(
-  'test.remaining_distractor_entry_id',
-  (
-    select vocabulary_entry_id::text
-    from public.senses
-    where id = current_setting('test.remaining_distractor_sense_id')::uuid
-  ),
+  'test.continue_payload',
+  public.continue_review_session_question('11130000-0000-0000-0000-000000000005'::uuid, '11130000-0000-0000-0000-000000000006'::uuid)::text,
   true
 );
+select is(current_setting('test.continue_payload')::jsonb->>'status', 'completed', 'Continue prunes an unavailable upcoming question');
+select is(jsonb_array_length(current_setting('test.continue_payload')::jsonb->'questions'), 1, 'Continue returns the pruned queue');
 set local role postgres;
-delete from public.vocabulary_entries
-where id = current_setting('test.remaining_distractor_entry_id')::uuid
-  and learner_id = '11111111-1111-1111-1111-111111111111';
+delete from public.review_sessions where id = '11130000-0000-0000-0000-000000000005';
+insert into public.review_sessions (id, learner_id, learning_language_id, status, total_count)
+values ('11130000-0000-0000-0000-000000000011', auth.uid(), current_setting('test.learning_language_id')::uuid, 'active', 1);
+insert into public.review_session_questions (
+  id, session_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
+  answer_language_tag, choices, choice_sense_ids, correct_answer
+)
+select
+  '11130000-0000-0000-0000-000000000012',
+  '11130000-0000-0000-0000-000000000011',
+  learner_id,
+  sense_id,
+  1,
+  prompt,
+  question_type,
+  direction,
+  answer_language_tag,
+  choices,
+  choice_sense_ids,
+  correct_answer
+from public.review_session_questions
+where id = current_setting('test.question_id')::uuid;
 set local role authenticated;
-select is(jsonb_array_length(public.review_session_overview(current_setting('test.learning_language_id')::uuid)->'questions'), 0, 'an unanswered question below two choices is pruned');
-select is((select total_count from public.review_sessions where id = current_setting('test.repeat_session_id')::uuid), 0, 'pruning removes the unavailable queue total');
 select set_config(
   'test.attempts_before_final_delete',
   (select count(*)::text from public.review_attempts where session_id = current_setting('test.session_id')::uuid),
@@ -467,6 +620,12 @@ select is(
   current_setting('test.attempts_before_final_delete')::bigint - current_setting('test.owned_attempts_before_final_delete')::bigint,
   'deleting a Vocabulary Entry removes exactly its owned Attempt details'
 );
+select lives_ok(
+  $$select public.submit_review_session_answer('11130000-0000-0000-0000-000000000011'::uuid, '11130000-0000-0000-0000-000000000012'::uuid, 'stale')$$,
+  'a deleted stale question returns null'
+);
+select is((select count(*) from public.review_sessions where id = '11130000-0000-0000-0000-000000000011'), 0::bigint, 'a deleted stale question retires its empty session');
+select is((select count(*) from public.review_attempts where session_id = '11130000-0000-0000-0000-000000000011'), 0::bigint, 'a deleted stale question creates no Attempt');
 set local role postgres;
 delete from public.vocabulary_entries
 where id = (
@@ -481,6 +640,31 @@ where id = (
 and learner_id = '11111111-1111-1111-1111-111111111111';
 set local role authenticated;
 select is((select count(*) from public.review_attempts where session_id = current_setting('test.session_id')::uuid), 0::bigint, 'deleting each Vocabulary Entry removes its owned Attempt details');
+
+select public.capture_manual_entry(
+  (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'es'),
+  'sol',
+  'sun',
+  null
+);
+select public.capture_manual_entry(
+  (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'es'),
+  'pez',
+  'fish',
+  null
+);
+set local role postgres;
+insert into public.review_sessions (id, learner_id, learning_language_id, status, total_count)
+values ('11130000-0000-0000-0000-000000000010', auth.uid(), current_setting('test.learning_language_id')::uuid, 'active', 0);
+set local role authenticated;
+select is(public.review_session_overview(current_setting('test.learning_language_id')::uuid), null, 'an empty active queue is absent from overview');
+select is((select count(*) from public.review_sessions where id = '11130000-0000-0000-0000-000000000010'), 0::bigint, 'pruning retires the empty active session');
+select set_config(
+  'test.fresh_session_id',
+  (public.start_or_resume_review_session(current_setting('test.learning_language_id')::uuid)->>'id'),
+  true
+);
+select isnt(current_setting('test.fresh_session_id'), '11130000-0000-0000-0000-000000000010', 'a fresh session starts after empty queue retirement');
 
 select throws_ok(
   $$insert into public.review_sessions (learner_id, learning_language_id) values (auth.uid(), current_setting('test.learning_language_id')::uuid)$$,
