@@ -225,6 +225,17 @@ test.describe('web Review Session', () => {
     await expect(reviewLaunch(page, 'Start review')).toBeEnabled();
   });
 
+  test('does not enable Review for sibling Senses with duplicate normalized translations', async ({ page }) => {
+    const fixture = await registerLearner('review-duplicate-senses');
+    await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', 'bank');
+    await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', ' BANK ', 'en', { createNewSense: true });
+    await signIn(page, fixture.account);
+    await expect(page.getByText('0 Senses ready', { exact: true })).toBeVisible();
+    const launch = reviewLaunch(page, 'Start review');
+    await expect(launch).toBeDisabled();
+    await expect(page.getByText(/at least two eligible Senses/i)).toBeVisible();
+  });
+
   test('presents a responsive fullscreen exercise with stable actions and keyboard access', async ({ page }) => {
     const fixture = await seedEntries('review-shell');
     await signIn(page, fixture.account);

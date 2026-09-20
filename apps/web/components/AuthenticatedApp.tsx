@@ -1,6 +1,6 @@
 'use client';
 
-import { canonicalLanguageTag, languageName, type RecognitionReviewEvent, type StudyPair } from '@lexync/domain';
+import { canonicalLanguageTag, languageName, type StudyPair } from '@lexync/domain';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { Suspense, type ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -10,7 +10,6 @@ import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { LearningLanguageOnboarding, type LearningLanguage } from './LearningLanguageOnboarding';
 import { BrandArtwork } from './BrandArtwork';
-import { type LearningRecognitionCard } from './ScheduledRecognition';
 import { ReviewSession } from './ReviewSession';
 import { VocabularyLibrary } from './VocabularyLibrary';
 import { Collections } from './Collections';
@@ -26,38 +25,9 @@ const destinations = [
 type LearningLanguageRow = { id: string; language_tag: string };
 type CompatibilityPair = StudyPair & { learningLanguageId: string };
 type ReviewSessionStatus = 'active' | 'completed';
-type LearningReviewOverview = {
-  answer_language_tag: string;
-  created_at: string;
-  direction: 'recognition' | 'recall';
-  events: RecognitionReviewEvent[];
-  expression: string;
-  id: string;
-  learning_language_id: string;
-  learning_language_tag: string;
-  sense_id: string;
-  suspended: boolean;
-  translations: string[];
-};
 
 function toLearningLanguage(row: LearningLanguageRow): LearningLanguage {
   return { id: row.id, languageTag: row.language_tag };
-}
-
-function toReviewCard(card: LearningReviewOverview): LearningRecognitionCard {
-  return {
-    answerLanguageTag: card.answer_language_tag,
-    createdAt: card.created_at,
-    direction: card.direction,
-    events: card.events,
-    expression: card.expression,
-    id: card.id,
-    learningLanguageId: card.learning_language_id,
-    learningLanguageTag: card.learning_language_tag,
-    senseId: card.sense_id,
-    suspended: card.suspended,
-    translations: card.translations,
-  };
 }
 
 function sectionLabel(section: string) {
@@ -114,8 +84,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   const [languagesLoading, setLanguagesLoading] = useState(true);
   const [languageError, setLanguageError] = useState('');
   const [pairs, setPairs] = useState<CompatibilityPair[]>([]);
-  const [recognitionCards, setRecognitionCards] = useState<LearningRecognitionCard[]>([]);
-  const [, setRecognitionCardsLanguageId] = useState('');
+  const [eligibleSenseCount, setEligibleSenseCount] = useState(0);
   const [reviewSessionStatus, setReviewSessionStatus] = useState<ReviewSessionStatus | null>(null);
   const [recognitionLoading, setRecognitionLoading] = useState(true);
   const [recognitionError, setRecognitionError] = useState('');
@@ -164,28 +133,27 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
     const requestId = ++recognitionRequestId.current;
     if (!learningLanguageId) {
       if (requestId !== recognitionRequestId.current) return;
-      setRecognitionCards([]);
-      setRecognitionCardsLanguageId('');
+      setEligibleSenseCount(0);
       setReviewSessionStatus(null);
       setRecognitionLoading(false);
       return;
     }
     setRecognitionLoading(true);
-    const [{ data, error }, { data: reviewData, error: reviewError }] = await Promise.all([
-      supabase.rpc('learning_scheduled_review_overview', { p_learning_language_id: learningLanguageId }),
+    const [{ data: eligibleData, error: eligibleError }, { data: reviewData, error: reviewError }] = await Promise.all([
+      supabase.rpc('review_session_eligible_sense_count', { p_learning_language_id: learningLanguageId }),
       supabase.rpc('review_session_overview', { p_learning_language_id: learningLanguageId }),
     ]);
     if (requestId !== recognitionRequestId.current) return;
-    if (error || reviewError) {
-      setRecognitionError(error?.message ?? reviewError?.message ?? 'Review could not be loaded.');
-      setRecognitionCardsLanguageId('');
+    if (eligibleError || reviewError) {
+      setRecognitionError(eligibleError?.message ?? reviewError?.message ?? 'Review could not be loaded.');
+      setEligibleSenseCount(0);
       setReviewSessionStatus(null);
       setRecognitionLoading(false);
       return;
     }
     setRecognitionError('');
-    setRecognitionCards((data ?? []).map((card: LearningReviewOverview) => toReviewCard(card)));
-    setRecognitionCardsLanguageId(learningLanguageId);
+    const parsedEligibleSenseCount = typeof eligibleData === 'number' ? eligibleData : Number(eligibleData);
+    setEligibleSenseCount(Number.isFinite(parsedEligibleSenseCount) ? parsedEligibleSenseCount : 0);
     const reviewPayload = reviewData && typeof reviewData === 'object' && !Array.isArray(reviewData) ? reviewData as { status?: unknown } : null;
     setReviewSessionStatus(reviewPayload?.status === 'active' || reviewPayload?.status === 'completed' ? reviewPayload.status : null);
     setRecognitionLoading(false);
@@ -255,9 +223,6 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
 
   const activeLanguage = languages.find((language) => language.id === activeLanguageId) ?? languages[0];
   const displayedLanguage = activeLanguage;
-  const eligibleSenseCount = new Set(recognitionCards
-    .filter((card) => card.learningLanguageId === activeLanguage.id && !card.suspended)
-    .map((card) => card.senseId)).size;
   const reviewAvailable = eligibleSenseCount >= 2;
   const canLaunchReview = reviewSessionStatus === 'active' || reviewAvailable;
   const reviewLaunchLabel = reviewSessionStatus === 'active' ? 'Resume review' : 'Start review';

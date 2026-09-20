@@ -170,16 +170,20 @@ begin
         and learner_id = p_learner_id
     );
 
-  update public.review_sessions
-  set total_count = (
-    select count(*)
+  with question_counts as (
+    select
+      count(*)::integer as total_count,
+      count(*) filter (where is_correct)::integer as correct_count
     from public.review_session_questions
     where session_id = p_session_id
       and learner_id = p_learner_id
   )
-  where id = p_session_id
-    and learner_id = p_learner_id
-    and status = 'active';
+  update public.review_sessions as sessions
+  set total_count = question_counts.total_count,
+      correct_count = least(question_counts.correct_count, question_counts.total_count)
+  from question_counts
+  where sessions.id = p_session_id
+    and sessions.learner_id = p_learner_id;
 end;
 $$;
 
@@ -692,6 +696,85 @@ begin
 end;
 $$;
 
+create or replace function public.review_session_eligible_sense_count(p_learning_language_id uuid)
+returns bigint
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  current_learner_id uuid := auth.uid();
+  eligible_count bigint;
+begin
+  if current_learner_id is null then
+    raise exception 'Authentication is required.';
+  end if;
+
+  perform 1
+  from public.learning_languages
+  where id = p_learning_language_id
+    and learner_id = current_learner_id;
+
+  if not found then
+    raise exception 'Learning Language is unavailable.';
+  end if;
+
+  select count(*) into eligible_count
+  from (
+    select senses.id
+    from public.senses
+    join public.vocabulary_entries
+      on vocabulary_entries.id = senses.vocabulary_entry_id
+      and vocabulary_entries.learner_id = senses.learner_id
+    join public.learning_vocabulary_entries
+      on learning_vocabulary_entries.id = vocabulary_entries.learning_vocabulary_entry_id
+      and learning_vocabulary_entries.learner_id = vocabulary_entries.learner_id
+    where senses.learner_id = current_learner_id
+      and vocabulary_entries.learning_language_id = p_learning_language_id
+      and learning_vocabulary_entries.learning_language_id = p_learning_language_id
+      and not vocabulary_entries.suspended
+      and not learning_vocabulary_entries.suspended
+      and exists (
+        select 1
+        from public.translations
+        where translations.sense_id = senses.id
+          and translations.learner_id = senses.learner_id
+          and length(btrim(translations.text)) > 0
+      )
+      and exists (
+        select 1
+        from public.senses as distractor_senses
+        join public.vocabulary_entries as distractor_entries
+          on distractor_entries.id = distractor_senses.vocabulary_entry_id
+          and distractor_entries.learner_id = distractor_senses.learner_id
+        join public.learning_vocabulary_entries as distractor_learning_entries
+          on distractor_learning_entries.id = distractor_entries.learning_vocabulary_entry_id
+          and distractor_learning_entries.learner_id = distractor_entries.learner_id
+        join public.translations as distractor_translations
+          on distractor_translations.sense_id = distractor_senses.id
+          and distractor_translations.learner_id = distractor_senses.learner_id
+        where distractor_senses.learner_id = current_learner_id
+          and distractor_entries.learning_language_id = p_learning_language_id
+          and distractor_learning_entries.learning_language_id = p_learning_language_id
+          and not distractor_entries.suspended
+          and not distractor_learning_entries.suspended
+          and distractor_entries.id <> vocabulary_entries.id
+          and length(btrim(distractor_translations.text)) > 0
+          and not exists (
+            select 1
+            from public.translations as reviewed_translations
+            where reviewed_translations.sense_id = senses.id
+              and reviewed_translations.learner_id = current_learner_id
+              and reviewed_translations.translation_identity = distractor_translations.translation_identity
+          )
+      )
+  ) as eligible_senses;
+
+  return eligible_count;
+end;
+$$;
+
 create or replace function public.submit_review_session_answer(
   p_session_id uuid,
   p_question_id uuid,
@@ -883,7 +966,7 @@ begin
     and learner_id = current_learner_id
     and continued_at is null;
 
-  select count(*) filter (where selected_answer is null),
+  select count(*) filter (where continued_at is null),
          count(*) filter (where is_correct),
          count(*)
   into unanswered_count, correct_answer_count, question_count
@@ -917,9 +1000,11 @@ $$;
 revoke all on function public.review_session_prune_unavailable(uuid, uuid) from public;
 revoke all on function public.review_session_overview(uuid) from public;
 revoke all on function public.start_or_resume_review_session(uuid) from public;
+revoke all on function public.review_session_eligible_sense_count(uuid) from public;
 revoke all on function public.submit_review_session_answer(uuid, uuid, text) from public;
 revoke all on function public.continue_review_session_question(uuid, uuid) from public;
 grant execute on function public.review_session_overview(uuid) to authenticated;
 grant execute on function public.start_or_resume_review_session(uuid) to authenticated;
+grant execute on function public.review_session_eligible_sense_count(uuid) to authenticated;
 grant execute on function public.submit_review_session_answer(uuid, uuid, text) to authenticated;
 grant execute on function public.continue_review_session_question(uuid, uuid) to authenticated;

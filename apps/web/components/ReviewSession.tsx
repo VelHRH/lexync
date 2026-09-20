@@ -207,16 +207,13 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
     });
     const submitted = parseSession(data);
     if (submitted) {
-      setSession(submitted);
-      setSelectedChoice(submitted.questions.find((candidate) => candidate.id === question.id)?.selected_answer ?? choice);
+      applySession(submitted, question.id);
     } else if (submitError) {
       const refreshed = await refreshOverview();
       if (refreshed) applySession(refreshed, question.id);
       else setError(submitError.message);
     } else {
-      const refreshed = await refreshOverview();
-      if (refreshed) applySession(refreshed, question.id);
-      else setError('The Review Session response was invalid.');
+      onExit();
     }
     setSubmitting(false);
   }
@@ -236,7 +233,7 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
     }
     const continued = parseSession(data);
     if (!continued) {
-      setError('The Review Session response was invalid.');
+      onExit();
       setAdvancing(false);
       return;
     }

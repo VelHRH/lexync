@@ -2,7 +2,7 @@ create extension if not exists dblink;
 
 begin;
 
-select plan(89);
+select plan(99);
 
 insert into auth.users (id)
 values
@@ -61,6 +61,7 @@ select set_config('test.legacy_cards', (select count(*)::text from public.cards 
 select set_config('test.legacy_scheduled', (select count(*)::text from public.scheduled_review_sessions where learner_id = auth.uid()), true);
 select set_config('app.review_session_min_questions', '2', true);
 select set_config('app.review_session_max_questions', '2', true);
+select is(public.review_session_eligible_sense_count(current_setting('test.learning_language_id')::uuid), 3::bigint, 'eligible Sense count is distinct and requires legal distractors');
 
 select is(public.review_session_overview(current_setting('test.learning_language_id')::uuid), null, 'no Review Session exists before start');
 select lives_ok(
@@ -228,6 +229,14 @@ select ok((select completed_at is not null from public.review_sessions where id 
 select is((select count(*) from public.review_events where learner_id = auth.uid()), current_setting('test.legacy_events')::bigint, 'Review Session submission does not append legacy events');
 select is((select count(*) from public.cards where learner_id = auth.uid()), current_setting('test.legacy_cards')::bigint, 'Review Session submission does not change Cards');
 select is((select count(*) from public.scheduled_review_sessions where learner_id = auth.uid()), current_setting('test.legacy_scheduled')::bigint, 'Review Session submission does not change scheduled sessions');
+set local role postgres;
+insert into public.senses (id, learner_id, vocabulary_entry_id)
+select '11140000-0000-0000-0000-000000000001', learner_id, vocabulary_entry_id
+from public.senses
+where id = (select sense_id from public.review_session_questions where id = current_setting('test.question_two_id')::uuid);
+insert into public.translations (id, learner_id, sense_id, text, answer_language_tag)
+values ('11140000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', '11140000-0000-0000-0000-000000000001', 'sibling', 'en');
+set local role authenticated;
 select set_config(
   'test.repeat_session_id',
   (public.start_or_resume_review_session(current_setting('test.learning_language_id')::uuid)->>'id'),
@@ -412,6 +421,33 @@ select ok(
   ),
   'edited distractor snapshots remain after source edits'
 );
+select ok(
+  not exists (
+    select 1
+    from public.review_session_questions as questions
+    cross join lateral unnest(questions.choice_sense_ids) as choice(sense_id)
+    join public.senses as reviewed_senses on reviewed_senses.id = questions.sense_id
+    join public.senses as choice_senses on choice_senses.id = choice.sense_id
+    where questions.session_id = current_setting('test.repeat_session_id')::uuid
+      and choice.sense_id <> questions.sense_id
+      and reviewed_senses.vocabulary_entry_id = choice_senses.vocabulary_entry_id
+  ),
+  'sibling Senses are excluded from distractors'
+);
+select ok(
+  not exists (
+    select 1
+    from public.review_session_questions as questions
+    cross join lateral unnest(questions.choices, questions.choice_sense_ids) as choice(text, sense_id)
+    join public.translations as reviewed_translations
+      on reviewed_translations.sense_id = questions.sense_id
+      and reviewed_translations.translation_identity = public.translation_identity(choice.text)
+    where questions.session_id = current_setting('test.repeat_session_id')::uuid
+      and questions.direction = 'recognition'
+      and choice.sense_id <> questions.sense_id
+  ),
+  'duplicate normalized translations are excluded from distractors'
+);
 set local role postgres;
 delete from public.review_sessions where id = current_setting('test.repeat_session_id')::uuid;
 insert into public.review_sessions (id, learner_id, learning_language_id, status, total_count)
@@ -557,19 +593,30 @@ select
   choice_sense_ids,
   correct_answer
 from public.review_session_questions
-where id = current_setting('test.question_id')::uuid;
+where id = current_setting('test.question_two_id')::uuid;
 set local role authenticated;
 select lives_ok(
   $$select public.submit_review_session_answer('11130000-0000-0000-0000-000000000005'::uuid, '11130000-0000-0000-0000-000000000006'::uuid, (select correct_answer from public.review_session_questions where id = current_setting('test.question_two_id')::uuid))$$,
   'the Continue fixture records its current answer'
+);
+select lives_ok(
+  $$select public.submit_review_session_answer('11130000-0000-0000-0000-000000000005'::uuid, '11130000-0000-0000-0000-000000000007'::uuid, (select correct_answer from public.review_session_questions where id = current_setting('test.question_two_id')::uuid))$$,
+  'the Continue fixture keeps a second answered question uncontinued'
 );
 select set_config(
   'test.continue_payload',
   public.continue_review_session_question('11130000-0000-0000-0000-000000000005'::uuid, '11130000-0000-0000-0000-000000000006'::uuid)::text,
   true
 );
-select is(current_setting('test.continue_payload')::jsonb->>'status', 'completed', 'Continue prunes an unavailable upcoming question');
-select is(jsonb_array_length(current_setting('test.continue_payload')::jsonb->'questions'), 1, 'Continue returns the pruned queue');
+select is(current_setting('test.continue_payload')::jsonb->>'status', 'active', 'Continue leaves another answered question active until its boundary');
+select is(jsonb_array_length(current_setting('test.continue_payload')::jsonb->'questions'), 2, 'Continue returns the unanswered-boundary queue');
+select set_config(
+  'test.continue_payload',
+  public.continue_review_session_question('11130000-0000-0000-0000-000000000005'::uuid, '11130000-0000-0000-0000-000000000007'::uuid)::text,
+  true
+);
+select is(current_setting('test.continue_payload')::jsonb->>'status', 'completed', 'Continue completes after every answered question crosses its boundary');
+select is(jsonb_array_length(current_setting('test.continue_payload')::jsonb->'questions'), 2, 'final Continue returns both answered questions');
 set local role postgres;
 delete from public.review_sessions where id = '11130000-0000-0000-0000-000000000005';
 insert into public.review_sessions (id, learner_id, learning_language_id, status, total_count)
@@ -665,6 +712,53 @@ select set_config(
   true
 );
 select isnt(current_setting('test.fresh_session_id'), '11130000-0000-0000-0000-000000000010', 'a fresh session starts after empty queue retirement');
+select set_config(
+  'test.fresh_question_id',
+  (
+    select id::text
+    from public.review_session_questions
+    where session_id = current_setting('test.fresh_session_id')::uuid
+    order by ordinal
+    limit 1
+  ),
+  true
+);
+select set_config(
+  'test.fresh_entry_id',
+  (
+    select vocabulary_entry_id::text
+    from public.senses
+    where id = (select sense_id from public.review_session_questions where id = current_setting('test.fresh_question_id')::uuid)
+  ),
+  true
+);
+select lives_ok(
+  format(
+    $$select public.submit_review_session_answer(%L::uuid, %L::uuid, (select correct_answer from public.review_session_questions where id = %L::uuid))$$,
+    current_setting('test.fresh_session_id'),
+    current_setting('test.fresh_question_id'),
+    current_setting('test.fresh_question_id')
+  ),
+  'a correct answer can be continued before source deletion'
+);
+select lives_ok(
+  format(
+    $$select public.continue_review_session_question(%L::uuid, %L::uuid)$$,
+    current_setting('test.fresh_session_id'),
+    current_setting('test.fresh_question_id')
+  ),
+  'a continued correct question remains in the partial queue'
+);
+set local role postgres;
+delete from public.vocabulary_entries where id = current_setting('test.fresh_entry_id')::uuid;
+set local role authenticated;
+select set_config(
+  'test.fresh_overview',
+  public.review_session_overview(current_setting('test.learning_language_id')::uuid)::text,
+  true
+);
+select is((current_setting('test.fresh_overview')::jsonb->>'correct_count')::integer, 0, 'pruning deleted correct questions from the score');
+select is((current_setting('test.fresh_overview')::jsonb->>'total_count')::integer, 1, 'pruning keeps correct and total counts consistent');
 
 select throws_ok(
   $$insert into public.review_sessions (learner_id, learning_language_id) values (auth.uid(), current_setting('test.learning_language_id')::uuid)$$,
