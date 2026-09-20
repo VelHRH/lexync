@@ -90,16 +90,6 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
-      name: 'web-scheduled-recognition',
-      testMatch: /web-scheduled-recognition\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'web-scheduled-recognition-mobile',
-      testMatch: /web-scheduled-recognition\.spec\.ts/,
-      use: { ...devices['Pixel 7'] },
-    },
-    {
       name: 'web-review-session',
       testMatch: /web-review-session\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },

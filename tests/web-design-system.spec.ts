@@ -216,7 +216,7 @@ test.describe('web design system surfaces', () => {
     await signIn(page, account);
     const shell = page.locator('[data-ui="product-shell"]');
     const navigation = shell.locator('[data-ui="task-navigation"]');
-    for (const name of ['Home', 'Review', 'Library', 'Collections', 'Settings']) {
+    for (const name of ['Home', 'Library', 'Collections', 'Settings']) {
       const link = navigation.getByRole('link', { name, exact: true });
       await expect(link).toBeVisible();
       const bounds = await link.evaluate((element) => {
