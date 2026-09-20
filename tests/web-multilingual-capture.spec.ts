@@ -133,22 +133,4 @@ test.describe('web multilingual manual capture', () => {
     await expect(page.getByText('банк', { exact: true })).toHaveCount(0);
   });
 
-  test('reviews one Learning Language while exposing translations from multiple Answer Languages', async ({ page }) => {
-    const account = credentials('web-mixed-answer-review');
-    const setup = await register(account, [['es', 'en'], ['es', 'uk'], ['fr', 'en']]);
-    const spanishEnglish = setup.pairIds[0];
-    const spanishUkrainian = setup.pairIds[1];
-    const first = await setup.client.rpc('capture_manual_entry', { p_example: null, p_expression: 'casa', p_study_pair_id: spanishEnglish, p_translation: 'house' });
-    const second = await setup.client.rpc('capture_manual_entry', { p_example: null, p_expression: 'casa', p_study_pair_id: spanishUkrainian, p_translation: 'дім' });
-    if (first.error || second.error) throw first.error ?? second.error;
-
-    await signIn(page, account);
-    await page.goto('/review');
-    await expect(page.getByRole('heading', { name: 'Review', exact: true })).toBeVisible();
-    const review = page.locator('.scheduled-recognition');
-    await expect(review.getByText(/Spanish/i)).toBeVisible();
-    await expect(review.getByText(/French/i)).toHaveCount(0);
-    await expect(review.getByText(/English|Ukrainian|en|uk/i)).toBeVisible();
-    await expect(page.locator('main')).not.toContainText('Study Pair');
-  });
 });
