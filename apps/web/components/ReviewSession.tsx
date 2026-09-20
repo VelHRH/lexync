@@ -266,7 +266,8 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
   const pendingQuestion = session ? firstPending(session) : null;
   const isComplete = Boolean(session && !question && session.questions.length > 0 && !pendingQuestion);
   const total = session?.total_count ?? session?.questions.length ?? 0;
-  const progress = session ? Math.min(total, question ? Math.max(1, question.ordinal) : answeredCount(session)) : 0;
+  const questionPosition = session && question ? session.questions.findIndex((candidate) => candidate.id === question.id) + 1 : 0;
+  const progress = session ? Math.min(total, question ? questionPosition : answeredCount(session)) : 0;
   const feedback = question?.is_correct === true ? 'Correct' : question?.is_correct === false ? 'Incorrect' : '';
 
   return <main className="review-session-shell" aria-label="Review Session">
@@ -280,7 +281,7 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
       {!loading && error && <div className="review-session-state review-session-error" role="alert"><p>Review is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
       {!loading && !error && session && !isComplete && question && <>
         <div className="review-session-progress-row">
-          <span>Question {Math.min(question.ordinal, total)} of {total}</span>
+          <span>Question {questionPosition} of {total}</span>
           <progress aria-label="Review progress" max={total} value={progress} />
         </div>
         <section className="review-session-question" role="region" aria-label="Review question">

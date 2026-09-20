@@ -403,12 +403,16 @@ test.describe('web Review Session', () => {
     await page.reload();
     await expect(reviewQuestion(page)).toBeVisible();
     const visible: string[] = [];
+    const positions: number[] = [];
     while (await reviewQuestion(page).count()) {
       const snapshot = await questionSnapshot(page);
       visible.push(snapshot.text);
+      const position = await reviewShell(page).getByText(/^Question \d+ of \d+$/).innerText();
+      positions.push(Number(position.match(/^Question (\d+) of/)?.[1]));
       await answerCurrentQuestion(page);
       await continueToNextQuestion(page);
     }
+    expect(positions).toEqual(positions.map((_, index) => index + 1));
     expect(visible.some((text) => text.includes(edited.expression) || text.includes(edited.translation))).toBe(true);
     expect(visible.every((text) => !text.includes(`${edited.expression}-edited`) && !text.includes(`${edited.translation}-edited`))).toBe(true);
     expect(visible.every((text) => !text.includes(suspended.expression) && !text.includes(suspended.translation))).toBe(true);
