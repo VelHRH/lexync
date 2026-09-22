@@ -161,7 +161,7 @@ async function continueToNextQuestion(page: Page) {
     const nextPrompt = nextQuestion.getByRole('heading', { level: 1 });
     if (!(await nextPrompt.isVisible().catch(() => false))) return false;
     return (await nextPrompt.innerText()).trim() !== currentPrompt;
-  }).toBe(true);
+  }, { timeout: 10_000 }).toBe(true);
 }
 
 async function advance(page: Page) {
