@@ -11,8 +11,5 @@
   },
   "devDependencies": {
     "typescript": "5.9.2"
-  },
-  "dependencies": {
-    "ts-fsrs": "5.4.2"
   }
 }

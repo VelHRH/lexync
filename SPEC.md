@@ -10,7 +10,7 @@ The current web and extension interfaces also do not express the purple identity
 
 Lexync organizes all private learning material by Learning Language. The Learner chooses a first Learning Language during onboarding and can add, remove, or switch Learning Languages later. The Active Learning Language is synchronized account-wide and is always visible in client navigation.
 
-Translations declare their Answer Language inside a Sense. A Sense may contain multiple Answer Languages, while each corresponding recognition and recall Card retains an independent schedule. A session may mix Answer Languages but never Learning Languages. Language Pairs and the Preferred Answer Language are derived automatically from the Learner's translations rather than managed as primary product entities.
+Translations declare their Answer Language inside a Sense. A Sense may contain multiple Answer Languages, while each corresponding recognition and recall Card retains an independent practice history. A Review Session may mix Answer Languages but never Learning Languages. Language Pairs and the Preferred Answer Language are derived automatically from the Learner's translations rather than managed as primary product entities.
 
 Capture adapters save available pronunciation and sentence audio into learner-private object storage on explicit Save. Audio is optional, never autoplays, and never blocks capture or practice. Existing material and PR #78 review history are migrated without deletion.
 
@@ -42,13 +42,13 @@ Web, extension, Android, and future iOS clients consume one semantic design cont
 22. As a Learner, I want matching based on confirmed meaning rather than spelling alone, so that homonyms remain distinct.
 23. As a Learner, I want Collections to group entries within one Learning Language, so that practice stays coherent.
 24. As a Learner, I want an entry in multiple Collections without duplicating it, so that organization does not fragment progress.
-25. As a Learner, I want recognition Cards scheduled per Sense and Answer Language, so that success in English does not falsely imply success in Ukrainian.
-26. As a Learner, I want recall Cards scheduled per Sense and Answer Language, so that each expected response has independent progress.
-27. As a Learner, I want one Scheduled Review to mix Answer Languages when their Cards are due, so that all due material for the Learning Language can be completed together.
+25. As a Learner, I want each Card identity to include its Sense, Answer Language, and direction, so that success in English does not falsely imply success in Ukrainian.
+26. As a Learner, I want recognition and recall Cards to remain independent by Sense, Answer Language, and direction, so that each expected response has its own practice history.
+27. As a Learner, I want one Review Session to mix Answer Languages within one Learning Language, so that I can practise all its meanings together.
 28. As a Learner, I want the expected Answer Language clearly indicated during a mixed session, so that I know which response to provide.
-29. As a Learner, I want Free Practice to stay inside its Collection and Learning Language, so that it never mixes unrelated study material.
-30. As a Learner, I want review events to synchronize durably after offline practice, so that no progress is lost.
-31. As a Learner, I want the recognition history created before this migration retained, so that the new model does not reset my progress.
+29. As a Learner, I want to start Review whenever I choose and complete as many sessions as I want, so that practice follows my intention rather than a schedule.
+30. As a Learner, I want Review Attempts to synchronize durably after practice, so that no progress is lost.
+31. As a Learner, I want the Review history created before this migration retained, so that the new model does not reset my progress.
 32. As a Learner, I want available pronunciation audio saved with a Vocabulary Entry, so that I can hear the Expression later.
 33. As a Learner, I want available sentence audio saved with an Example, so that I can hear the Expression in context.
 34. As a Learner, I want adapter audio copied only when I explicitly save the item, so that browsing does not create unwanted storage.
@@ -76,19 +76,20 @@ Web, extension, Android, and future iOS clients consume one semantic design cont
 - A Translation belongs to exactly one Sense and one Answer Language. A Sense may contain Translations in one or more Answer Languages.
 - A Language Pair is derived from translations that exist for one Learning Language and Answer Language. It is not a user-managed ownership record and has no primary flag.
 - Preferred Answer Language is computed from the number of distinct Senses translated into each Answer Language. Most recent usage breaks a tie.
-- Active Learning Language is stored as synchronized account state and scopes current library, capture, Collections, Scheduled Review, and Free Practice across clients.
+- Active Learning Language is stored as synchronized account state and scopes current library, capture, Collections, and Review Sessions across clients.
 - An intentional adapter capture may create a previously absent derived Language Pair and switch Active Learning Language. The client announces that switch.
 - Adapters provide language metadata when known. Other capture flows use detection only above an explicit confidence threshold; otherwise the Learner confirms an editable chip. Preferred Answer Language is the fallback selection.
 - If a matching Vocabulary Entry has exactly one Sense, a capture in a new Answer Language can attach its Translation to that Sense. If it has multiple Senses, the Learner chooses an existing Sense or creates one. Expression equality alone never proves Sense equality.
-- Each Card identity includes Sense, Answer Language, and direction. Recognition asks for the named Answer Language; recall asks for the Learning Language. Schedules remain independent.
-- Scheduled Review and Free Practice have exactly one Learning Language boundary. Scheduled Review may interleave Answer Languages and must display the expected language. No session may mix Learning Languages.
-- Existing FSRS behavior, four ratings, durable review events, and the distinction between Scheduled Review and Free Practice remain in force.
+- Each Card identity includes Sense, Answer Language, and direction. Recognition asks for the named Answer Language; recall asks for the Learning Language. Cards have no schedules or due dates.
+- Review Sessions and Review Attempts have exactly one Learning Language boundary. A Review Session may interleave Answer Languages, must display the expected language, and contains each Sense at most once. No session may mix Learning Languages.
+- Review is learner-initiated and unscheduled. A Review Attempt snapshots the submitted answer, correct answer, timestamp, and explicit correctness. Correctness comes only from the persisted Review Attempt and never from a legacy rating.
+- Legacy review ratings and scheduling state become timestamp-only participation evidence. Historical participation retains Card ownership and timestamps, but exposes no rating, correctness, retention, due date, or future schedule state.
 - A Vocabulary Entry has at most one pronunciation Audio Clip. An Example has at most one sentence Audio Clip.
 - On explicit adapter Save, Lexync copies eligible audio bytes into learner-private object storage and does not retain the source URL. Later automatic capture neither adds nor replaces an existing clip. Explicit learner actions may replace or remove it.
 - Audio never autoplays. First playback may populate an account-scoped offline cache. Missing, expired, unsupported, or failed audio never blocks save, synchronization, or practice.
 - Audio ownership is enforced at storage and metadata layers. Synchronization, export, sign-out cleanup, deletion, and cache eviction include audio.
-- The migration follows expand-and-contract. Existing Study Pair data remains readable during rollout. Entries with the same normalized Expression are consolidated by Learning Language, but existing Senses remain separate unless equivalence is proven. No translations, Examples, Collections, audio, suspension state, Cards, review events, or schedules are deleted.
-- PR #78 is merged historical work. Its recognition schedule and events are migration inputs, not work to revert or discard.
+- The migration follows expand-and-contract. Existing Study Pair data remains readable during rollout. Entries with the same normalized Expression are consolidated by Learning Language, but existing Senses remain separate unless equivalence is proven. No translations, Examples, Collections, audio, suspension state, Cards, review timestamps, or participation relationships are deleted, and no future schedules are created.
+- PR #78 is merged historical work. Its legacy recognition timestamps and participation relationships are migration inputs, not work to revert or discard.
 - Onboarding asks only for the first Learning Language. Add/remove management lives in Settings; the synchronized selector lives beside the profile in full clients and in a compact extension header.
 - Page-level Study Pair controls are removed as clients adopt the new model.
 - The canonical visual palette starts with logo purple `#6429f4`, dark ink, white, and lavender neutrals. Initial redesign is light mode. Dark mode is deferred.
@@ -105,13 +106,14 @@ Web, extension, Android, and future iOS clients consume one semantic design cont
 - Domain tests prove normalization, Preferred Answer Language selection and tie-breaking, Card identity, session boundaries, and migration mappings.
 - Android emulator instrumentation covers synchronized language switching, library/session scoping, offline review queues, private audio playback, and semantic design adaptation.
 - Future iOS XCUITest scenarios mirror the same user-visible contracts when iOS delivery resumes; they do not block current CI.
-- Existing landing, authentication, extension capture, account snapshot, ownership-policy, vocabulary management, and scheduled-recognition tests are extended rather than replaced.
+- Existing landing, authentication, extension capture, account snapshot, ownership-policy, vocabulary management, and Review tests are extended rather than replaced.
 - Accessibility acceptance includes keyboard completion, visible focus, semantic names and states, error association, status announcements, contrast, text scaling, touch targets, and reduced motion.
 - Destructive journeys verify retained or removed data, not merely confirmation-dialog presentation.
 
 ## Out of Scope
 
-- Mixing different Learning Languages in one Scheduled Review or Free Practice session.
+- Mixing different Learning Languages in one Review Session.
+- Spaced-repetition schedules, due dates, retention calculations, and Again, Hard, Good, or Easy ratings in active product behavior.
 - A user-managed primary Language Pair or onboarding choice of Answer Language.
 - Automatically merging existing Senses based only on matching Expression text.
 - Autoplay, audio-only exercises, speech recognition, recording, or audio publication.
@@ -126,7 +128,7 @@ Web, extension, Android, and future iOS clients consume one semantic design cont
 ## Further Notes
 
 - The domain vocabulary in `CONTEXT.md` is normative for issue and implementation language.
-- ADR 0001 records the hard-to-reverse language-boundary decision and the required lossless migration.
+- ADR 0001 records the hard-to-reverse language-boundary decision and the required lossless migration. Its superseded scheduling guidance remains historical context only.
 - Closed Study Pair tickets remain historical evidence. They should receive supersession links rather than rewritten descriptions.
 - The authenticated web application is an active learning client; the older description of web as only a landing and administration surface is superseded.
 - Browser storage is less durable than native storage. Interfaces must communicate synchronization state honestly, and no local-only review event may be presented as safely synchronized.

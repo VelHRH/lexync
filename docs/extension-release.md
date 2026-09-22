@@ -50,7 +50,7 @@ After public publication, verify the following with a production account and a r
 - Capture a word and a selected phrase, including the expected learning language and answer language.
 - Confirm captured vocabulary synchronizes to the web client and another signed-in client.
 - Open Learning Mode and verify saved expressions, unsaved capture actions, and the expected active learning language.
-- Complete a scheduled review and a free-practice session, checking that each flow shows the correct material and records its result.
+- Start a learner-initiated Review Session from Home, leave and resume it, complete it, and start another session, checking that each flow shows the correct material and records Review Attempts without due dates or ratings.
 
 ## Rollback and recovery
 

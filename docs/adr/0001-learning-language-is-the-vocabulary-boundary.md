@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-09-01.
+Accepted on 2026-09-01. The Card scheduling and Scheduled Review decisions in this record are superseded by ADR 0002 and the contract phase of issue #104; the Learning Language boundary remains accepted.
 
 ## Context
 
@@ -13,6 +13,8 @@ The product must support one Sense with translations in multiple Answer Language
 The existing Study Pair schema and the recognition scheduling delivered by PR #78 contain valid Learner data and review history. Migration must preserve it.
 
 ## Decision
+
+The scheduling statements below are retained as historical context. ADR 0002 now governs learner-initiated Review Sessions, Review Attempts, and the absence of future schedules.
 
 Learning Language is the durable ownership and session boundary. A Vocabulary Entry belongs to exactly one Learner and one Learning Language. Collections and learning sessions also belong to one Learning Language.
 
@@ -32,7 +34,7 @@ Migration uses an expand-and-contract rollout. Existing Study Pairs remain reada
 
 - The same Expression is no longer duplicated solely because its translations use different Answer Languages.
 - A Learner can keep `casa → house` and `casa → дім` in one Sense.
-- Review scheduling distinguishes Answer Languages without splitting the Learning Language library.
+- Review Card identity distinguishes Answer Languages without splitting the Learning Language library.
 - Client navigation becomes simpler because Learning Language replaces Study Pair as the persistent selector.
 - Cross-client synchronization must include Active Learning Language and Answer Language metadata.
 - Existing Study Pair APIs and columns require a compatibility period and a later contraction ticket.
