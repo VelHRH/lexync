@@ -2,7 +2,7 @@ create extension if not exists dblink;
 
 begin;
 
-select plan(99);
+select plan(98);
 
 insert into auth.users (id)
 values
@@ -32,33 +32,16 @@ select public.capture_manual_entry(
   null
 );
 
-select is((select count(*) from public.cards where learner_id = auth.uid()), 6::bigint, 'legacy Cards exist before unscheduled Review');
-select is((select count(*) from public.review_events where learner_id = auth.uid()), 0::bigint, 'legacy review events start empty');
+select is((select count(*) from public.cards where learner_id = auth.uid()), 6::bigint, 'Cards exist before unscheduled Review');
+select is((select count(*) from public.review_participations where learner_id = auth.uid()), 0::bigint, 'historical participation records start empty');
 
 select set_config(
   'test.learning_language_id',
   (select id::text from public.learning_languages where learner_id = auth.uid() and language_tag = 'es'),
   true
 );
-select set_config(
-  'test.legacy_card_id',
-  (select id::text from public.cards where learner_id = auth.uid() and direction = 'recognition' order by created_at, id limit 1),
-  true
-);
-
-select public.confirm_scheduled_review(
-  current_setting('test.legacy_card_id')::uuid,
-  '11110000-0000-0000-0000-000000000001'::uuid,
-  'good'::public.scheduled_review_rating,
-  '2026-09-19T10:00:00Z'::timestamptz
-);
-select public.start_or_resume_scheduled_review(
-  current_setting('test.learning_language_id')::uuid,
-  array[current_setting('test.legacy_card_id')::uuid]
-);
-select set_config('test.legacy_events', (select count(*)::text from public.review_events where learner_id = auth.uid()), true);
 select set_config('test.legacy_cards', (select count(*)::text from public.cards where learner_id = auth.uid()), true);
-select set_config('test.legacy_scheduled', (select count(*)::text from public.scheduled_review_sessions where learner_id = auth.uid()), true);
+select set_config('test.legacy_participations', (select count(*)::text from public.review_participations where learner_id = auth.uid()), true);
 select set_config('app.review_session_min_questions', '2', true);
 select set_config('app.review_session_max_questions', '2', true);
 select is(public.review_session_eligible_sense_count(current_setting('test.learning_language_id')::uuid), 3::bigint, 'eligible Sense count is distinct and requires legal distractors');
@@ -226,9 +209,8 @@ select lives_ok(
 );
 select is((select status from public.review_sessions where id = current_setting('test.session_id')::uuid), 'completed', 'the completed status is durable after Continue');
 select ok((select completed_at is not null from public.review_sessions where id = current_setting('test.session_id')::uuid), 'completion records its Continue timestamp');
-select is((select count(*) from public.review_events where learner_id = auth.uid()), current_setting('test.legacy_events')::bigint, 'Review Session submission does not append legacy events');
+select is((select count(*) from public.review_participations where learner_id = auth.uid()), current_setting('test.legacy_participations')::bigint, 'Review Session submission does not append historical participation records');
 select is((select count(*) from public.cards where learner_id = auth.uid()), current_setting('test.legacy_cards')::bigint, 'Review Session submission does not change Cards');
-select is((select count(*) from public.scheduled_review_sessions where learner_id = auth.uid()), current_setting('test.legacy_scheduled')::bigint, 'Review Session submission does not change scheduled sessions');
 set local role postgres;
 insert into public.senses (id, learner_id, vocabulary_entry_id)
 select '11140000-0000-0000-0000-000000000001', learner_id, vocabulary_entry_id

@@ -1,6 +1,6 @@
 begin;
 
-select plan(37);
+select plan(36);
 
 select ok(
   exists (
@@ -88,7 +88,7 @@ select is((select count(*) from public.language_pairs), 2::bigint, 'Language Pai
 select is((select answer_language_tag from public.preferred_answer_languages where learner_id = '79797979-7979-7979-7979-797979797979'), 'en', 'a deterministic recent-use tie selects the Preferred Answer Language');
 select is((select count(*) from public.cards), 8::bigint, 'each Sense and Answer Language has recognition and recall Cards');
 select is((select count(distinct (sense_id, answer_language_tag, direction)) from public.cards), 8::bigint, 'Card identity includes Sense, Answer Language, and direction');
-select is((select count(*) from public.review_events), 0::bigint, 'expansion does not invent review events');
+select is((select count(*) from public.review_participations), 0::bigint, 'expansion does not invent historical participation records');
 
 select public.set_vocabulary_entry_suspended((select id from public.vocabulary_entries where learner_id = '79797979-7979-7979-7979-797979797979' limit 1), true);
 select is((select suspended from public.learning_vocabulary_entries where learner_id = '79797979-7979-7979-7979-797979797979'), true, 'canonical suspension follows compatibility writes');
@@ -116,20 +116,11 @@ select ok(
 );
 
 select public.set_vocabulary_entry_suspended((select id from public.vocabulary_entries where learner_id = '79797979-7979-7979-7979-797979797979' and suspended limit 1), false);
-
-select is(
-  (select count(distinct learning_language_id) from public.learning_scheduled_review_overview(
-    (select id from public.learning_languages where learner_id = '79797979-7979-7979-7979-797979797979' and language_tag = 'es')
-  )),
-  1::bigint,
-  'the review contract returns one requested Learning Language'
-);
-select is(
-  (select count(*) from public.learning_scheduled_review_overview(
-    (select id from public.learning_languages where learner_id = '79797979-7979-7979-7979-797979797979' and language_tag = 'fr')
-  )),
-  0::bigint,
-  'the review contract does not mix another Learning Language'
+select ok(
+  not jsonb_path_exists(public.account_learning_snapshot(), '$.cards[*].events')
+    and not jsonb_path_exists(public.account_learning_snapshot(), '$.cards[*].rating')
+    and not jsonb_path_exists(public.account_learning_snapshot(), '$.cards[*].due'),
+  'the Learning Language snapshot omits historical rating and schedule payload'
 );
 
 select set_config(

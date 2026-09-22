@@ -155,14 +155,13 @@ async function continueToNextQuestion(page: Page) {
   const currentPrompt = (await reviewQuestion(page).getByRole('heading', { level: 1 }).innerText()).trim();
   await continueButton(page).click();
   await expect.poll(async () => {
-    const complete = reviewShell(page).getByRole('heading', { name: 'Review complete' });
-    if (await complete.isVisible().catch(() => false)) return true;
+    if (await page.getByRole('heading', { name: 'Review complete', exact: true }).count()) return true;
     const nextQuestion = reviewQuestion(page);
     if (!(await nextQuestion.isVisible().catch(() => false))) return false;
     const nextPrompt = nextQuestion.getByRole('heading', { level: 1 });
     if (!(await nextPrompt.isVisible().catch(() => false))) return false;
     return (await nextPrompt.innerText()).trim() !== currentPrompt;
-  }).toBe(true);
+  }, { timeout: 10_000 }).toBe(true);
 }
 
 async function advance(page: Page) {
@@ -425,6 +424,7 @@ test.describe('web Review Session', () => {
     await startFromHome(page);
     const total = await progressValue(page, 'max');
     const first = await questionSnapshot(page);
+    const completedPrompt = first.prompt;
     const correct = answerMap().get(first.prompt);
     const wrong = (await questionSnapshot(page)).choices.find((choice) => choice !== correct);
     if (!wrong || !correct) throw new Error('The score fixture could not choose a wrong answer.');
@@ -443,11 +443,17 @@ test.describe('web Review Session', () => {
     await expect(missed.getByText(correct, { exact: true }).first()).toBeVisible();
     await expect(result.getByText(/\b(?:due|schedule|rating|again|hard|good|easy)\b/i)).toHaveCount(0);
     await expect(reviewLaunch(page, 'Back to Home')).toBeVisible();
+    const completedEntry = fixture.captured.find((entry) => entry.expression === completedPrompt || entry.translation === completedPrompt);
+    if (!completedEntry) throw new Error('The completed Review fixture prompt is unknown.');
+    const completedBridgeId = await bridgeEntryId(fixture.client, completedEntry.vocabularyEntryId);
+    const { error: suspensionError } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: completedBridgeId });
+    if (suspensionError) throw suspensionError;
     await page.reload();
     await expect(result.getByText(new RegExp(`\\d+/${total}`))).toBeVisible();
     await expect(missed.getByText(wrong, { exact: true }).first()).toBeVisible();
     await result.getByRole('button', { name: 'Start another review' }).click();
     await expect(reviewQuestion(page)).toBeVisible();
+    expect((await questionSnapshot(page)).prompt).not.toBe(completedPrompt);
     await reviewShell(page).getByRole('button', { name: 'Exit' }).click();
     await reviewLaunch(page, 'Resume review').click();
     await expect(reviewQuestion(page)).toBeVisible();

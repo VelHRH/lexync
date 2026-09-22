@@ -74,7 +74,7 @@ function PublicHome() {
           <article>
             <div>
               <h3>Android app</h3>
-              <p>Carry your synchronized library into focused review and Free Practice, with downloaded lessons available offline.</p>
+              <p>Carry your synchronized library into focused Review Sessions, with downloaded lessons available offline.</p>
             </div>
           </article>
         </div>

@@ -86,12 +86,12 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   const [pairs, setPairs] = useState<CompatibilityPair[]>([]);
   const [eligibleSenseCount, setEligibleSenseCount] = useState(0);
   const [reviewSessionStatus, setReviewSessionStatus] = useState<ReviewSessionStatus | null>(null);
-  const [recognitionLoading, setRecognitionLoading] = useState(true);
-  const [recognitionError, setRecognitionError] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(true);
+  const [reviewError, setReviewError] = useState('');
   const [languageDraft, setLanguageDraft] = useState('');
   const [languageSaving, setLanguageSaving] = useState(false);
   const [removingLanguageId, setRemovingLanguageId] = useState('');
-  const recognitionRequestId = useRef(0);
+  const reviewRequestId = useRef(0);
   const online = useOnlineStatus();
   const learnerId = session?.user.id;
   const loadLanguages = useCallback(async (): Promise<string | null> => {
@@ -127,36 +127,36 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
     })));
   }, []);
 
-  const effectiveRecognitionLanguageId = activeLanguageId;
+  const effectiveReviewLanguageId = activeLanguageId;
 
-  const refreshRecognitionCards = useCallback(async (learningLanguageId: string) => {
-    const requestId = ++recognitionRequestId.current;
+  const refreshReviewState = useCallback(async (learningLanguageId: string) => {
+    const requestId = ++reviewRequestId.current;
     if (!learningLanguageId) {
-      if (requestId !== recognitionRequestId.current) return;
+      if (requestId !== reviewRequestId.current) return;
       setEligibleSenseCount(0);
       setReviewSessionStatus(null);
-      setRecognitionLoading(false);
+      setReviewLoading(false);
       return;
     }
-    setRecognitionLoading(true);
+    setReviewLoading(true);
     const [{ data: eligibleData, error: eligibleError }, { data: reviewData, error: reviewError }] = await Promise.all([
       supabase.rpc('review_session_eligible_sense_count', { p_learning_language_id: learningLanguageId }),
       supabase.rpc('review_session_overview', { p_learning_language_id: learningLanguageId }),
     ]);
-    if (requestId !== recognitionRequestId.current) return;
+    if (requestId !== reviewRequestId.current) return;
     if (eligibleError || reviewError) {
-      setRecognitionError(eligibleError?.message ?? reviewError?.message ?? 'Review could not be loaded.');
+      setReviewError(eligibleError?.message ?? reviewError?.message ?? 'Review could not be loaded.');
       setEligibleSenseCount(0);
       setReviewSessionStatus(null);
-      setRecognitionLoading(false);
+      setReviewLoading(false);
       return;
     }
-    setRecognitionError('');
+    setReviewError('');
     const parsedEligibleSenseCount = typeof eligibleData === 'number' ? eligibleData : Number(eligibleData);
     setEligibleSenseCount(Number.isFinite(parsedEligibleSenseCount) ? parsedEligibleSenseCount : 0);
     const reviewPayload = reviewData && typeof reviewData === 'object' && !Array.isArray(reviewData) ? reviewData as { status?: unknown } : null;
     setReviewSessionStatus(reviewPayload?.status === 'active' || reviewPayload?.status === 'completed' ? reviewPayload.status : null);
-    setRecognitionLoading(false);
+    setReviewLoading(false);
   }, []);
 
   useEffect(() => {
@@ -175,9 +175,9 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   }, [learnerId, loadLanguages, loadPairs]);
 
   useEffect(() => {
-    if (!session || !effectiveRecognitionLanguageId) return;
-    queueMicrotask(() => void refreshRecognitionCards(effectiveRecognitionLanguageId));
-  }, [effectiveRecognitionLanguageId, refreshRecognitionCards, session]);
+    if (!session || !effectiveReviewLanguageId) return;
+    queueMicrotask(() => void refreshReviewState(effectiveReviewLanguageId));
+  }, [effectiveReviewLanguageId, refreshReviewState, session]);
 
   useEffect(() => {
     if (!session) return;
@@ -306,13 +306,13 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
         <section className="app-content app-content-canvas" aria-labelledby="app-heading">
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
-          {activeSection === 'Home' && !recognitionLoading && <section className="review-availability" data-ui="visual-primitive" aria-label="Review availability">
+          {activeSection === 'Home' && !reviewLoading && <section className="review-availability" data-ui="visual-primitive" aria-label="Review availability">
             <div className="review-availability-row"><span>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></span>{canLaunchReview ? <Link className="secondary-button" href="/review">{reviewLaunchLabel}</Link> : <button className="secondary-button" type="button" disabled>{reviewLaunchLabel}</button>}</div>
             {!reviewAvailable && reviewSessionStatus !== 'active' && <p className="review-unavailable">Review requires at least two eligible Senses.</p>}
           </section>}
           {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
-          {recognitionError && <p className="form-notice error" role="alert">Unable to load Review: {recognitionError}</p>}
-          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary...</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshRecognitionCards(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
+          {reviewError && <p className="form-notice error" role="alert">Unable to load Review: {reviewError}</p>}
+          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary...</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshReviewState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Collections' && <Collections key={activeLanguage.id} language={activeLanguage} />}
           {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
             <h2 id="learning-languages-heading">Learning Languages</h2>
