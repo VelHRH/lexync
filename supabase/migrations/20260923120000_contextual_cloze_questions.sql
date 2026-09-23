@@ -302,6 +302,7 @@ declare
   ordinal integer := 0;
   translation_ordinal integer := 0;
   cloze_target_count integer := 0;
+  final_is_cloze boolean;
   setting_value text;
   selected_sense record;
 begin
@@ -574,8 +575,9 @@ begin
     selected_choice_vocabulary_entry_ids := null;
     selected_answer_language_tag := selected_sense.answer_language_tag;
     selected_correct_answer := selected_sense.translation;
+    final_is_cloze := selected_sense.is_cloze;
 
-    if selected_sense.is_cloze then
+    if final_is_cloze then
       selected_prompt := selected_sense.cloze_prompt;
       selected_correct_answer := selected_sense.expression;
       selected_answer_language_tag := null;
@@ -612,7 +614,13 @@ begin
       into selected_choices, selected_choice_vocabulary_entry_ids
       from all_choices;
       selected_direction := null;
-    else
+    end if;
+
+    if not final_is_cloze or cardinality(coalesce(selected_choices, array[]::text[])) < 2 then
+      final_is_cloze := false;
+      selected_choice_vocabulary_entry_ids := null;
+      selected_answer_language_tag := selected_sense.answer_language_tag;
+      selected_correct_answer := selected_sense.translation;
       translation_ordinal := translation_ordinal + 1;
       selected_direction := case
         when translation_ordinal = 1 then first_direction
@@ -718,40 +726,7 @@ begin
       end if;
     end if;
 
-    if cardinality(selected_choices) < 2 then
-      if selected_sense.is_cloze then
-        translation_ordinal := translation_ordinal + 1;
-        selected_direction := case
-          when translation_ordinal = 1 then first_direction
-          when translation_ordinal % 2 = 0 then case when first_direction = 'recognition' then 'recall' else 'recognition' end
-          else first_direction
-        end;
-        selected_answer_language_tag := selected_sense.answer_language_tag;
-        selected_correct_answer := selected_sense.translation;
-        selected_prompt := case when selected_direction = 'recognition' then selected_sense.expression else selected_sense.translation end;
-        selected_choice_sense_ids := null;
-
-        with choices as (
-          select selected_correct_answer as text, selected_sense.sense_id as sense_id, random() as shuffle
-          union all
-          select translations.text, senses.id, random()
-          from public.translations
-          join public.senses on senses.id = translations.sense_id and senses.learner_id = translations.learner_id
-          join public.vocabulary_entries on vocabulary_entries.id = senses.vocabulary_entry_id and vocabulary_entries.learner_id = senses.learner_id
-          where translations.learner_id = current_learner_id
-            and senses.id <> selected_sense.sense_id
-            and vocabulary_entries.learning_language_id = p_learning_language_id
-            and length(btrim(translations.text)) > 0
-          order by random()
-          limit 3
-        )
-        select array_agg(text order by shuffle, sense_id), array_agg(sense_id order by shuffle, sense_id)
-        into selected_choices, selected_choice_sense_ids
-        from choices;
-      end if;
-    end if;
-
-    if cardinality(selected_choices) < 2 then
+    if cardinality(coalesce(selected_choices, array[]::text[])) < 2 then
       continue;
     end if;
 
@@ -774,12 +749,12 @@ begin
       selected_sense.sense_id,
       ordinal,
       selected_prompt,
-      case when selected_sense.is_cloze and selected_choice_vocabulary_entry_ids is not null then 'cloze' else 'translation' end,
-      case when selected_sense.is_cloze and selected_choice_vocabulary_entry_ids is not null then null else selected_direction end,
-      case when selected_sense.is_cloze and selected_choice_vocabulary_entry_ids is not null then null else selected_answer_language_tag end,
+      case when final_is_cloze then 'cloze' else 'translation' end,
+      case when final_is_cloze then null else selected_direction end,
+      case when final_is_cloze then null else selected_answer_language_tag end,
       selected_choices,
-      case when selected_sense.is_cloze and selected_choice_vocabulary_entry_ids is not null then null else selected_choice_sense_ids end,
-      case when selected_sense.is_cloze and selected_choice_vocabulary_entry_ids is not null then selected_choice_vocabulary_entry_ids else null end,
+      case when final_is_cloze then null else selected_choice_sense_ids end,
+      case when final_is_cloze then selected_choice_vocabulary_entry_ids else null end,
       selected_correct_answer
     );
   end loop;
