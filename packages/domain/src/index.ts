@@ -221,6 +221,62 @@ export function isVocabularyEntryLearningEligible(entry: LearningEligibleVocabul
   return entry.studyPairId === activeStudyPairId && !entry.suspended;
 }
 
+function normalizeClozeText(value: string): string {
+  return value.normalize('NFC').trim().replace(/\s+/gu, ' ');
+}
+
+function escapedRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function isClozeWordCharacter(value: string | undefined): boolean {
+  return value !== undefined && /[\p{L}\p{N}_]/u.test(value);
+}
+
+export function buildClozePrompt(example: string, expression: string): string | null {
+  const normalizedExample = normalizeClozeText(example);
+  const normalizedExpression = normalizeClozeText(expression);
+
+  if (!normalizedExample || !normalizedExpression) {
+    return null;
+  }
+
+  const occurrencePattern = new RegExp(escapedRegExp(normalizedExpression), 'giu');
+  const occurrences: RegExpExecArray[] = [];
+  let occurrence: RegExpExecArray | null;
+
+  while ((occurrence = occurrencePattern.exec(normalizedExample)) !== null) {
+    const startCharacter = [...normalizedExample.slice(0, occurrence.index)].at(-1);
+    const endCharacter = [...normalizedExample.slice(occurrence.index + occurrence[0].length)][0];
+
+    if (!isClozeWordCharacter(startCharacter) && !isClozeWordCharacter(endCharacter)) {
+      occurrences.push(occurrence);
+    }
+  }
+
+  if (occurrences.length !== 1) {
+    return null;
+  }
+
+  const match = occurrences[0];
+  if (!match) {
+    return null;
+  }
+
+  return `${normalizedExample.slice(0, match.index)}_____${normalizedExample.slice(match.index + match[0].length)}`;
+}
+
+export function clozeQuestionTargetCount(sessionSize: number, eligibleCount: number): number {
+  const normalizedSessionSize = Number.isFinite(sessionSize) ? Math.floor(sessionSize) : 0;
+  const normalizedEligibleCount = Number.isFinite(eligibleCount) ? Math.floor(eligibleCount) : 0;
+
+  if (normalizedSessionSize < 2 || normalizedEligibleCount <= 0) {
+    return 0;
+  }
+
+  return Math.min(normalizedEligibleCount, Math.floor(normalizedSessionSize / 2));
+}
+
 function typedRecallAnswerIdentity(value: string): string | null {
   const identity = value
     .normalize('NFC')
