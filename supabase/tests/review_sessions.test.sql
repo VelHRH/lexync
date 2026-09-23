@@ -893,7 +893,21 @@ select is((select count(*) from public.review_attempts where session_id = curren
 select is((select question_type from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 'cloze', 'the Cloze Attempt stores its question type');
 select is((select direction from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), null, 'the Cloze Attempt stores no translation direction');
 select is((select is_correct from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), true, 'the Cloze Attempt scores the correct Expression');
-select is((public.submit_review_session_answer(current_setting('test.cloze_session_id')::uuid, current_setting('test.cloze_question_id')::uuid, 'wrong')->'questions'->0->>'selected_answer'), current_setting('test.cloze_correct_answer'), 'retrying a Cloze submission preserves the first answer');
+select is(
+  (
+    select question->>'selected_answer'
+    from jsonb_array_elements(
+      public.submit_review_session_answer(
+        current_setting('test.cloze_session_id')::uuid,
+        current_setting('test.cloze_question_id')::uuid,
+        'wrong'
+      )->'questions'
+    ) as question
+    where question->>'id' = current_setting('test.cloze_question_id')
+  ),
+  current_setting('test.cloze_correct_answer'),
+  'retrying a Cloze submission preserves the first answer'
+);
 select is((select count(*) from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 1::bigint, 'retrying a Cloze submission is idempotent');
 select set_config('test.unanswered_cloze_question_id', (select id::text from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'cloze' and selected_answer is null and id <> current_setting('test.cloze_question_id')::uuid order by ordinal limit 1), true);
 select set_config('test.unanswered_cloze_entry_id', (select vocabulary_entry_id::text from public.senses join public.review_session_questions on review_session_questions.sense_id = senses.id where review_session_questions.id = current_setting('test.unanswered_cloze_question_id')::uuid), true);

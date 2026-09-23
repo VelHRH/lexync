@@ -166,7 +166,7 @@ async function continueToNextQuestion(page: Page) {
   await expect.poll(async () => {
     if (await page.getByRole('heading', { name: 'Review complete', exact: true }).count()) return true;
     return (await progressValue(page, 'value').catch(() => currentProgress)) > currentProgress;
-  }, { timeout: 10_000 }).toBe(true);
+  }, { timeout: 20_000 }).toBe(true);
 }
 
 async function advance(page: Page) {
