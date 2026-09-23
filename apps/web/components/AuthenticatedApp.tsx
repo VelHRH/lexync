@@ -14,6 +14,7 @@ import { ReviewSession } from './ReviewSession';
 import { VocabularyLibrary } from './VocabularyLibrary';
 import { Collections } from './Collections';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
+import { ReviewHistory } from './ReviewHistory';
 
 const destinations = [
   ['Home', '/'],
@@ -32,6 +33,7 @@ function toLearningLanguage(row: LearningLanguageRow): LearningLanguage {
 
 function sectionLabel(section: string) {
   if (section.toLowerCase() === 'review') return 'Review';
+  if (section.toLowerCase() === 'review-history') return 'Review history';
   return destinations.find(([label]) => label.toLowerCase() === section.toLowerCase())?.[0] ?? section;
 }
 
@@ -306,14 +308,15 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
         <section className="app-content app-content-canvas" aria-labelledby="app-heading">
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
-          {activeSection === 'Home' && !reviewLoading && <section className="review-availability" data-ui="visual-primitive" aria-label="Review availability">
-            <div className="review-availability-row"><span>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></span>{canLaunchReview ? <Link className="secondary-button" href="/review">{reviewLaunchLabel}</Link> : <button className="secondary-button" type="button" disabled>{reviewLaunchLabel}</button>}</div>
-            {!reviewAvailable && reviewSessionStatus !== 'active' && <p className="review-unavailable">Review requires at least two eligible Senses.</p>}
+          {activeSection === 'Home' && <section className="review-availability" data-ui="visual-primitive" aria-label="Review availability">
+            <div className="review-availability-row"><span>{reviewLoading ? 'Loading Review availability…' : <>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></>}</span><span className="review-availability-actions">{!reviewLoading && (canLaunchReview ? <Link className="secondary-button" href="/review">{reviewLaunchLabel}</Link> : <button className="secondary-button" type="button" disabled>{reviewLaunchLabel}</button>)}<Link className="text-link" href="/review-history">Review history</Link></span></div>
+            {!reviewLoading && !reviewAvailable && reviewSessionStatus !== 'active' && <p className="review-unavailable">Review requires at least two eligible Senses.</p>}
           </section>}
           {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
           {reviewError && <p className="form-notice error" role="alert">Unable to load Review: {reviewError}</p>}
           {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary...</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshReviewState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Collections' && <Collections key={activeLanguage.id} language={activeLanguage} />}
+          {activeSection === 'Review history' && <ReviewHistory key={activeLanguage.id} learningLanguageId={activeLanguage.id} learningLanguageTag={activeLanguage.languageTag} />}
           {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
             <h2 id="learning-languages-heading">Learning Languages</h2>
             <form className="web-auth-form" onSubmit={addLanguage}>
@@ -329,7 +332,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
               </li>)}
             </ul>
           </section>}
-          {!['Home', 'Review', 'Library', 'Collections', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
+          {!['Home', 'Review', 'Review history', 'Library', 'Collections', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
         </section>
       </div>
     </main>
