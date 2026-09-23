@@ -2,7 +2,7 @@ create extension if not exists dblink;
 
 begin;
 
-select plan(98);
+select plan(150);
 
 insert into auth.users (id)
 values
@@ -670,6 +670,322 @@ and learner_id = '11111111-1111-1111-1111-111111111111';
 set local role authenticated;
 select is((select count(*) from public.review_attempts where session_id = current_setting('test.session_id')::uuid), 0::bigint, 'deleting each Vocabulary Entry removes its owned Attempt details');
 
+set local role postgres;
+insert into auth.users (id)
+values ('44444444-4444-4444-4444-444444444444');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '44444444-4444-4444-4444-444444444444', true);
+select public.create_study_pair('fr', 'en');
+select public.capture_manual_entry(
+  (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'fr'),
+  'casa',
+  'house',
+  'Ma casa est grande.'
+);
+select public.capture_manual_entry(
+  (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'fr'),
+  'CAFÉ',
+  'coffee',
+  U&'Un cafe\0301 est chaud.'
+);
+select public.capture_manual_entry(
+  (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'fr'),
+  'NUBE',
+  'cloud',
+  'La nube se mueve.'
+);
+select public.capture_manual_entry(
+  (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'fr'),
+  'sol',
+  'sun',
+  'La luz brilla.'
+);
+select public.capture_manual_entry(
+  (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'fr'),
+  'pez',
+  'fish',
+  'Un pez y otro pez.'
+);
+select public.capture_manual_entry(
+  (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'fr'),
+  'pan',
+  'bread',
+  'El pantalon es azul.'
+);
+select set_config(
+  'test.cloze_learning_language_id',
+  (select id::text from public.learning_languages where learner_id = auth.uid() and language_tag = 'fr'),
+  true
+);
+select set_config('app.review_session_min_questions', '6', true);
+select set_config('app.review_session_max_questions', '6', true);
+select is(public.review_session_eligible_sense_count(current_setting('test.cloze_learning_language_id')::uuid), 6::bigint, 'Cloze fixture has six eligible Senses');
+select lives_ok(
+  $$select public.start_or_resume_review_session(current_setting('test.cloze_learning_language_id')::uuid)$$,
+  'Cloze fixture starts through the Review RPC'
+);
+select set_config(
+  'test.cloze_session_id',
+  (public.start_or_resume_review_session(current_setting('test.cloze_learning_language_id')::uuid)->>'id'),
+  true
+);
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid), 6::bigint, 'Cloze fixture creates the requested session size');
+select is((select count(distinct sense_id) from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid), 6::bigint, 'a Sense appears at most once in the mixed queue');
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'cloze'), 3::bigint, 'Cloze allocation targets half the session');
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'translation'), 3::bigint, 'the mixed queue retains translation Questions');
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'cloze' and direction is null and answer_language_tag is null), 3::bigint, 'Cloze Questions have no translation direction or Answer Language');
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'translation' and direction in ('recognition', 'recall') and answer_language_tag = 'en'), 3::bigint, 'translation Questions retain direction and Answer Language');
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'translation' and choice_vocabulary_entry_ids is null), 3::bigint, 'translation Questions use Sense choice provenance');
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'cloze' and choice_sense_ids is null), 3::bigint, 'Cloze Questions use Vocabulary Entry choice provenance');
+select ok(
+  not exists (
+    select 1
+    from (
+      select direction, row_number() over (order by ordinal) as translation_ordinal
+      from public.review_session_questions
+      where session_id = current_setting('test.cloze_session_id')::uuid
+        and question_type = 'translation'
+    ) as translations
+    join (
+      select direction, row_number() over (order by ordinal) as translation_ordinal
+      from public.review_session_questions
+      where session_id = current_setting('test.cloze_session_id')::uuid
+        and question_type = 'translation'
+    ) as previous_translations
+      on previous_translations.translation_ordinal = translations.translation_ordinal - 1
+    where translations.direction = previous_translations.direction
+  ),
+  'translation directions alternate when Cloze Questions are ignored'
+);
+select is(
+  (
+    select count(*)
+    from public.review_session_questions as questions
+    join public.senses on senses.id = questions.sense_id
+    join public.vocabulary_entries on vocabulary_entries.id = senses.vocabulary_entry_id
+    where questions.session_id = current_setting('test.cloze_session_id')::uuid
+      and questions.question_type = 'cloze'
+      and vocabulary_entries.expression in ('casa', 'CAFÉ', 'NUBE')
+  ),
+  3::bigint,
+  'Cloze eligibility accepts case and canonical Unicode variants'
+);
+select is(
+  (
+    select count(*)
+    from public.review_session_questions as questions
+    join public.senses on senses.id = questions.sense_id
+    join public.vocabulary_entries on vocabulary_entries.id = senses.vocabulary_entry_id
+    where questions.session_id = current_setting('test.cloze_session_id')::uuid
+      and questions.question_type = 'cloze'
+      and vocabulary_entries.expression in ('sol', 'pez', 'pan')
+  ),
+  0::bigint,
+  'Cloze eligibility rejects missing, repeated, and partial-word Examples'
+);
+select ok(
+  (
+    select coalesce(bool_and(prompt like '%_____%'), false)
+    from public.review_session_questions
+    where session_id = current_setting('test.cloze_session_id')::uuid
+      and question_type = 'cloze'
+  ),
+  'Cloze prompts persist a blanked Example'
+);
+select ok(
+  (
+    select coalesce(bool_and(cardinality(choices) between 2 and 4), false)
+    from public.review_session_questions
+    where session_id = current_setting('test.cloze_session_id')::uuid
+      and question_type = 'cloze'
+  ),
+  'Cloze choices have two to four options'
+);
+select ok(
+  (
+    select coalesce(bool_and(cardinality(choice_vocabulary_entry_ids) = cardinality(choices)), false)
+    from public.review_session_questions
+    where session_id = current_setting('test.cloze_session_id')::uuid
+      and question_type = 'cloze'
+  ),
+  'Cloze choices persist aligned Vocabulary Entry provenance'
+);
+select ok(
+  not exists (
+    select 1
+    from public.review_session_questions as questions
+    cross join lateral unnest(questions.choice_vocabulary_entry_ids) as choice(vocabulary_entry_id)
+    where questions.session_id = current_setting('test.cloze_session_id')::uuid
+      and questions.question_type = 'cloze'
+    group by questions.id
+    having count(*) <> count(distinct choice.vocabulary_entry_id)
+  ),
+  'Cloze choice provenance is distinct'
+);
+select ok(
+  (
+    select coalesce(bool_and(correct_answer = any(choices)), false)
+    from public.review_session_questions
+    where session_id = current_setting('test.cloze_session_id')::uuid
+      and question_type = 'cloze'
+  ),
+  'Cloze choices include the reviewed Expression'
+);
+select is(
+  (
+    select count(*)
+    from public.review_session_questions as questions
+    cross join lateral unnest(questions.choices, questions.choice_vocabulary_entry_ids) as choice(text, vocabulary_entry_id)
+    join public.vocabulary_entries on vocabulary_entries.id = choice.vocabulary_entry_id
+    where questions.session_id = current_setting('test.cloze_session_id')::uuid
+      and questions.question_type = 'cloze'
+      and (vocabulary_entries.learning_language_id <> current_setting('test.cloze_learning_language_id')::uuid or vocabulary_entries.suspended)
+  ),
+  0::bigint,
+  'Cloze choices stay within the active Learning Language'
+);
+select is(
+  (
+    select count(*)
+    from public.review_session_questions as questions
+    join public.senses on senses.id = questions.sense_id
+    cross join lateral unnest(questions.choices, questions.choice_vocabulary_entry_ids) as choice(text, vocabulary_entry_id)
+    join public.vocabulary_entries on vocabulary_entries.id = choice.vocabulary_entry_id
+    where questions.session_id = current_setting('test.cloze_session_id')::uuid
+      and questions.question_type = 'cloze'
+      and choice.vocabulary_entry_id <> senses.vocabulary_entry_id
+      and public.expression_identity(vocabulary_entries.expression) = public.expression_identity(questions.correct_answer)
+  ),
+  0::bigint,
+  'Cloze choices exclude same-entry and equivalent-expression distractors'
+);
+select set_config('test.cloze_question_id', (select id::text from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'cloze' order by ordinal limit 1), true);
+select set_config('test.cloze_entry_id', (select vocabulary_entry_id::text from public.senses join public.review_session_questions on review_session_questions.sense_id = senses.id where review_session_questions.id = current_setting('test.cloze_question_id')::uuid), true);
+select set_config('test.cloze_prompt', (select prompt from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), true);
+select set_config('test.cloze_choices', (select choices::text from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), true);
+select set_config('test.cloze_correct_answer', (select correct_answer from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), true);
+select is((public.start_or_resume_review_session(current_setting('test.cloze_learning_language_id')::uuid)->>'id'), current_setting('test.cloze_session_id'), 'resuming preserves the mixed Cloze snapshot');
+select is((select question_type from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), 'cloze', 'resuming preserves the Cloze question type');
+select is((select choices::text from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), current_setting('test.cloze_choices'), 'resuming preserves Cloze choices');
+select is((select correct_answer from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), current_setting('test.cloze_correct_answer'), 'resuming preserves the Cloze correct answer');
+set local role postgres;
+update public.examples
+set text = text || ' edited'
+where sense_id = (select sense_id from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid);
+update public.vocabulary_entries
+set expression = expression || '-edited'
+where id = current_setting('test.cloze_entry_id')::uuid;
+set local role authenticated;
+select is((select prompt from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), current_setting('test.cloze_prompt'), 'source Example edits do not change the Cloze prompt snapshot');
+select is((select question_type from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), 'cloze', 'source Expression edits do not change the Cloze question type');
+select is((select choices::text from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), current_setting('test.cloze_choices'), 'source Expression edits do not change the Cloze choices snapshot');
+select is((select correct_answer from public.review_session_questions where id = current_setting('test.cloze_question_id')::uuid), current_setting('test.cloze_correct_answer'), 'source Expression edits do not change the Cloze correct answer snapshot');
+select lives_ok(
+  format(
+    $$select public.submit_review_session_answer(%L::uuid, %L::uuid, %L)$$,
+    current_setting('test.cloze_session_id'),
+    current_setting('test.cloze_question_id'),
+    current_setting('test.cloze_correct_answer')
+  ),
+  'a Cloze answer is submitted through the existing Review RPC'
+);
+select is((select count(*) from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 1::bigint, 'a Cloze submission creates one Attempt');
+select is((select question_type from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 'cloze', 'the Cloze Attempt stores its question type');
+select is((select direction from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), null, 'the Cloze Attempt stores no translation direction');
+select is((select is_correct from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), true, 'the Cloze Attempt scores the correct Expression');
+select is(
+  (
+    select question->>'selected_answer'
+    from jsonb_array_elements(
+      public.submit_review_session_answer(
+        current_setting('test.cloze_session_id')::uuid,
+        current_setting('test.cloze_question_id')::uuid,
+        'wrong'
+      )->'questions'
+    ) as question
+    where question->>'id' = current_setting('test.cloze_question_id')
+  ),
+  current_setting('test.cloze_correct_answer'),
+  'retrying a Cloze submission preserves the first answer'
+);
+select is((select count(*) from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 1::bigint, 'retrying a Cloze submission is idempotent');
+select set_config('test.unanswered_cloze_question_id', (select id::text from public.review_session_questions where session_id = current_setting('test.cloze_session_id')::uuid and question_type = 'cloze' and selected_answer is null and id <> current_setting('test.cloze_question_id')::uuid order by ordinal limit 1), true);
+select set_config('test.unanswered_cloze_entry_id', (select vocabulary_entry_id::text from public.senses join public.review_session_questions on review_session_questions.sense_id = senses.id where review_session_questions.id = current_setting('test.unanswered_cloze_question_id')::uuid), true);
+select public.set_vocabulary_entry_suspended(current_setting('test.unanswered_cloze_entry_id')::uuid, true);
+select public.review_session_overview(current_setting('test.cloze_learning_language_id')::uuid);
+select is((select count(*) from public.review_session_questions where id = current_setting('test.unanswered_cloze_question_id')::uuid), 0::bigint, 'suspending an unanswered Cloze owner prunes its question');
+select is((select count(*) from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 1::bigint, 'suspension preserves the submitted Cloze Attempt');
+set local role postgres;
+delete from public.vocabulary_entries where id = current_setting('test.cloze_entry_id')::uuid;
+set local role authenticated;
+select is((select count(*) from public.review_attempts where session_id = current_setting('test.cloze_session_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 0::bigint, 'deleting a Cloze Vocabulary Entry removes its Attempt');
+select public.create_study_pair('de', 'en');
+select public.capture_manual_entry((select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'de'), 'haus', 'house', 'Das haus haus ist alt.');
+select public.capture_manual_entry((select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'de'), 'baum', 'tree', 'Der wald ist grün.');
+select public.capture_manual_entry((select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'de'), 'stern', 'star', 'Der sternenhimmel ist hell.');
+select set_config('test.fallback_language_id', (select id::text from public.learning_languages where learner_id = auth.uid() and language_tag = 'de'), true);
+select set_config('app.review_session_min_questions', '3', true);
+select set_config('app.review_session_max_questions', '3', true);
+select lives_ok($$select public.start_or_resume_review_session(current_setting('test.fallback_language_id')::uuid)$$, 'insufficient Cloze material falls back to translation Review');
+select is((select count(*) from public.review_session_questions where session_id = (select id from public.review_sessions where learner_id = auth.uid() and learning_language_id = current_setting('test.fallback_language_id')::uuid and status = 'active')), 3::bigint, 'fallback Review retains eligible translation Questions');
+select is((select count(*) from public.review_session_questions where session_id = (select id from public.review_sessions where learner_id = auth.uid() and learning_language_id = current_setting('test.fallback_language_id')::uuid and status = 'active') and question_type = 'cloze'), 0::bigint, 'invalid or insufficient Examples produce no Cloze Questions');
+select is((select count(*) from public.review_session_questions where session_id = (select id from public.review_sessions where learner_id = auth.uid() and learning_language_id = current_setting('test.fallback_language_id')::uuid and status = 'active') and question_type = 'translation'), 3::bigint, 'fallback Questions remain translations');
+
+select public.create_study_pair('it', 'en');
+select public.capture_manual_entry((select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'it'), 'sole', 'sun', 'Il sole splende.');
+select public.capture_manual_entry((select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'it'), 'luna', 'moon', null);
+select set_config('test.adaptive_cloze_language_id', (select id::text from public.learning_languages where learner_id = auth.uid() and language_tag = 'it'), true);
+select set_config('app.review_session_min_questions', '2', true);
+select set_config('app.review_session_max_questions', '2', true);
+select is(public.review_session_eligible_sense_count(current_setting('test.adaptive_cloze_language_id')::uuid), 2::bigint, 'adaptive Cloze fixture has two translation-eligible Senses');
+select lives_ok($$select public.start_or_resume_review_session(current_setting('test.adaptive_cloze_language_id')::uuid)$$, 'adaptive Cloze fixture starts a Review Session');
+select set_config('test.adaptive_cloze_session_id', (public.start_or_resume_review_session(current_setting('test.adaptive_cloze_language_id')::uuid)->>'id'), true);
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.adaptive_cloze_session_id')::uuid), 2::bigint, 'adaptive Cloze fixture creates two Questions');
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.adaptive_cloze_session_id')::uuid and question_type = 'cloze'), 1::bigint, 'adaptive Cloze allocation includes one Cloze Question');
+select is((select count(*) from public.review_session_questions where session_id = current_setting('test.adaptive_cloze_session_id')::uuid and question_type = 'translation'), 1::bigint, 'adaptive Cloze allocation retains one translation Question');
+select is((select cardinality(choices) from public.review_session_questions where session_id = current_setting('test.adaptive_cloze_session_id')::uuid and question_type = 'cloze'), 2, 'a two-Entry Learning Language adapts Cloze choices to two');
+select is((select cardinality(choice_vocabulary_entry_ids) from public.review_session_questions where session_id = current_setting('test.adaptive_cloze_session_id')::uuid and question_type = 'cloze'), 2, 'adaptive Cloze choices retain both Entry provenance values');
+select ok(
+  (
+    select count(*) = 2
+      and count(distinct choice.vocabulary_entry_id) = 2
+      and bool_and(
+        not vocabulary_entries.suspended
+        and not learning_vocabulary_entries.suspended
+        and vocabulary_entries.learning_language_id = current_setting('test.adaptive_cloze_language_id')::uuid
+        and learning_vocabulary_entries.learning_language_id = current_setting('test.adaptive_cloze_language_id')::uuid
+      )
+    from public.review_session_questions as questions
+    cross join lateral unnest(questions.choice_vocabulary_entry_ids) as choice(vocabulary_entry_id)
+    join public.vocabulary_entries on vocabulary_entries.id = choice.vocabulary_entry_id
+    join public.learning_vocabulary_entries on learning_vocabulary_entries.id = vocabulary_entries.learning_vocabulary_entry_id
+    where questions.session_id = current_setting('test.adaptive_cloze_session_id')::uuid
+      and questions.question_type = 'cloze'
+  ),
+  'adaptive Cloze provenance identifies distinct active Entries'
+);
+select ok(
+  (
+    select correct_answer = any(choices)
+    from public.review_session_questions
+    where session_id = current_setting('test.adaptive_cloze_session_id')::uuid
+      and question_type = 'cloze'
+  ),
+  'adaptive Cloze choices include the reviewed Expression'
+);
+select ok(
+  (
+    select cardinality(choices) >= 2
+    from public.review_session_questions
+    where session_id = current_setting('test.adaptive_cloze_session_id')::uuid
+      and question_type = 'translation'
+  ),
+  'the mixed adaptive session retains a valid translation choice set'
+);
+
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+select set_config('app.review_session_min_questions', '2', true);
+select set_config('app.review_session_max_questions', '2', true);
 select public.capture_manual_entry(
   (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'es'),
   'sol',

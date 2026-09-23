@@ -14,6 +14,9 @@ type CapturedEntry = {
   vocabularyEntryId: string;
 };
 
+type ReviewQuestionType = 'cloze' | 'translation';
+type ReviewDirection = 'recognition' | 'recall' | null;
+
 const vocabulary = [
   ['casa', 'house'],
   ['perro', 'dog'],
@@ -60,12 +63,12 @@ async function captureEntry(
   expression: string,
   translation: string,
   answerLanguageTag = 'en',
-  options: { createNewSense?: boolean; senseId?: string } = {},
+  options: { createNewSense?: boolean; example?: string; senseId?: string } = {},
 ) {
   const { data, error } = await client.rpc('capture_learning_language_entry', {
     p_answer_language_tag: answerLanguageTag,
     p_create_new_sense: options.createNewSense ?? false,
-    p_example: null,
+    p_example: options.example ?? null,
     p_expression: expression,
     p_learning_language_id: learningLanguageId,
     p_sense_id: options.senseId ?? null,
@@ -122,10 +125,16 @@ async function questionSnapshot(page: Page) {
     const count = await answerChoices(page).count();
     return count >= 2 && count <= 4;
   }).toBe(true);
+  const type: ReviewQuestionType = await question.getByText('Cloze', { exact: true }).count() ? 'cloze' : 'translation';
+  const direction: ReviewDirection = type === 'cloze'
+    ? null
+    : (await question.getByText(/^(Recognition|Recall)(?: · .+)?$/).innerText()).split(' · ')[0] as Exclude<ReviewDirection, null>;
   return {
     choices: await answerChoices(page).evaluateAll((elements) => elements.map((element) => element.closest('label')?.textContent?.replace(/\s+/g, ' ').trim() ?? element.getAttribute('aria-label') ?? '')),
+    direction,
     prompt: (await question.getByRole('heading', { level: 1 }).innerText()).trim(),
     text: (await question.innerText()).replace(/\s+/g, ' ').trim(),
+    type,
   };
 }
 
@@ -152,16 +161,12 @@ async function progressValue(page: Page, property: 'max' | 'value') {
 }
 
 async function continueToNextQuestion(page: Page) {
-  const currentPrompt = (await reviewQuestion(page).getByRole('heading', { level: 1 }).innerText()).trim();
+  const currentProgress = await progressValue(page, 'value');
   await continueButton(page).click();
   await expect.poll(async () => {
     if (await page.getByRole('heading', { name: 'Review complete', exact: true }).count()) return true;
-    const nextQuestion = reviewQuestion(page);
-    if (!(await nextQuestion.isVisible().catch(() => false))) return false;
-    const nextPrompt = nextQuestion.getByRole('heading', { level: 1 });
-    if (!(await nextPrompt.isVisible().catch(() => false))) return false;
-    return (await nextPrompt.innerText()).trim() !== currentPrompt;
-  }, { timeout: 10_000 }).toBe(true);
+    return (await progressValue(page, 'value').catch(() => currentProgress)) > currentProgress;
+  }, { timeout: 20_000 }).toBe(true);
 }
 
 async function advance(page: Page) {
@@ -172,18 +177,20 @@ async function advance(page: Page) {
 
 async function completeSession(page: Page, answers = new Map<string, string>()) {
   const prompts: string[] = [];
-  const directions: string[] = [];
+  const directions: ReviewDirection[] = [];
+  const types: ReviewQuestionType[] = [];
   const choiceSets: string[][] = [];
   while (await reviewQuestion(page).count()) {
     const snapshot = await questionSnapshot(page);
     prompts.push(snapshot.prompt);
-    directions.push(vocabulary.some(([expression]) => expression === snapshot.prompt) ? 'recognition' : 'recall');
+    directions.push(snapshot.direction);
+    types.push(snapshot.type);
     choiceSets.push(snapshot.choices.map((choice) => choice.trim()));
     await answerCurrentQuestion(page, answers.get(snapshot.prompt));
     await continueToNextQuestion(page);
   }
   await expect(reviewShell(page).getByRole('heading', { name: 'Review complete' })).toBeVisible();
-  return { choiceSets, directions, prompts };
+  return { choiceSets, directions, prompts, types };
 }
 
 async function newSignedInContext(browser: Browser, page: Page) {
@@ -280,7 +287,8 @@ test.describe('web Review Session', () => {
     const first = await completeSession(page, answerByPrompt);
     expect(first.prompts).toHaveLength(total);
     expect(new Set(first.prompts).size).toBe(total);
-    for (let index = 1; index < first.directions.length; index += 1) expect(first.directions[index]).not.toBe(first.directions[index - 1]);
+    const translationDirections = first.directions.filter((direction): direction is Exclude<ReviewDirection, null> => direction !== null);
+    for (let index = 1; index < translationDirections.length; index += 1) expect(translationDirections[index]).not.toBe(translationDirections[index - 1]);
     const practised = new Set(first.prompts.map((prompt) => vocabulary.find(([expression, translation]) => expression === prompt || translation === prompt)?.[0]));
     const unpractised = vocabulary.filter(([expression]) => !practised.has(expression));
     await reviewShell(page).getByRole('button', { name: 'Start another review' }).click();
@@ -318,6 +326,116 @@ test.describe('web Review Session', () => {
       await continueToNextQuestion(page);
     }
     expect(inspectedBanco).toBe(true);
+  });
+
+  test('mixes Cloze and translation Questions while alternating translation directions around Cloze Questions', async ({ page }) => {
+    const fixture = await registerLearner('review-cloze-mixed');
+    const entries = vocabulary.slice(0, 8);
+    for (const [expression, translation] of entries) {
+      await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: `Aprendo la palabra ${expression} hoy.` });
+    }
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const { data: overview, error: overviewError } = await fixture.client.rpc('review_session_overview', { p_learning_language_id: fixture.learningLanguageId });
+    if (overviewError) throw overviewError;
+    const session = overview as { questions: Array<{ question_type: string; sense_id: string }> };
+    expect(session.questions.some((question) => question.question_type === 'cloze')).toBe(true);
+    expect(session.questions.some((question) => question.question_type === 'translation')).toBe(true);
+    expect(new Set(session.questions.map((question) => question.sense_id)).size).toBe(session.questions.length);
+
+    const types: ReviewQuestionType[] = [];
+    const directions: Exclude<ReviewDirection, null>[] = [];
+    while (await reviewQuestion(page).count()) {
+      const snapshot = await questionSnapshot(page);
+      types.push(snapshot.type);
+      if (snapshot.direction) directions.push(snapshot.direction);
+      await answerCurrentQuestion(page);
+      await continueToNextQuestion(page);
+    }
+    expect(types).toContain('cloze');
+    expect(types).toContain('translation');
+    for (let index = 1; index < directions.length; index += 1) expect(directions[index]).not.toBe(directions[index - 1]);
+  });
+
+  test('keeps invalid or insufficient Examples in translation-only Review', async ({ page }) => {
+    const fixture = await registerLearner('review-cloze-fallback');
+    await captureEntry(fixture.client, fixture.learningLanguageId, 'casa', 'house', 'en', { example: 'La casa casa necesita pintura.' });
+    await captureEntry(fixture.client, fixture.learningLanguageId, 'perro', 'dog', 'en', { example: 'El perrito corre.' });
+    await captureEntry(fixture.client, fixture.learningLanguageId, 'nube', 'cloud');
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    while (await reviewQuestion(page).count()) {
+      const snapshot = await questionSnapshot(page);
+      expect(snapshot.type).toBe('translation');
+      await answerCurrentQuestion(page);
+      await continueToNextQuestion(page);
+    }
+  });
+
+  test('keeps a Cloze Question snapshot stable and uses the existing answer feedback flow', async ({ page, browser }) => {
+    const fixture = await registerLearner('review-cloze-snapshot');
+    const entries = vocabulary.slice(0, 4);
+    const captured: CapturedEntry[] = [];
+    for (const [expression, translation] of entries) {
+      captured.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: `Esta frase contiene ${expression}.` }));
+    }
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    while ((await questionSnapshot(page)).type !== 'cloze') {
+      await answerCurrentQuestion(page);
+      await continueToNextQuestion(page);
+      if (!(await reviewQuestion(page).count())) throw new Error('The mixed Cloze fixture did not produce a Cloze Question.');
+    }
+    const initial = await questionSnapshot(page);
+    expect(initial.prompt).toMatch(/_{3,}/);
+    await expect(reviewQuestion(page).getByText('Choose the missing expression.', { exact: true })).toBeVisible();
+    expect(initial.choices.length).toBeGreaterThanOrEqual(2);
+    expect(initial.choices.length).toBeLessThanOrEqual(4);
+    const normalizedChoices = initial.choices.map((choice) => choice.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und'));
+    expect(new Set(normalizedChoices).size).toBe(initial.choices.length);
+    expect(initial.choices.every((choice) => entries.some(([expression]) => expression === choice))).toBe(true);
+    const { data: snapshotOverview, error: snapshotOverviewError } = await fixture.client.rpc('review_session_overview', { p_learning_language_id: fixture.learningLanguageId });
+    if (snapshotOverviewError) throw snapshotOverviewError;
+    const pendingQuestion = (snapshotOverview as { questions: Array<{ continued_at: string | null; sense_id: string }> }).questions.find((question) => !question.continued_at);
+    const reviewedEntry = captured.find((entry) => entry.senseId === pendingQuestion?.sense_id);
+    if (!reviewedEntry) throw new Error('The Cloze snapshot fixture did not identify its reviewed Sense.');
+    const normalizedReviewedExpression = reviewedEntry.expression.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und');
+    expect(normalizedChoices.filter((choice) => choice === normalizedReviewedExpression)).toHaveLength(1);
+    expect(normalizedChoices.filter((choice) => choice !== normalizedReviewedExpression)).toHaveLength(initial.choices.length - 1);
+    const editedEntry = captured.find((entry) => entry.senseId !== reviewedEntry.senseId);
+    if (!editedEntry) throw new Error('The Cloze snapshot fixture needs an independent editable Sense.');
+    const editedBridgeId = await bridgeEntryId(fixture.client, editedEntry.vocabularyEntryId);
+    const { error: editError } = await fixture.client.rpc('update_vocabulary_entry', {
+      p_expression: `${editedEntry.expression}-edited`,
+      p_senses: [{ examples: [], id: editedEntry.senseId, translations: [{ id: editedEntry.translationId, text: `${editedEntry.translation}-edited` }] }],
+      p_vocabulary_entry_id: editedBridgeId,
+    });
+    if (editError) throw editError;
+    await page.reload();
+    expect(await questionSnapshot(page)).toEqual(initial);
+
+    const concurrentPage = await page.context().newPage();
+    const restartedContext = await newSignedInContext(browser, page);
+    const restartedPage = await restartedContext.newPage();
+    try {
+      await Promise.all([concurrentPage.goto('/review'), restartedPage.goto('/review')]);
+      expect(await questionSnapshot(concurrentPage)).toEqual(initial);
+      expect(await questionSnapshot(restartedPage)).toEqual(initial);
+      const firstChoice = answerChoices(page).first();
+      await selectAnswer(page, firstChoice);
+      await expect(firstChoice).toBeDisabled();
+      await expect(reviewShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+      await expect(continueButton(page)).toBeEnabled();
+      await continueToNextQuestion(page);
+      await reviewShell(page).getByRole('button', { name: 'Exit' }).click();
+      await expect(page).toHaveURL('/');
+      await reviewLaunch(page, 'Resume review').click();
+      await expect(reviewQuestion(page)).toBeVisible();
+      await expect(reviewShell(page).getByRole('button', { name: 'Exit' })).toBeVisible();
+    } finally {
+      await concurrentPage.close();
+      await restartedContext.close();
+    }
   });
 
   test('records and locks one answer, announces semantic feedback, reveals the correction, and advances only on Continue', async ({ page }) => {

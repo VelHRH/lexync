@@ -5,13 +5,15 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
+type ReviewQuestionType = 'translation' | 'cloze';
 type ReviewDirection = 'recognition' | 'recall';
 
 type ReviewSessionQuestion = {
   id: string;
   ordinal: number;
   prompt: string;
-  direction: ReviewDirection;
+  question_type: ReviewQuestionType;
+  direction: ReviewDirection | null;
   answer_language_tag: string | null;
   choices: string[];
   selected_answer: string | null;
@@ -57,12 +59,14 @@ function unwrapSession(value: unknown): unknown {
 function parseQuestion(value: unknown): ReviewSessionQuestion | null {
   if (!isRecord(value)) return null;
   const choices = Array.isArray(value.choices) ? value.choices.filter((choice): choice is string => typeof choice === 'string') : [];
+  const questionType = value.question_type === 'cloze' ? 'cloze' : value.question_type === 'translation' ? 'translation' : null;
   const direction = value.direction === 'recall' ? 'recall' : value.direction === 'recognition' ? 'recognition' : null;
-  if (typeof value.id !== 'string' || typeof value.ordinal !== 'number' || typeof value.prompt !== 'string' || !direction || choices.length < 2) return null;
+  if (typeof value.id !== 'string' || typeof value.ordinal !== 'number' || typeof value.prompt !== 'string' || !questionType || (questionType === 'translation' && !direction) || (questionType === 'cloze' && value.direction !== null) || choices.length < 2) return null;
   return {
     id: value.id,
     ordinal: value.ordinal,
     prompt: value.prompt,
+    question_type: questionType,
     direction,
     answer_language_tag: typeof value.answer_language_tag === 'string' ? value.answer_language_tag : null,
     choices,
@@ -285,10 +289,10 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
           <progress aria-label="Review progress" max={total} value={progress} />
         </div>
         <section className="review-session-question" role="region" aria-label="Review question">
-          <p className="review-session-direction">{question.direction === 'recall' ? 'Recall' : 'Recognition'}{question.answer_language_tag ? ` · ${question.answer_language_tag}` : ''}</p>
+          <p className="review-session-direction">{question.question_type === 'cloze' ? 'Cloze' : question.direction === 'recall' ? 'Recall' : 'Recognition'}{question.question_type === 'translation' && question.answer_language_tag ? ` · ${question.answer_language_tag}` : ''}</p>
           <h1 id="review-session-question-heading">{question.prompt}</h1>
           <fieldset className="review-session-choices">
-            <legend>{question.direction === 'recall' ? 'Choose the matching Learning Language expression.' : 'Choose the best answer.'}</legend>
+            <legend>{question.question_type === 'cloze' ? 'Choose the missing expression.' : question.direction === 'recall' ? 'Choose the matching Learning Language expression.' : 'Choose the best answer.'}</legend>
             {question.choices.map((choice) => {
               const isSelected = selectedChoice === choice || question.selected_answer === choice;
               const isCorrect = question.correct_answer === choice;
