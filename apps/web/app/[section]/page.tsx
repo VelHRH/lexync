@@ -3,7 +3,7 @@ import { connection } from 'next/server';
 import { AuthenticatedApp } from '../../components/AuthenticatedApp';
 import { getChromeExtensionId } from '../../lib/extensionRecommendation';
 
-const sections = new Set(['review', 'library', 'collections', 'settings']);
+const sections = new Set(['review', 'review-history', 'library', 'collections', 'settings']);
 
 export default async function SectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;

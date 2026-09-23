@@ -100,6 +100,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-review-history',
+      testMatch: /web-review-history\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-review-history-mobile',
+      testMatch: /web-review-history\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-design-system',
       testMatch: /web-design-system\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
