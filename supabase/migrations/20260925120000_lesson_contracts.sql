@@ -46,7 +46,7 @@ where attempts.lesson_vocabulary_entry_id is null
   and attempts.sense_id = senses.id
   and attempts.learner_id = senses.learner_id;
 
-create or replace function public.review_session_question_set_vocabulary_entry()
+create or replace function public.review_set_vocabulary_entry()
 returns trigger
 language plpgsql
 security definer
@@ -74,37 +74,84 @@ $$;
 create trigger review_session_question_set_vocabulary_entry
 before insert or update of sense_id, lesson_vocabulary_entry_id on public.review_session_questions
 for each row
-execute function public.review_session_question_set_vocabulary_entry();
+execute function public.review_set_vocabulary_entry();
 
-create or replace function public.review_attempt_set_vocabulary_entry()
+create trigger review_attempt_set_vocabulary_entry
+before insert or update of sense_id, lesson_vocabulary_entry_id on public.review_attempts
+for each row
+execute function public.review_set_vocabulary_entry();
+
+create or replace function public.preserve_dynamic_lesson_on_vocabulary_entry_delete()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
 begin
-  if new.lesson_vocabulary_entry_id is null and new.sense_id is not null and exists (
-    select 1
-    from public.review_sessions
-    where id = new.session_id
-      and learner_id = new.learner_id
-      and source = 'vocabulary'
-  ) then
-    select senses.vocabulary_entry_id
-    into new.lesson_vocabulary_entry_id
-    from public.senses
-    where senses.id = new.sense_id
-      and senses.learner_id = new.learner_id;
-  end if;
+  update public.review_session_questions as questions
+  set lesson_vocabulary_entry_id = null
+  from public.review_sessions as sessions
+  where questions.session_id = sessions.id
+    and questions.learner_id = sessions.learner_id
+    and sessions.source = 'dynamic'
+    and questions.lesson_vocabulary_entry_id = old.id
+    and questions.learner_id = old.learner_id;
 
-  return new;
+  update public.review_attempts as attempts
+  set lesson_vocabulary_entry_id = null
+  from public.review_sessions as sessions
+  where attempts.session_id = sessions.id
+    and attempts.learner_id = sessions.learner_id
+    and sessions.source = 'dynamic'
+    and attempts.lesson_vocabulary_entry_id = old.id
+    and attempts.learner_id = old.learner_id;
+
+  return old;
 end;
 $$;
 
-create trigger review_attempt_set_vocabulary_entry
-before insert or update of sense_id, lesson_vocabulary_entry_id on public.review_attempts
+create trigger preserve_dynamic_lesson_on_vocabulary_entry_delete
+before delete on public.vocabulary_entries
 for each row
-execute function public.review_attempt_set_vocabulary_entry();
+execute function public.preserve_dynamic_lesson_on_vocabulary_entry_delete();
+
+create or replace function public.preserve_dynamic_lesson_on_sense_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.review_session_questions as questions
+  set sense_id = null
+  from public.review_sessions as sessions
+  where questions.session_id = sessions.id
+    and questions.learner_id = sessions.learner_id
+    and sessions.source = 'dynamic'
+    and questions.sense_id = old.id
+    and questions.learner_id = old.learner_id;
+
+  update public.review_attempts as attempts
+  set sense_id = null
+  from public.review_sessions as sessions
+  where attempts.session_id = sessions.id
+    and attempts.learner_id = sessions.learner_id
+    and sessions.source = 'dynamic'
+    and attempts.sense_id = old.id
+    and attempts.learner_id = old.learner_id;
+
+  return old;
+end;
+$$;
+
+create trigger preserve_dynamic_lesson_on_sense_delete
+before delete on public.senses
+for each row
+execute function public.preserve_dynamic_lesson_on_sense_delete();
+
+revoke all on function public.review_set_vocabulary_entry() from public, anon, authenticated;
+revoke all on function public.preserve_dynamic_lesson_on_vocabulary_entry_delete() from public, anon, authenticated;
+revoke all on function public.preserve_dynamic_lesson_on_sense_delete() from public, anon, authenticated;
 
 create or replace function public.review_session_prune_unavailable(
   p_session_id uuid,
@@ -366,6 +413,14 @@ begin
     raise exception 'permission denied for table lessons' using errcode = '42501';
   end if;
 
+  new.id := coalesce(new.id, gen_random_uuid());
+  new.learner_id := coalesce(new.learner_id, auth.uid());
+  new.source := coalesce(new.source, 'vocabulary');
+  new.status := coalesce(new.status, 'active');
+  new.created_at := coalesce(new.created_at, now());
+  new.correct_count := coalesce(new.correct_count, 0);
+  new.total_count := coalesce(new.total_count, 1);
+
   insert into public.review_sessions (
     id,
     learner_id,
@@ -377,15 +432,15 @@ begin
     correct_count,
     total_count
   ) values (
-    coalesce(new.id, gen_random_uuid()),
-    coalesce(new.learner_id, auth.uid()),
+    new.id,
+    new.learner_id,
     new.learning_language_id,
-    coalesce(new.source, 'vocabulary'),
-    coalesce(new.status, 'active'),
-    coalesce(new.created_at, now()),
+    new.source,
+    new.status,
+    new.created_at,
     new.completed_at,
-    coalesce(new.correct_count, 0),
-    coalesce(new.total_count, 1)
+    new.correct_count,
+    new.total_count
   );
 
   return new;
@@ -407,6 +462,9 @@ begin
     raise exception 'permission denied for table lesson_questions' using errcode = '42501';
   end if;
 
+  new.id := coalesce(new.id, gen_random_uuid());
+  new.learner_id := coalesce(new.learner_id, auth.uid());
+
   insert into public.review_session_questions (
     id,
     session_id,
@@ -427,9 +485,9 @@ begin
     answered_at,
     continued_at
   ) values (
-    coalesce(new.id, gen_random_uuid()),
+    new.id,
     new.lesson_id,
-    coalesce(new.learner_id, auth.uid()),
+    new.learner_id,
     new.vocabulary_entry_id,
     new.sense_id,
     new.ordinal,
@@ -446,6 +504,13 @@ begin
     new.answered_at,
     new.continued_at
   );
+
+  select questions.lesson_vocabulary_entry_id
+  into new.vocabulary_entry_id
+  from public.review_session_questions as questions
+  where questions.id = new.id
+    and questions.session_id = new.lesson_id
+    and questions.learner_id = new.learner_id;
 
   return new;
 end;
@@ -466,6 +531,10 @@ begin
     raise exception 'permission denied for table lesson_attempts' using errcode = '42501';
   end if;
 
+  new.id := coalesce(new.id, gen_random_uuid());
+  new.learner_id := coalesce(new.learner_id, auth.uid());
+  new.answered_at := coalesce(new.answered_at, now());
+
   insert into public.review_attempts (
     id,
     session_id,
@@ -480,10 +549,10 @@ begin
     is_correct,
     answered_at
   ) values (
-    coalesce(new.id, gen_random_uuid()),
+    new.id,
     new.lesson_id,
     new.question_id,
-    coalesce(new.learner_id, auth.uid()),
+    new.learner_id,
     new.vocabulary_entry_id,
     new.sense_id,
     new.question_type,
@@ -491,8 +560,15 @@ begin
     new.selected_answer,
     new.correct_answer,
     new.is_correct,
-    coalesce(new.answered_at, now())
+    new.answered_at
   );
+
+  select attempts.lesson_vocabulary_entry_id
+  into new.vocabulary_entry_id
+  from public.review_attempts as attempts
+  where attempts.id = new.id
+    and attempts.session_id = new.lesson_id
+    and attempts.learner_id = new.learner_id;
 
   return new;
 end;
@@ -573,7 +649,7 @@ $$;
 create or replace function public.lesson_overview(p_learning_language_id uuid)
 returns jsonb
 language plpgsql
-stable
+volatile
 security definer
 set search_path = ''
 as $$

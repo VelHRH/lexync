@@ -60,6 +60,26 @@ A review direction for one Sense and one Answer Language. Recognition presents t
 
 A flat, Learner-owned grouping of Vocabulary Entries within one Learning Language. A Vocabulary Entry may belong to multiple Collections. Collections do not contain other Collections.
 
+## Lesson
+
+A Learner-owned, persisted learning activity for exactly one Learning Language. Its source is `vocabulary` or `dynamic`; its questions and progress form a durable snapshot that can be resumed and completed. A Learner has at most one active Lesson per Learning Language across both sources.
+
+## Vocabulary Lesson
+
+A Lesson whose source is `vocabulary`, using the Learner's vocabulary material and its Senses for practice.
+
+## Dynamic Lesson
+
+A Lesson whose source is `dynamic`, using generated or contextual material for practice. Its questions may have no Vocabulary Entry or Sense.
+
+## Lesson Question
+
+A persisted question in a Lesson whose content, choices, answer, direction, and relevant language metadata are part of the Lesson snapshot. Translation questions retain their Sense and translation metadata; cloze questions retain their Vocabulary Entry and cloze metadata. Dynamic questions may have null Vocabulary Entry and Sense references.
+
+## Lesson Attempt
+
+A Learner's durable recorded answer to one Lesson Question, including the submitted answer, correctness, and submission time.
+
 ## Learning Mode
 
 An extension mode enabled by the Learner for a website. It exposes saved Expressions and offers capture actions for unsaved words and selected phrases.
@@ -71,6 +91,8 @@ Learner-initiated practice of Cards. A Review Session belongs to exactly one Lea
 ## Review Session
 
 A persisted, resumable sequence of Review questions for one Learning Language. Its question count, Senses, directions, order, question content, and answer choices are fixed as a snapshot when the session is created and remain stable across vocabulary edits, page reloads, browser tabs, and devices. Each question uses one Translation of its Sense, may use any Answer Language, contains at most one answer choice from any Sense, and excludes every other Sense of the prompted Vocabulary Entry. Deleted Senses and suspended Vocabulary Entries are removed from its unanswered questions. Deleting a Vocabulary Entry deletes its Review Attempts; suspending it preserves recorded attempts. A Learning Language has at most one active Review Session; leaving Review pauses that session until the Learner resumes and completes it.
+
+Existing Review-named database and API contracts are temporary compatibility aliases over the canonical Lesson model during expand-and-contract. Review UI terminology remains during the compatibility phase.
 
 ## Review Attempt
 
