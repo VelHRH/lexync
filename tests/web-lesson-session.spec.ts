@@ -14,8 +14,8 @@ type CapturedEntry = {
   vocabularyEntryId: string;
 };
 
-type ReviewQuestionType = 'cloze' | 'translation';
-type ReviewDirection = 'recognition' | 'recall' | null;
+type LessonQuestionType = 'cloze' | 'translation';
+type LessonDirection = 'recognition' | 'recall' | null;
 
 const vocabulary = [
   ['casa', 'house'],
@@ -93,42 +93,42 @@ async function signIn(page: Page, account: Account) {
   await expect(page).toHaveURL('/');
 }
 
-function reviewShell(page: Page) {
+function lessonShell(page: Page) {
   return page.getByRole('main');
 }
 
-function reviewQuestion(page: Page) {
-  return page.getByRole('region', { name: 'Review question' });
+function lessonQuestion(page: Page) {
+  return page.getByRole('region', { name: 'Lesson question' });
 }
 
 function answerChoices(page: Page) {
-  return reviewQuestion(page).getByRole('radio');
+  return lessonQuestion(page).getByRole('radio');
 }
 
 function continueButton(page: Page) {
-  return reviewShell(page).getByRole('button', { name: 'Continue' });
+  return lessonShell(page).getByRole('button', { name: 'Continue' });
 }
 
-function reviewLaunch(page: Page, name: RegExp | string) {
+function lessonLaunch(page: Page, name: RegExp | string) {
   return page.getByRole('button', { name }).or(page.getByRole('link', { name }));
 }
 
 async function startFromHome(page: Page) {
-  await reviewLaunch(page, /Start review|Resume review/).click();
-  await expect(page).toHaveURL('/review');
-  await expect(reviewQuestion(page)).toBeVisible();
+  await lessonLaunch(page, /Start lesson|Resume lesson/).click();
+  await expect(page).toHaveURL('/lesson');
+  await expect(lessonQuestion(page)).toBeVisible();
 }
 
 async function questionSnapshot(page: Page) {
-  const question = reviewQuestion(page);
+  const question = lessonQuestion(page);
   await expect.poll(async () => {
     const count = await answerChoices(page).count();
     return count >= 2 && count <= 4;
   }).toBe(true);
-  const type: ReviewQuestionType = await question.getByText('Cloze', { exact: true }).count() ? 'cloze' : 'translation';
-  const direction: ReviewDirection = type === 'cloze'
+  const type: LessonQuestionType = await question.getByText('Cloze', { exact: true }).count() ? 'cloze' : 'translation';
+  const direction: LessonDirection = type === 'cloze'
     ? null
-    : (await question.getByText(/^(Recognition|Recall)(?: · .+)?$/).innerText()).split(' · ')[0] as Exclude<ReviewDirection, null>;
+    : (await question.getByText(/^(Recognition|Recall)(?: · .+)?$/).innerText()).split(' · ')[0] as Exclude<LessonDirection, null>;
   return {
     choices: await answerChoices(page).evaluateAll((elements) => elements.map((element) => element.closest('label')?.textContent?.replace(/\s+/g, ' ').trim() ?? element.getAttribute('aria-label') ?? '')),
     direction,
@@ -141,20 +141,20 @@ async function questionSnapshot(page: Page) {
 async function selectAnswer(page: Page, choice: Locator) {
   const selectedValue = await choice.inputValue();
   await choice.check();
-  await expect(reviewQuestion(page).getByRole('radio', { name: selectedValue, exact: true })).toBeChecked();
+  await expect(lessonQuestion(page).getByRole('radio', { name: selectedValue, exact: true })).toBeChecked();
   await expect(answerChoices(page).first()).toBeDisabled();
-  await expect(reviewShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+  await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
   await expect(continueButton(page)).toBeEnabled();
 }
 
 async function answerCurrentQuestion(page: Page, preferredAnswer?: string) {
   const choices = answerChoices(page);
-  const choice = preferredAnswer ? reviewQuestion(page).getByRole('radio', { name: preferredAnswer, exact: true }) : choices.first();
+  const choice = preferredAnswer ? lessonQuestion(page).getByRole('radio', { name: preferredAnswer, exact: true }) : choices.first();
   await selectAnswer(page, choice);
 }
 
 async function progressValue(page: Page, property: 'max' | 'value') {
-  return reviewShell(page).getByRole('progressbar').evaluate((element, progressProperty) => {
+  return lessonShell(page).getByRole('progressbar').evaluate((element, progressProperty) => {
     const progress = element as HTMLProgressElement;
     return progressProperty === 'max' ? progress.max : progress.value;
   }, property);
@@ -164,7 +164,7 @@ async function continueToNextQuestion(page: Page) {
   const currentProgress = await progressValue(page, 'value');
   await continueButton(page).click();
   await expect.poll(async () => {
-    if (await page.getByRole('heading', { name: 'Review complete', exact: true }).count()) return true;
+    if (await page.getByRole('heading', { name: 'Lesson complete', exact: true }).count()) return true;
     return (await progressValue(page, 'value').catch(() => currentProgress)) > currentProgress;
   }, { timeout: 20_000 }).toBe(true);
 }
@@ -175,12 +175,12 @@ async function advance(page: Page) {
   await expect.poll(() => progressValue(page, 'value')).toBeGreaterThan(before);
 }
 
-async function completeSession(page: Page, answers = new Map<string, string>()) {
+async function completeLesson(page: Page, answers = new Map<string, string>()) {
   const prompts: string[] = [];
-  const directions: ReviewDirection[] = [];
-  const types: ReviewQuestionType[] = [];
+  const directions: LessonDirection[] = [];
+  const types: LessonQuestionType[] = [];
   const choiceSets: string[][] = [];
-  while (await reviewQuestion(page).count()) {
+  while (await lessonQuestion(page).count()) {
     const snapshot = await questionSnapshot(page);
     prompts.push(snapshot.prompt);
     directions.push(snapshot.direction);
@@ -189,7 +189,7 @@ async function completeSession(page: Page, answers = new Map<string, string>()) 
     await answerCurrentQuestion(page, answers.get(snapshot.prompt));
     await continueToNextQuestion(page);
   }
-  await expect(reviewShell(page).getByRole('heading', { name: 'Review complete' })).toBeVisible();
+  await expect(lessonShell(page).getByRole('heading', { name: 'Lesson complete' })).toBeVisible();
   return { choiceSets, directions, prompts, types };
 }
 
@@ -203,56 +203,56 @@ async function bridgeEntryId(client: SupabaseClient, learningVocabularyEntryId: 
   return data.id as string;
 }
 
-test.describe('web Review Session', () => {
-  test('starts and resumes Review from Home for the Active Learning Language without exposing it in navigation', async ({ page }) => {
-    const fixture = await seedEntries('review-home', vocabulary.slice(0, 3));
+test.describe('web Lesson', () => {
+  test('starts and resumes Lesson from Home for the Active Learning Language without exposing it in navigation', async ({ page }) => {
+    const fixture = await seedEntries('lesson-home', vocabulary.slice(0, 3));
     await signIn(page, fixture.account);
     const navigation = page.getByRole('navigation', { name: 'Main navigation' });
-    await expect(navigation.getByRole('link', { name: 'Review', exact: true })).toHaveCount(0);
+    await expect(navigation.getByRole('link', { name: 'Lesson', exact: true })).toHaveCount(0);
     await expect(page.getByLabel('Answer Language')).toHaveCount(0);
     await expect(page.getByLabel('Active Learning Language')).toHaveValue(fixture.learningLanguageId);
     await startFromHome(page);
     const initial = await questionSnapshot(page);
-    await reviewShell(page).getByRole('button', { name: 'Exit' }).click();
+    await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/');
-    await expect(reviewLaunch(page, 'Resume review')).toBeVisible();
+    await expect(lessonLaunch(page, 'Resume lesson')).toBeVisible();
     await startFromHome(page);
     expect(await questionSnapshot(page)).toEqual(initial);
   });
 
-  test('keeps Review unavailable until the Active Learning Language has two eligible Senses', async ({ page }) => {
-    const fixture = await seedEntries('review-unavailable', vocabulary.slice(0, 1));
+  test('keeps Lesson unavailable until the Active Learning Language has two eligible Senses', async ({ page }) => {
+    const fixture = await seedEntries('lesson-unavailable', vocabulary.slice(0, 1));
     await signIn(page, fixture.account);
-    const unavailableLaunch = reviewLaunch(page, 'Start review');
+    const unavailableLaunch = lessonLaunch(page, 'Start lesson');
     await expect.poll(async () => await unavailableLaunch.count() === 0 || await unavailableLaunch.isDisabled()).toBe(true);
     await expect(page.getByText(/at least two eligible Senses/i)).toBeVisible();
     await captureEntry(fixture.client, fixture.learningLanguageId, 'perro', 'dog');
     await page.reload();
-    await expect(reviewLaunch(page, 'Start review')).toBeEnabled();
+    await expect(lessonLaunch(page, 'Start lesson')).toBeEnabled();
   });
 
-  test('does not enable Review for sibling Senses with duplicate normalized translations', async ({ page }) => {
-    const fixture = await registerLearner('review-duplicate-senses');
+  test('does not enable Lesson for sibling Senses with duplicate normalized translations', async ({ page }) => {
+    const fixture = await registerLearner('lesson-duplicate-senses');
     await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', 'bank');
     await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', ' BANK ', 'en', { createNewSense: true });
     await signIn(page, fixture.account);
     await expect(page.getByText('0 Senses ready', { exact: true })).toBeVisible();
-    const launch = reviewLaunch(page, 'Start review');
+    const launch = lessonLaunch(page, 'Start lesson');
     await expect(launch).toBeDisabled();
     await expect(page.getByText(/at least two eligible Senses/i)).toBeVisible();
   });
 
   test('presents a responsive fullscreen exercise with stable actions and keyboard access', async ({ page }) => {
-    const fixture = await seedEntries('review-shell');
+    const fixture = await seedEntries('lesson-shell');
     await signIn(page, fixture.account);
     await startFromHome(page);
-    const shell = reviewShell(page);
+    const shell = lessonShell(page);
     await expect(page.getByRole('navigation', { name: 'Main navigation' })).toHaveCount(0);
     await expect(shell.getByRole('button', { name: 'Exit' })).toBeVisible();
     await expect(shell.getByText('Spanish', { exact: true })).toBeVisible();
     await expect(shell.locator('img[src*="/brand/mark-"]')).toHaveCount(1);
-    await expect(shell.getByRole('progressbar', { name: 'Review progress' })).toBeVisible();
-    await expect(reviewQuestion(page).getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(shell.getByRole('progressbar', { name: 'Lesson progress' })).toBeVisible();
+    await expect(lessonQuestion(page).getByRole('heading', { level: 1 })).toBeVisible();
     await expect(continueButton(page)).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
     const continuePosition = await continueButton(page).boundingBox();
@@ -261,7 +261,7 @@ test.describe('web Review Session', () => {
     await firstChoice.focus();
     await expect(firstChoice).toBeFocused();
     await page.keyboard.press('Space');
-    await expect(reviewQuestion(page).getByRole('radio', { name: firstChoiceValue, exact: true })).toBeChecked();
+    await expect(lessonQuestion(page).getByRole('radio', { name: firstChoiceValue, exact: true })).toBeChecked();
     await expect(continueButton(page)).toBeEnabled();
     const enabledContinuePosition = await continueButton(page).boundingBox();
     if (!continuePosition || !enabledContinuePosition) throw new Error('The stable Continue action is not measurable.');
@@ -273,31 +273,31 @@ test.describe('web Review Session', () => {
   });
 
   test('samples one stable unique-Sense queue, alternates directions, and prioritizes previously unpractised material', async ({ page }) => {
-    const fixture = await seedEntries('review-generation', vocabulary);
+    const fixture = await seedEntries('lesson-generation', vocabulary);
     const answerByPrompt = answerMap();
     await signIn(page, fixture.account);
     await startFromHome(page);
-    const progress = reviewShell(page).getByRole('progressbar', { name: 'Review progress' });
+    const progress = lessonShell(page).getByRole('progressbar', { name: 'Lesson progress' });
     const total = await progressValue(page, 'max');
     expect(total).toBeGreaterThanOrEqual(8);
     expect(total).toBeLessThanOrEqual(12);
     const initial = await questionSnapshot(page);
     await page.reload();
     expect(await questionSnapshot(page)).toEqual(initial);
-    const first = await completeSession(page, answerByPrompt);
+    const first = await completeLesson(page, answerByPrompt);
     expect(first.prompts).toHaveLength(total);
     expect(new Set(first.prompts).size).toBe(total);
-    const translationDirections = first.directions.filter((direction): direction is Exclude<ReviewDirection, null> => direction !== null);
+    const translationDirections = first.directions.filter((direction): direction is Exclude<LessonDirection, null> => direction !== null);
     for (let index = 1; index < translationDirections.length; index += 1) expect(translationDirections[index]).not.toBe(translationDirections[index - 1]);
     const practised = new Set(first.prompts.map((prompt) => vocabulary.find(([expression, translation]) => expression === prompt || translation === prompt)?.[0]));
     const unpractised = vocabulary.filter(([expression]) => !practised.has(expression));
-    await reviewShell(page).getByRole('button', { name: 'Start another review' }).click();
+    await lessonShell(page).getByRole('button', { name: 'Start another lesson' }).click();
     const nextPrompt = (await questionSnapshot(page)).prompt;
     expect(unpractised.some(([expression, translation]) => expression === nextPrompt || translation === nextPrompt)).toBe(true);
   });
 
   test('offers two to four credible multilingual choices without translations or sibling Senses from the prompted entry', async ({ page }) => {
-    const fixture = await registerLearner('review-choices');
+    const fixture = await registerLearner('lesson-choices');
     const bank = await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', 'bank');
     await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', 'банк', 'uk', { senseId: bank.senseId });
     await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', 'bench', 'en', { createNewSense: true });
@@ -310,7 +310,7 @@ test.describe('web Review Session', () => {
     await signIn(page, fixture.account);
     await startFromHome(page);
     let inspectedBanco = false;
-    while (await reviewQuestion(page).count()) {
+    while (await lessonQuestion(page).count()) {
       const snapshot = await questionSnapshot(page);
       expect(snapshot.choices.length).toBeGreaterThanOrEqual(2);
       expect(snapshot.choices.length).toBeLessThanOrEqual(4);
@@ -329,23 +329,23 @@ test.describe('web Review Session', () => {
   });
 
   test('mixes Cloze and translation Questions while alternating translation directions around Cloze Questions', async ({ page }) => {
-    const fixture = await registerLearner('review-cloze-mixed');
+    const fixture = await registerLearner('lesson-cloze-mixed');
     const entries = vocabulary.slice(0, 8);
     for (const [expression, translation] of entries) {
       await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: `Aprendo la palabra ${expression} hoy.` });
     }
     await signIn(page, fixture.account);
     await startFromHome(page);
-    const { data: overview, error: overviewError } = await fixture.client.rpc('review_session_overview', { p_learning_language_id: fixture.learningLanguageId });
+    const { data: overview, error: overviewError } = await fixture.client.rpc('lesson_overview', { p_learning_language_id: fixture.learningLanguageId });
     if (overviewError) throw overviewError;
-    const session = overview as { questions: Array<{ question_type: string; sense_id: string }> };
-    expect(session.questions.some((question) => question.question_type === 'cloze')).toBe(true);
-    expect(session.questions.some((question) => question.question_type === 'translation')).toBe(true);
-    expect(new Set(session.questions.map((question) => question.sense_id)).size).toBe(session.questions.length);
+    const lesson = overview as { questions: Array<{ question_type: string; sense_id: string }> };
+    expect(lesson.questions.some((question) => question.question_type === 'cloze')).toBe(true);
+    expect(lesson.questions.some((question) => question.question_type === 'translation')).toBe(true);
+    expect(new Set(lesson.questions.map((question) => question.sense_id)).size).toBe(lesson.questions.length);
 
-    const types: ReviewQuestionType[] = [];
-    const directions: Exclude<ReviewDirection, null>[] = [];
-    while (await reviewQuestion(page).count()) {
+    const types: LessonQuestionType[] = [];
+    const directions: Exclude<LessonDirection, null>[] = [];
+    while (await lessonQuestion(page).count()) {
       const snapshot = await questionSnapshot(page);
       types.push(snapshot.type);
       if (snapshot.direction) directions.push(snapshot.direction);
@@ -357,14 +357,14 @@ test.describe('web Review Session', () => {
     for (let index = 1; index < directions.length; index += 1) expect(directions[index]).not.toBe(directions[index - 1]);
   });
 
-  test('keeps invalid or insufficient Examples in translation-only Review', async ({ page }) => {
-    const fixture = await registerLearner('review-cloze-fallback');
+  test('keeps invalid or insufficient Examples in translation-only Lesson', async ({ page }) => {
+    const fixture = await registerLearner('lesson-cloze-fallback');
     await captureEntry(fixture.client, fixture.learningLanguageId, 'casa', 'house', 'en', { example: 'La casa casa necesita pintura.' });
     await captureEntry(fixture.client, fixture.learningLanguageId, 'perro', 'dog', 'en', { example: 'El perrito corre.' });
     await captureEntry(fixture.client, fixture.learningLanguageId, 'nube', 'cloud');
     await signIn(page, fixture.account);
     await startFromHome(page);
-    while (await reviewQuestion(page).count()) {
+    while (await lessonQuestion(page).count()) {
       const snapshot = await questionSnapshot(page);
       expect(snapshot.type).toBe('translation');
       await answerCurrentQuestion(page);
@@ -373,7 +373,7 @@ test.describe('web Review Session', () => {
   });
 
   test('keeps a Cloze Question snapshot stable and uses the existing answer feedback flow', async ({ page, browser }) => {
-    const fixture = await registerLearner('review-cloze-snapshot');
+    const fixture = await registerLearner('lesson-cloze-snapshot');
     const entries = vocabulary.slice(0, 4);
     const captured: CapturedEntry[] = [];
     for (const [expression, translation] of entries) {
@@ -384,25 +384,25 @@ test.describe('web Review Session', () => {
     while ((await questionSnapshot(page)).type !== 'cloze') {
       await answerCurrentQuestion(page);
       await continueToNextQuestion(page);
-      if (!(await reviewQuestion(page).count())) throw new Error('The mixed Cloze fixture did not produce a Cloze Question.');
+      if (!(await lessonQuestion(page).count())) throw new Error('The mixed Cloze fixture did not produce a Cloze Question.');
     }
     const initial = await questionSnapshot(page);
     expect(initial.prompt).toMatch(/_{3,}/);
-    await expect(reviewQuestion(page).getByText('Choose the missing expression.', { exact: true })).toBeVisible();
+    await expect(lessonQuestion(page).getByText('Choose the missing expression.', { exact: true })).toBeVisible();
     expect(initial.choices.length).toBeGreaterThanOrEqual(2);
     expect(initial.choices.length).toBeLessThanOrEqual(4);
     const normalizedChoices = initial.choices.map((choice) => choice.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und'));
     expect(new Set(normalizedChoices).size).toBe(initial.choices.length);
     expect(initial.choices.every((choice) => entries.some(([expression]) => expression === choice))).toBe(true);
-    const { data: snapshotOverview, error: snapshotOverviewError } = await fixture.client.rpc('review_session_overview', { p_learning_language_id: fixture.learningLanguageId });
+    const { data: snapshotOverview, error: snapshotOverviewError } = await fixture.client.rpc('lesson_overview', { p_learning_language_id: fixture.learningLanguageId });
     if (snapshotOverviewError) throw snapshotOverviewError;
     const pendingQuestion = (snapshotOverview as { questions: Array<{ continued_at: string | null; sense_id: string }> }).questions.find((question) => !question.continued_at);
-    const reviewedEntry = captured.find((entry) => entry.senseId === pendingQuestion?.sense_id);
-    if (!reviewedEntry) throw new Error('The Cloze snapshot fixture did not identify its reviewed Sense.');
-    const normalizedReviewedExpression = reviewedEntry.expression.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und');
-    expect(normalizedChoices.filter((choice) => choice === normalizedReviewedExpression)).toHaveLength(1);
-    expect(normalizedChoices.filter((choice) => choice !== normalizedReviewedExpression)).toHaveLength(initial.choices.length - 1);
-    const editedEntry = captured.find((entry) => entry.senseId !== reviewedEntry.senseId);
+    const questionEntry = captured.find((entry) => entry.senseId === pendingQuestion?.sense_id);
+    if (!questionEntry) throw new Error('The Cloze snapshot fixture did not identify its question Sense.');
+    const normalizedQuestionExpression = questionEntry.expression.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und');
+    expect(normalizedChoices.filter((choice) => choice === normalizedQuestionExpression)).toHaveLength(1);
+    expect(normalizedChoices.filter((choice) => choice !== normalizedQuestionExpression)).toHaveLength(initial.choices.length - 1);
+    const editedEntry = captured.find((entry) => entry.senseId !== questionEntry.senseId);
     if (!editedEntry) throw new Error('The Cloze snapshot fixture needs an independent editable Sense.');
     const editedBridgeId = await bridgeEntryId(fixture.client, editedEntry.vocabularyEntryId);
     const { error: editError } = await fixture.client.rpc('update_vocabulary_entry', {
@@ -418,20 +418,20 @@ test.describe('web Review Session', () => {
     const restartedContext = await newSignedInContext(browser, page);
     const restartedPage = await restartedContext.newPage();
     try {
-      await Promise.all([concurrentPage.goto('/review'), restartedPage.goto('/review')]);
+      await Promise.all([concurrentPage.goto('/lesson'), restartedPage.goto('/lesson')]);
       expect(await questionSnapshot(concurrentPage)).toEqual(initial);
       expect(await questionSnapshot(restartedPage)).toEqual(initial);
       const firstChoice = answerChoices(page).first();
       await selectAnswer(page, firstChoice);
       await expect(firstChoice).toBeDisabled();
-      await expect(reviewShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+      await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
       await expect(continueButton(page)).toBeEnabled();
       await continueToNextQuestion(page);
-      await reviewShell(page).getByRole('button', { name: 'Exit' }).click();
+      await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
       await expect(page).toHaveURL('/');
-      await reviewLaunch(page, 'Resume review').click();
-      await expect(reviewQuestion(page)).toBeVisible();
-      await expect(reviewShell(page).getByRole('button', { name: 'Exit' })).toBeVisible();
+      await lessonLaunch(page, 'Resume lesson').click();
+      await expect(lessonQuestion(page)).toBeVisible();
+      await expect(lessonShell(page).getByRole('button', { name: 'Exit' })).toBeVisible();
     } finally {
       await concurrentPage.close();
       await restartedContext.close();
@@ -439,7 +439,7 @@ test.describe('web Review Session', () => {
   });
 
   test('records and locks one answer, announces semantic feedback, reveals the correction, and advances only on Continue', async ({ page }) => {
-    const fixture = await seedEntries('review-feedback');
+    const fixture = await seedEntries('lesson-feedback');
     await signIn(page, fixture.account);
     await startFromHome(page);
     const before = await questionSnapshot(page);
@@ -451,17 +451,17 @@ test.describe('web Review Session', () => {
     const colorBefore = await wrong.evaluate((element) => getComputedStyle(element.closest('label') ?? element).borderColor);
     await selectAnswer(page, wrong);
     expect(await questionSnapshot(page)).toEqual(expect.objectContaining({ prompt: before.prompt }));
-    await expect(reviewShell(page).getByText('Incorrect', { exact: true })).toBeVisible();
-    await expect(reviewShell(page).getByText('Correct answer', { exact: true })).toBeVisible();
-    await expect(reviewQuestion(page).locator('svg, img').first()).toBeVisible();
-    const colorAfter = await reviewQuestion(page).getByRole('radio', { name: wrongValue, exact: true }).evaluate((element) => getComputedStyle(element.closest('label') ?? element).borderColor);
+    await expect(lessonShell(page).getByText('Incorrect', { exact: true })).toBeVisible();
+    await expect(lessonShell(page).getByText('Correct answer', { exact: true })).toBeVisible();
+    await expect(lessonQuestion(page).locator('svg, img').first()).toBeVisible();
+    const colorAfter = await lessonQuestion(page).getByRole('radio', { name: wrongValue, exact: true }).evaluate((element) => getComputedStyle(element.closest('label') ?? element).borderColor);
     expect(colorAfter).not.toBe(colorBefore);
     await advance(page);
     expect((await questionSnapshot(page)).prompt).not.toBe(before.prompt);
   });
 
   test('resumes stable server state after exit, reload, tabs, and a fresh browser context and converges concurrent answers', async ({ page, browser }) => {
-    const fixture = await seedEntries('review-resume');
+    const fixture = await seedEntries('lesson-resume');
     await signIn(page, fixture.account);
     await startFromHome(page);
     const initial = await questionSnapshot(page);
@@ -471,25 +471,25 @@ test.describe('web Review Session', () => {
     const restartedContext = await newSignedInContext(browser, page);
     const restartedPage = await restartedContext.newPage();
     try {
-      await Promise.all([concurrentPage.goto('/review'), restartedPage.goto('/review')]);
+      await Promise.all([concurrentPage.goto('/lesson'), restartedPage.goto('/lesson')]);
       expect(await questionSnapshot(concurrentPage)).toEqual(initial);
       expect(await questionSnapshot(restartedPage)).toEqual(initial);
       await Promise.all([answerChoices(page).first().check(), answerChoices(concurrentPage).first().check()]);
       await Promise.all([
-        expect(reviewShell(page).getByRole('status')).toContainText(/Correct|Incorrect/),
-        expect(reviewShell(concurrentPage).getByRole('status')).toContainText(/Correct|Incorrect/),
+        expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/),
+        expect(lessonShell(concurrentPage).getByRole('status')).toContainText(/Correct|Incorrect/),
       ]);
-      const { data: session, error: sessionError } = await fixture.client.rpc('review_session_overview', { p_learning_language_id: fixture.learningLanguageId });
-      if (sessionError) throw sessionError;
-      const payload = session as { id: string; questions: Array<{ id: string }> };
-      const { count, error: attemptsError } = await fixture.client.from('review_attempts').select('id', { count: 'exact', head: true }).eq('session_id', payload.id).eq('question_id', payload.questions[0].id);
+      const { data: lesson, error: lessonError } = await fixture.client.rpc('lesson_overview', { p_learning_language_id: fixture.learningLanguageId });
+      if (lessonError) throw lessonError;
+      const payload = lesson as { id: string; questions: Array<{ id: string }> };
+      const { count, error: attemptsError } = await fixture.client.from('lesson_attempts').select('id', { count: 'exact', head: true }).eq('lesson_id', payload.id).eq('question_id', payload.questions[0].id);
       if (attemptsError) throw attemptsError;
       expect(count).toBe(1);
       await page.reload();
       await expect(continueButton(page)).toBeEnabled();
-      await reviewShell(page).getByRole('button', { name: 'Exit' }).click();
+      await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
       await expect(page).toHaveURL('/');
-      await expect(reviewLaunch(page, 'Resume review')).toBeVisible();
+      await expect(lessonLaunch(page, 'Resume lesson')).toBeVisible();
     } finally {
       await concurrentPage.close();
       await restartedContext.close();
@@ -497,13 +497,13 @@ test.describe('web Review Session', () => {
   });
 
   test('keeps snapshots through edits and prunes deleted or suspended unanswered material', async ({ page }) => {
-    const fixture = await seedEntries('review-material');
+    const fixture = await seedEntries('lesson-material');
     await signIn(page, fixture.account);
     await startFromHome(page);
     const first = await questionSnapshot(page);
     const untouched = fixture.captured.filter((entry) => !first.text.includes(entry.expression) && !first.text.includes(entry.translation));
     const [edited, suspended, deleted] = untouched;
-    if (!edited || !suspended || !deleted) throw new Error('The Review material fixture is incomplete.');
+    if (!edited || !suspended || !deleted) throw new Error('The Lesson material fixture is incomplete.');
     const editedBridgeId = await bridgeEntryId(fixture.client, edited.vocabularyEntryId);
     const suspendedBridgeId = await bridgeEntryId(fixture.client, suspended.vocabularyEntryId);
     const deletedBridgeId = await bridgeEntryId(fixture.client, deleted.vocabularyEntryId);
@@ -518,14 +518,14 @@ test.describe('web Review Session', () => {
     const { error: deletionError } = await fixture.client.rpc('delete_vocabulary_entry', { p_vocabulary_entry_id: deletedBridgeId });
     if (deletionError) throw deletionError;
     await page.reload();
-    await expect(reviewQuestion(page)).toBeVisible();
+    await expect(lessonQuestion(page)).toBeVisible();
     const visible: string[] = [];
     const positions: number[] = [];
-    while (await reviewQuestion(page).count()) {
+    while (await lessonQuestion(page).count()) {
       const snapshot = await questionSnapshot(page);
       visible.push(snapshot.text);
-      const position = await reviewShell(page).getByText(/^Question \d+ of \d+$/).innerText();
-      positions.push(Number(position.match(/^Question (\d+) of/)?.[1]));
+      const position = await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText();
+      positions.push(Number(position.match(/^Lesson question (\d+) of/)?.[1]));
       await answerCurrentQuestion(page);
       await continueToNextQuestion(page);
     }
@@ -537,7 +537,7 @@ test.describe('web Review Session', () => {
   });
 
   test('shows a durable score and missed-answer details and allows unlimited repeated sessions', async ({ page }) => {
-    const fixture = await seedEntries('review-result');
+    const fixture = await seedEntries('lesson-result');
     await signIn(page, fixture.account);
     await startFromHome(page);
     const total = await progressValue(page, 'max');
@@ -548,46 +548,46 @@ test.describe('web Review Session', () => {
     if (!wrong || !correct) throw new Error('The score fixture could not choose a wrong answer.');
     await answerCurrentQuestion(page, wrong);
     await continueToNextQuestion(page);
-    while (await reviewQuestion(page).count()) {
+    while (await lessonQuestion(page).count()) {
       await answerCurrentQuestion(page);
       await continueToNextQuestion(page);
     }
-    const result = reviewShell(page);
-    await expect(result.getByRole('heading', { name: 'Review complete' })).toBeVisible();
+    const result = lessonShell(page);
+    await expect(result.getByRole('heading', { name: 'Lesson complete' })).toBeVisible();
     await expect(result.getByText(new RegExp(`\\d+/${total}`))).toBeVisible();
     await expect(result.getByText(/\d+%/)).toBeVisible();
     const missed = result.getByRole('region', { name: 'Missed answers' });
     await expect(missed.getByText(wrong, { exact: true }).first()).toBeVisible();
     await expect(missed.getByText(correct, { exact: true }).first()).toBeVisible();
     await expect(result.getByText(/\b(?:due|schedule|rating|again|hard|good|easy)\b/i)).toHaveCount(0);
-    await expect(reviewLaunch(page, 'Back to Home')).toBeVisible();
+    await expect(lessonLaunch(page, 'Back to Home')).toBeVisible();
     const completedEntry = fixture.captured.find((entry) => entry.expression === completedPrompt || entry.translation === completedPrompt);
-    if (!completedEntry) throw new Error('The completed Review fixture prompt is unknown.');
+    if (!completedEntry) throw new Error('The completed Lesson fixture prompt is unknown.');
     const completedBridgeId = await bridgeEntryId(fixture.client, completedEntry.vocabularyEntryId);
     const { error: suspensionError } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: completedBridgeId });
     if (suspensionError) throw suspensionError;
     await page.reload();
     await expect(result.getByText(new RegExp(`\\d+/${total}`))).toBeVisible();
     await expect(missed.getByText(wrong, { exact: true }).first()).toBeVisible();
-    await result.getByRole('button', { name: 'Start another review' }).click();
-    await expect(reviewQuestion(page)).toBeVisible();
+    await result.getByRole('button', { name: 'Start another lesson' }).click();
+    await expect(lessonQuestion(page)).toBeVisible();
     expect((await questionSnapshot(page)).prompt).not.toBe(completedPrompt);
-    await reviewShell(page).getByRole('button', { name: 'Exit' }).click();
-    await reviewLaunch(page, 'Resume review').click();
-    await expect(reviewQuestion(page)).toBeVisible();
-    await reviewShell(page).getByRole('button', { name: 'Exit' }).click();
+    await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
+    await lessonLaunch(page, 'Resume lesson').click();
+    await expect(lessonQuestion(page)).toBeVisible();
+    await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/');
   });
 
   test('remains reachable on mobile, at 200 percent zoom, and with reduced motion', async ({ page }) => {
-    const fixture = await seedEntries('review-responsive');
+    const fixture = await seedEntries('lesson-responsive');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await signIn(page, fixture.account);
     await startFromHome(page);
     await page.evaluate(() => {
       document.documentElement.style.fontSize = '200%';
     });
-    await expect(reviewQuestion(page)).toBeVisible();
+    await expect(lessonQuestion(page)).toBeVisible();
     await expect(answerChoices(page).last()).toBeVisible();
     await expect(continueButton(page)).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

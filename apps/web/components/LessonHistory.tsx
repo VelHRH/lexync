@@ -4,7 +4,7 @@ import { languageName } from '@lexync/domain';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-type ReviewQuestion = {
+type LessonQuestion = {
   ordinal: number;
   question_type: 'translation' | 'cloze';
   direction: 'recognition' | 'recall' | null;
@@ -14,13 +14,13 @@ type ReviewQuestion = {
   answered_at: string | null;
 };
 
-type ReviewHistorySession = {
+type CompletedLesson = {
   id: string;
   learning_language_tag: string;
   completed_at: string;
   correct_count: number;
   total_count: number;
-  questions: ReviewQuestion[];
+  questions: LessonQuestion[];
 };
 
 type SenseStatistic = {
@@ -30,7 +30,7 @@ type SenseStatistic = {
   last_practiced_at: string | null;
 };
 
-type ReviewHistoryData = { sessions: ReviewHistorySession[]; senseStatistics: SenseStatistic[] };
+type LessonHistoryData = { lessons: CompletedLesson[]; senseStatistics: SenseStatistic[] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -54,7 +54,7 @@ function numberValue(value: unknown, fallback: number): number {
   return Number.isFinite(number) ? number : fallback;
 }
 
-function parseQuestion(value: unknown): ReviewQuestion | null {
+function parseQuestion(value: unknown): LessonQuestion | null {
   if (!isRecord(value)) return null;
   const questionType = value.question_type === 'translation' || value.question_type === 'cloze' ? value.question_type : null;
   const direction = value.direction === 'recognition' || value.direction === 'recall' ? value.direction : value.direction === null ? null : undefined;
@@ -70,7 +70,7 @@ function parseQuestion(value: unknown): ReviewQuestion | null {
   };
 }
 
-function parseSession(value: unknown): ReviewHistorySession | null {
+function parseLesson(value: unknown): CompletedLesson | null {
   if (!isRecord(value)) return null;
   const completedAt = textValue(value.completed_at);
   const languageTag = textValue(value.learning_language_tag);
@@ -82,7 +82,7 @@ function parseSession(value: unknown): ReviewHistorySession | null {
     completed_at: completedAt,
     correct_count: Math.max(0, numberValue(value.correct_count, 0)),
     total_count: Math.max(0, numberValue(value.total_count, rawQuestions.length)),
-    questions: rawQuestions.map(parseQuestion).filter((question): question is ReviewQuestion => Boolean(question)).sort((first, second) => first.ordinal - second.ordinal),
+    questions: rawQuestions.map(parseQuestion).filter((question): question is LessonQuestion => Boolean(question)).sort((first, second) => first.ordinal - second.ordinal),
   };
 }
 
@@ -96,12 +96,12 @@ function parseStatistic(value: unknown): SenseStatistic | null {
   };
 }
 
-function parseHistory(value: unknown): ReviewHistoryData {
+function parseHistory(value: unknown): LessonHistoryData {
   const parsed = parseJson(value);
-  if (!isRecord(parsed)) return { sessions: [], senseStatistics: [] };
-  const sessions = (Array.isArray(parsed.sessions) ? parsed.sessions : []).map(parseSession).filter((session): session is ReviewHistorySession => Boolean(session));
+  if (!isRecord(parsed)) return { lessons: [], senseStatistics: [] };
+  const lessons = (Array.isArray(parsed.lessons) ? parsed.lessons : []).map(parseLesson).filter((lesson): lesson is CompletedLesson => Boolean(lesson));
   const senseStatistics = (Array.isArray(parsed.sense_statistics) ? parsed.sense_statistics : []).map(parseStatistic).filter((statistic): statistic is SenseStatistic => Boolean(statistic));
-  return { sessions, senseStatistics };
+  return { lessons, senseStatistics };
 }
 
 function formatDate(value: string): string {
@@ -109,11 +109,11 @@ function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? 'Date unavailable' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
-function percentage(session: ReviewHistorySession): number {
-  return session.total_count > 0 ? Math.round((session.correct_count / session.total_count) * 100) : 0;
+function percentage(lesson: CompletedLesson): number {
+  return lesson.total_count > 0 ? Math.round((lesson.correct_count / lesson.total_count) * 100) : 0;
 }
 
-function QuestionDetail({ question }: { question: ReviewQuestion }) {
+function QuestionDetail({ question }: { question: LessonQuestion }) {
   const typeLabel = question.question_type === 'cloze' ? 'Cloze' : 'Translation';
   return <li className="review-history-question">
     <div className="review-history-question-heading"><strong>{typeLabel}</strong>{question.direction && <span>{question.direction === 'recognition' ? 'Recognition' : 'Recall'}</span>}</div>
@@ -126,8 +126,8 @@ function QuestionDetail({ question }: { question: ReviewQuestion }) {
   </li>;
 }
 
-export function ReviewHistory({ learningLanguageId, learningLanguageTag }: { learningLanguageId: string; learningLanguageTag: string }) {
-  const [history, setHistory] = useState<ReviewHistoryData>({ sessions: [], senseStatistics: [] });
+export function LessonHistory({ learningLanguageId, learningLanguageTag }: { learningLanguageId: string; learningLanguageTag: string }) {
+  const [history, setHistory] = useState<LessonHistoryData>({ lessons: [], senseStatistics: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -138,11 +138,11 @@ export function ReviewHistory({ learningLanguageId, learningLanguageTag }: { lea
       setLoading(true);
       setError('');
     });
-    void supabase.rpc('review_history', { p_learning_language_id: learningLanguageId }).then(({ data, error: rpcError }) => {
+    void supabase.rpc('lesson_history', { p_learning_language_id: learningLanguageId }).then(({ data, error: rpcError }) => {
       if (cancelled) return;
       if (rpcError) {
-        setError(`Review history could not be loaded: ${rpcError.message}`);
-        setHistory({ sessions: [], senseStatistics: [] });
+        setError(`Lesson history could not be loaded: ${rpcError.message}`);
+        setHistory({ lessons: [], senseStatistics: [] });
       } else {
         setHistory(parseHistory(data));
       }
@@ -153,22 +153,22 @@ export function ReviewHistory({ learningLanguageId, learningLanguageTag }: { lea
     };
   }, [learningLanguageId]);
 
-  const sessions = useMemo(() => [...history.sessions].sort((first, second) => Date.parse(second.completed_at) - Date.parse(first.completed_at)), [history.sessions]);
+  const lessons = useMemo(() => [...history.lessons].sort((first, second) => Date.parse(second.completed_at) - Date.parse(first.completed_at)), [history.lessons]);
   const selectedLanguageName = languageName(learningLanguageTag);
 
   return <div className="review-history" aria-busy={loading}>
-    <section className="review-history-section" aria-labelledby="completed-review-sessions-heading">
+    <section className="review-history-section" aria-labelledby="completed-lesson-sessions-heading">
       <div className="review-history-heading">
         <p className="eyebrow"><span /> Completed practice</p>
-        <h2 id="completed-review-sessions-heading">Completed Review Sessions</h2>
-        <p className="review-history-context">All completed sessions across your Learning Languages.</p>
+        <h2 id="completed-lesson-sessions-heading">Completed Lessons</h2>
+        <p className="review-history-context">All completed Lessons across your Learning Languages.</p>
       </div>
-      {loading && <div className="review-history-loading" role="status"><span aria-hidden="true" />Loading Review history…</div>}
+      {loading && <div className="review-history-loading" role="status"><span aria-hidden="true" />Loading Lesson history…</div>}
       {!loading && error && <p className="form-notice error" role="alert">{error}</p>}
-      {!loading && !error && sessions.length === 0 && <p className="review-history-empty">No completed Review Sessions yet. Start a Review from Home to build your history.</p>}
-      {!loading && !error && sessions.length > 0 && <div className="review-history-list">{sessions.map((session) => <details className="review-history-session" key={session.id}>
-        <summary><span className="review-history-session-language">{languageName(session.learning_language_tag)} <small>{session.learning_language_tag}</small></span><time dateTime={session.completed_at}>{formatDate(session.completed_at)}</time><span className="review-history-score">{session.correct_count}/{session.total_count} · {percentage(session)}%</span></summary>
-        <ol className="review-history-questions">{session.questions.map((question) => <QuestionDetail key={`${session.id}-${question.ordinal}`} question={question} />)}</ol>
+      {!loading && !error && lessons.length === 0 && <p className="review-history-empty">No completed Lessons yet. Start a Lesson from Home to build your history.</p>}
+      {!loading && !error && lessons.length > 0 && <div className="review-history-list">{lessons.map((lesson) => <details className="review-history-session" key={lesson.id}>
+        <summary><span className="review-history-session-language">{languageName(lesson.learning_language_tag)} <small>{lesson.learning_language_tag}</small></span><time dateTime={lesson.completed_at}>{formatDate(lesson.completed_at)}</time><span className="review-history-score">{lesson.correct_count}/{lesson.total_count} · {percentage(lesson)}%</span></summary>
+        <ol className="review-history-questions">{lesson.questions.map((question) => <QuestionDetail key={`${lesson.id}-${question.ordinal}`} question={question} />)}</ol>
       </details>)}</div>}
     </section>
     <section className="review-history-section review-history-statistics" aria-label="Per-Sense practice statistics">
