@@ -90,23 +90,23 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
-      name: 'web-review-session',
-      testMatch: /web-review-session\.spec\.ts/,
+      name: 'web-lesson-session',
+      testMatch: /web-lesson-session\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      name: 'web-review-session-mobile',
-      testMatch: /web-review-session\.spec\.ts/,
+      name: 'web-lesson-session-mobile',
+      testMatch: /web-lesson-session\.spec\.ts/,
       use: { ...devices['Pixel 7'] },
     },
     {
-      name: 'web-review-history',
-      testMatch: /web-review-history\.spec\.ts/,
+      name: 'web-lesson-history',
+      testMatch: /web-lesson-history\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      name: 'web-review-history-mobile',
-      testMatch: /web-review-history\.spec\.ts/,
+      name: 'web-lesson-history-mobile',
+      testMatch: /web-lesson-history\.spec\.ts/,
       use: { ...devices['Pixel 7'] },
     },
     {

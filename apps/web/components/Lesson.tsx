@@ -5,15 +5,15 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-type ReviewQuestionType = 'translation' | 'cloze';
-type ReviewDirection = 'recognition' | 'recall';
+type LessonQuestionType = 'translation' | 'cloze';
+type LessonDirection = 'recognition' | 'recall';
 
-type ReviewSessionQuestion = {
+type LessonQuestion = {
   id: string;
   ordinal: number;
   prompt: string;
-  question_type: ReviewQuestionType;
-  direction: ReviewDirection | null;
+  question_type: LessonQuestionType;
+  direction: LessonDirection | null;
   answer_language_tag: string | null;
   choices: string[];
   selected_answer: string | null;
@@ -23,7 +23,7 @@ type ReviewSessionQuestion = {
   continued_at: string | null;
 };
 
-type ReviewSessionState = {
+type LessonState = {
   id: string;
   learning_language_id: string;
   status: 'active' | 'completed';
@@ -31,7 +31,7 @@ type ReviewSessionState = {
   completed_at: string | null;
   correct_count: number | null;
   total_count: number | null;
-  questions: ReviewSessionQuestion[];
+  questions: LessonQuestion[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,16 +47,16 @@ function parseJson(value: unknown): unknown {
   }
 }
 
-function unwrapSession(value: unknown): unknown {
+function unwrapLesson(value: unknown): unknown {
   const parsed = parseJson(value);
   if (Array.isArray(parsed)) return parsed[0] ?? null;
   if (!isRecord(parsed)) return parsed;
-  if ('session' in parsed) return unwrapSession(parsed.session);
-  if ('data' in parsed && !('id' in parsed)) return unwrapSession(parsed.data);
+  if ('session' in parsed) return unwrapLesson(parsed.session);
+  if ('data' in parsed && !('id' in parsed)) return unwrapLesson(parsed.data);
   return parsed;
 }
 
-function parseQuestion(value: unknown): ReviewSessionQuestion | null {
+function parseQuestion(value: unknown): LessonQuestion | null {
   if (!isRecord(value)) return null;
   const choices = Array.isArray(value.choices) ? value.choices.filter((choice): choice is string => typeof choice === 'string') : [];
   const questionType = value.question_type === 'cloze' ? 'cloze' : value.question_type === 'translation' ? 'translation' : null;
@@ -78,8 +78,8 @@ function parseQuestion(value: unknown): ReviewSessionQuestion | null {
   };
 }
 
-function parseSession(value: unknown): ReviewSessionState | null {
-  const candidate = unwrapSession(value);
+function parseLesson(value: unknown): LessonState | null {
+  const candidate = unwrapLesson(value);
   if (!isRecord(candidate) || typeof candidate.id !== 'string' || typeof candidate.learning_language_id !== 'string' || (candidate.status !== 'active' && candidate.status !== 'completed')) return null;
   const rawQuestions = Array.isArray(candidate.questions)
     ? candidate.questions
@@ -88,7 +88,7 @@ function parseSession(value: unknown): ReviewSessionState | null {
       : Array.isArray(candidate.items)
         ? candidate.items
         : [];
-  const questions = rawQuestions.map(parseQuestion).filter((question): question is ReviewSessionQuestion => Boolean(question)).sort((first, second) => first.ordinal - second.ordinal);
+  const questions = rawQuestions.map(parseQuestion).filter((question): question is LessonQuestion => Boolean(question)).sort((first, second) => first.ordinal - second.ordinal);
   return {
     id: candidate.id,
     learning_language_id: candidate.learning_language_id,
@@ -101,26 +101,26 @@ function parseSession(value: unknown): ReviewSessionState | null {
   };
 }
 
-function questionAnswered(question: ReviewSessionQuestion) {
+function questionAnswered(question: LessonQuestion) {
   return Boolean(question.answered_at || question.selected_answer);
 }
 
-function firstPending(session: ReviewSessionState) {
-  return session.questions.find((question) => !question.continued_at) ?? null;
+function firstPending(lesson: LessonState) {
+  return lesson.questions.find((question) => !question.continued_at) ?? null;
 }
 
-function answeredCount(session: ReviewSessionState) {
-  return session.questions.filter(questionAnswered).length;
+function answeredCount(lesson: LessonState) {
+  return lesson.questions.filter(questionAnswered).length;
 }
 
-function percentage(session: ReviewSessionState) {
-  const total = session.total_count ?? session.questions.length;
+function percentage(lesson: LessonState) {
+  const total = lesson.total_count ?? lesson.questions.length;
   if (!total) return 0;
-  return Math.round(((session.correct_count ?? 0) / total) * 100);
+  return Math.round(((lesson.correct_count ?? 0) / total) * 100);
 }
 
-export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit }: { learningLanguageId: string; learningLanguageTag: string; onExit: () => void }) {
-  const [session, setSession] = useState<ReviewSessionState | null>(null);
+export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { learningLanguageId: string; learningLanguageTag: string; onExit: () => void }) {
+  const [lesson, setLesson] = useState<LessonState | null>(null);
   const [questionId, setQuestionId] = useState<string | null>(null);
   const [selectedChoice, setSelectedChoice] = useState('');
   const [loading, setLoading] = useState(true);
@@ -128,32 +128,32 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
   const [advancing, setAdvancing] = useState(false);
   const [startingAnother, setStartingAnother] = useState(false);
   const [error, setError] = useState('');
-  const requestId = useRef(0);
+  const lessonRequestId = useRef(0);
 
-  function applySession(nextSession: ReviewSessionState, preferredQuestionId?: string | null) {
+  function applyLesson(nextLesson: LessonState, preferredQuestionId?: string | null) {
     const nextQuestion = preferredQuestionId
-      ? nextSession.questions.find((question) => question.id === preferredQuestionId && !question.continued_at) ?? firstPending(nextSession)
-      : firstPending(nextSession);
-    setSession(nextSession);
+      ? nextLesson.questions.find((question) => question.id === preferredQuestionId && !question.continued_at) ?? firstPending(nextLesson)
+      : firstPending(nextLesson);
+    setLesson(nextLesson);
     setQuestionId(nextQuestion?.id ?? null);
     setSelectedChoice(nextQuestion?.selected_answer ?? '');
   }
 
   useEffect(() => {
-    const currentRequestId = ++requestId.current;
+    const currentRequestId = ++lessonRequestId.current;
     let cancelled = false;
     queueMicrotask(() => {
-      if (cancelled || currentRequestId !== requestId.current) return;
+      if (cancelled || currentRequestId !== lessonRequestId.current) return;
       setLoading(true);
       setError('');
-      setSession(null);
+      setLesson(null);
       setQuestionId(null);
       setSelectedChoice('');
     });
     if (!learningLanguageId) {
       queueMicrotask(() => {
-        if (cancelled || currentRequestId !== requestId.current) return;
-        setError('A Learning Language is required to open Review.');
+        if (cancelled || currentRequestId !== lessonRequestId.current) return;
+        setError('A Learning Language is required to open a Lesson.');
         setLoading(false);
       });
       return () => {
@@ -162,26 +162,26 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
     }
 
     void (async () => {
-      const overview = await supabase.rpc('review_session_overview', { p_learning_language_id: learningLanguageId });
-      if (cancelled || currentRequestId !== requestId.current) return;
+      const overview = await supabase.rpc('lesson_overview', { p_learning_language_id: learningLanguageId });
+      if (cancelled || currentRequestId !== lessonRequestId.current) return;
       if (overview.error) {
         setError(overview.error.message);
         setLoading(false);
         return;
       }
-      const existing = parseSession(overview.data);
+      const existing = parseLesson(overview.data);
       if (existing) {
-        applySession(existing);
+        applyLesson(existing);
         setLoading(false);
         return;
       }
-      const started = await supabase.rpc('start_or_resume_review_session', { p_learning_language_id: learningLanguageId });
-      if (cancelled || currentRequestId !== requestId.current) return;
+      const started = await supabase.rpc('start_or_resume_vocabulary_lesson', { p_learning_language_id: learningLanguageId });
+      if (cancelled || currentRequestId !== lessonRequestId.current) return;
       if (started.error) setError(started.error.message);
       else {
-        const created = parseSession(started.data);
-        if (created) applySession(created);
-        else setError('The Review Session response was invalid.');
+        const created = parseLesson(started.data);
+        if (created) applyLesson(created);
+        else setError('The Lesson response was invalid.');
       }
       setLoading(false);
     })();
@@ -191,30 +191,30 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
   }, [learningLanguageId]);
 
   async function refreshOverview() {
-    const { data, error: overviewError } = await supabase.rpc('review_session_overview', { p_learning_language_id: learningLanguageId });
-    const refreshed = parseSession(data);
+    const { data, error: overviewError } = await supabase.rpc('lesson_overview', { p_learning_language_id: learningLanguageId });
+    const refreshed = parseLesson(data);
     if (!overviewError && refreshed) return refreshed;
     return null;
   }
 
   async function submitAnswer(choice: string) {
-    if (!session || !questionId || selectedChoice || submitting || advancing) return;
-    const question = session.questions.find((candidate) => candidate.id === questionId);
+    if (!lesson || !questionId || selectedChoice || submitting || advancing) return;
+    const question = lesson.questions.find((candidate) => candidate.id === questionId);
     if (!question) return;
     setSelectedChoice(choice);
     setSubmitting(true);
     setError('');
-    const { data, error: submitError } = await supabase.rpc('submit_review_session_answer', {
+    const { data, error: submitError } = await supabase.rpc('submit_lesson_answer', {
       p_question_id: question.id,
       p_selected_choice: choice,
-      p_session_id: session.id,
+      p_lesson_id: lesson.id,
     });
-    const submitted = parseSession(data);
+    const submitted = parseLesson(data);
     if (submitted) {
-      applySession(submitted, question.id);
+      applyLesson(submitted, question.id);
     } else if (submitError) {
       const refreshed = await refreshOverview();
-      if (refreshed) applySession(refreshed, question.id);
+      if (refreshed) applyLesson(refreshed, question.id);
       else setError(submitError.message);
     } else {
       onExit();
@@ -222,27 +222,27 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
     setSubmitting(false);
   }
 
-  async function continueReview() {
-    if (!session || !questionId || advancing || submitting) return;
+  async function continueLesson() {
+    if (!lesson || !questionId || advancing || submitting) return;
     setAdvancing(true);
     setError('');
-    const { data, error: continueError } = await supabase.rpc('continue_review_session_question', {
+    const { data, error: continueError } = await supabase.rpc('continue_lesson_question', {
       p_question_id: questionId,
-      p_session_id: session.id,
+      p_lesson_id: lesson.id,
     });
     if (continueError) {
       setError(continueError.message);
       setAdvancing(false);
       return;
     }
-    const continued = parseSession(data);
+    const continued = parseLesson(data);
     if (!continued) {
       onExit();
       setAdvancing(false);
       return;
     }
     const nextQuestion = firstPending(continued);
-    setSession(continued);
+    setLesson(continued);
     if (nextQuestion) {
       setQuestionId(nextQuestion.id);
       setSelectedChoice(nextQuestion.selected_answer ?? '');
@@ -253,42 +253,42 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
     setAdvancing(false);
   }
 
-  async function startAnotherReview() {
+  async function startAnotherLesson() {
     setStartingAnother(true);
     setError('');
-    const { data, error: startError } = await supabase.rpc('start_or_resume_review_session', { p_learning_language_id: learningLanguageId });
+    const { data, error: startError } = await supabase.rpc('start_or_resume_vocabulary_lesson', { p_learning_language_id: learningLanguageId });
     if (startError) setError(startError.message);
     else {
-      const nextSession = parseSession(data);
-      if (nextSession) applySession(nextSession);
-      else setError('The Review Session response was invalid.');
+      const nextLesson = parseLesson(data);
+      if (nextLesson) applyLesson(nextLesson);
+      else setError('The Lesson response was invalid.');
     }
     setStartingAnother(false);
   }
 
-  const question = session && questionId ? session.questions.find((candidate) => candidate.id === questionId) ?? null : null;
-  const pendingQuestion = session ? firstPending(session) : null;
-  const isComplete = Boolean(session && !question && session.questions.length > 0 && !pendingQuestion);
-  const total = session?.total_count ?? session?.questions.length ?? 0;
-  const questionPosition = session && question ? session.questions.findIndex((candidate) => candidate.id === question.id) + 1 : 0;
-  const progress = session ? Math.min(total, question ? questionPosition : answeredCount(session)) : 0;
+  const question = lesson && questionId ? lesson.questions.find((candidate) => candidate.id === questionId) ?? null : null;
+  const pendingQuestion = lesson ? firstPending(lesson) : null;
+  const isComplete = Boolean(lesson && !question && lesson.questions.length > 0 && !pendingQuestion);
+  const total = lesson?.total_count ?? lesson?.questions.length ?? 0;
+  const questionPosition = lesson && question ? lesson.questions.findIndex((candidate) => candidate.id === question.id) + 1 : 0;
+  const progress = lesson ? Math.min(total, question ? questionPosition : answeredCount(lesson)) : 0;
   const feedback = question?.is_correct === true ? 'Correct' : question?.is_correct === false ? 'Incorrect' : '';
 
-  return <main className="review-session-shell" aria-label="Review Session">
+  return <main className="review-session-shell" aria-label="Lesson">
     <header className="review-session-header">
       <button className="review-session-exit" type="button" onClick={onExit}>Exit</button>
       <Image className="review-session-mark" src="/brand/mark-dark-on-light.png" alt="Lexync" width={44} height={44} priority unoptimized />
       <p className="review-session-language-name">{languageName(learningLanguageTag)}</p>
     </header>
     <div className="review-session-main">
-      {loading && <div className="review-session-state" role="status" aria-live="polite"><span className="review-session-skeleton" aria-hidden="true" />Opening Review…</div>}
-      {!loading && error && <div className="review-session-state review-session-error" role="alert"><p>Review is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
-      {!loading && !error && session && !isComplete && question && <>
+      {loading && <div className="review-session-state" role="status" aria-live="polite"><span className="review-session-skeleton" aria-hidden="true" />Opening Lesson…</div>}
+      {!loading && error && <div className="review-session-state review-session-error" role="alert"><p>Lesson is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
+      {!loading && !error && lesson && !isComplete && question && <>
         <div className="review-session-progress-row">
-          <span>Question {questionPosition} of {total}</span>
-          <progress aria-label="Review progress" max={total} value={progress} />
+          <span>Lesson question {questionPosition} of {total}</span>
+          <progress aria-label="Lesson progress" max={total} value={progress} />
         </div>
-        <section className="review-session-question" role="region" aria-label="Review question">
+        <section className="review-session-question" role="region" aria-label="Lesson question">
           <p className="review-session-direction">{question.question_type === 'cloze' ? 'Cloze' : question.direction === 'recall' ? 'Recall' : 'Recognition'}{question.question_type === 'translation' && question.answer_language_tag ? ` · ${question.answer_language_tag}` : ''}</p>
           <h1 id="review-session-question-heading">{question.prompt}</h1>
           <fieldset className="review-session-choices">
@@ -308,21 +308,21 @@ export function ReviewSession({ learningLanguageId, learningLanguageTag, onExit 
             {feedback && <><span className="review-session-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'Correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span><span>{feedback}</span>{feedback === 'Incorrect' && question.correct_answer && <><span className="review-session-correction-label">Correct answer</span><span>{question.correct_answer}</span></>}</>}
           </div>
         </section>
-        <div className="review-session-footer"><button className="primary-button review-session-continue" type="button" disabled={!question.selected_answer && !selectedChoice || submitting || advancing} onClick={() => void continueReview()}>{advancing ? 'Loading…' : 'Continue'}</button></div>
+        <div className="review-session-footer"><button className="primary-button review-session-continue" type="button" disabled={!question.selected_answer && !selectedChoice || submitting || advancing} onClick={() => void continueLesson()}>{advancing ? 'Loading…' : 'Continue'}</button></div>
       </>}
-      {!loading && !error && session && !isComplete && !question && <div className="review-session-state" role="status"><p>This Review has no available questions.</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
-      {!loading && !error && session && isComplete && <section className="review-session-complete" aria-labelledby="review-session-complete-heading">
-        <h1 id="review-session-complete-heading">Review complete</h1>
-        <p className="review-session-score">{session.correct_count ?? 0}/{total} · {percentage(session)}%</p>
-        {session.questions.some((reviewQuestion) => reviewQuestion.is_correct === false) && <section className="review-session-missed" aria-label="Missed answers">
+      {!loading && !error && lesson && !isComplete && !question && <div className="review-session-state" role="status"><p>This Lesson has no available questions.</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
+      {!loading && !error && lesson && isComplete && <section className="review-session-complete" aria-labelledby="lesson-complete-heading">
+        <h1 id="lesson-complete-heading">Lesson complete</h1>
+        <p className="review-session-score">{lesson.correct_count ?? 0}/{total} · {percentage(lesson)}%</p>
+        {lesson.questions.some((lessonQuestion) => lessonQuestion.is_correct === false) && <section className="review-session-missed" aria-label="Missed answers">
           <h2>Missed answers</h2>
-          {session.questions.filter((reviewQuestion) => reviewQuestion.is_correct === false).map((reviewQuestion) => <div className="review-session-missed-item" key={reviewQuestion.id}>
-            <p>{reviewQuestion.prompt}</p>
-            <p><span>Selected</span><strong>{reviewQuestion.selected_answer}</strong></p>
-            <p><span>Correct</span><strong>{reviewQuestion.correct_answer}</strong></p>
+          {lesson.questions.filter((lessonQuestion) => lessonQuestion.is_correct === false).map((lessonQuestion) => <div className="review-session-missed-item" key={lessonQuestion.id}>
+            <p>{lessonQuestion.prompt}</p>
+            <p><span>Selected</span><strong>{lessonQuestion.selected_answer}</strong></p>
+            <p><span>Correct</span><strong>{lessonQuestion.correct_answer}</strong></p>
           </div>)}
         </section>}
-        <div className="review-session-complete-actions"><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherReview()}>{startingAnother ? 'Starting…' : 'Start another review'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>
+        <div className="review-session-complete-actions"><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>
       </section>}
     </div>
   </main>;
