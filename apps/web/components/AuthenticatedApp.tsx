@@ -15,6 +15,7 @@ import { VocabularyLibrary } from './VocabularyLibrary';
 import { Collections } from './Collections';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
 import { LessonHistory } from './LessonHistory';
+import { LearningMaterials } from './LearningMaterials';
 
 const destinations = [
   ['Home', '/'],
@@ -312,6 +313,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
             <div className="lesson-availability-row"><span>{lessonLoading ? 'Loading Lesson availability…' : <>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></>}</span><span className="lesson-availability-actions">{!lessonLoading && (canLaunchLesson ? <Link className="secondary-button" href="/lesson">{lessonLaunchLabel}</Link> : <button className="secondary-button" type="button" disabled>{lessonLaunchLabel}</button>)}<Link className="text-link" href="/lesson-history">Lesson history</Link></span></div>
             {!lessonLoading && !lessonAvailable && lessonStatus !== 'active' && <p className="lesson-unavailable">A Lesson requires at least two eligible Senses.</p>}
           </section>}
+          {activeSection === 'Home' && <LearningMaterials key={activeLanguage.id} accessToken={session.access_token} learningLanguageId={activeLanguage.id} />}
           {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
           {lessonError && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}
           {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary...</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshLessonState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}

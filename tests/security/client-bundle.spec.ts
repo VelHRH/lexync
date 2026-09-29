@@ -17,6 +17,7 @@ test('client bundles contain no secret or service-role credential', async () => 
   const bundle = (await Promise.all(files.map((file) => readFile(file, 'utf8').catch(() => '')))).join('\n');
 
   expect(bundle).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+  expect(bundle).not.toContain('GEMINI_API_KEY');
   expect(bundle).not.toMatch(/sb_secret_[A-Za-z0-9_-]+/);
 
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {

@@ -8,6 +8,14 @@ A person who owns private learning material, language settings, and learning pro
 
 A language variety the Learner is studying, identified by a BCP 47 language tag. It is the primary boundary for the Learner's vocabulary, Collections, and learning sessions.
 
+## Learning Material
+
+A private UTF-8 text source uploaded by one Learner for exactly one Learning Language. Its source metadata and prepared content remain scoped to that Learner and language.
+
+## Relevant Material
+
+A prepared passage from a Learning Material that is retained in source order for future Lesson generation.
+
 ## Active Learning Language
 
 The one Learning Language currently selected by the Learner across Lexync. The selection is synchronized across web, extension, Android, and iOS and scopes the Learner's current library and learning actions. An intentional adapter capture in another Learning Language makes that language active across every client.

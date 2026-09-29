@@ -90,6 +90,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-learning-materials',
+      testMatch: /web-learning-materials\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-learning-materials-mobile',
+      testMatch: /web-learning-materials\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-lesson-session',
       testMatch: /web-lesson-session\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
