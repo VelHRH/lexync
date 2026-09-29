@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import * as domain from '../../packages/domain/src/index';
 
-test.describe('Review recall domain contract', () => {
+test.describe('Lesson recall domain contract', () => {
   test('does not expose independent recall or recognition schedules', () => {
     expect(domain).not.toHaveProperty('deriveRecognitionCardSchedule');
     expect(domain).not.toHaveProperty('selectDueRecognitionCards');

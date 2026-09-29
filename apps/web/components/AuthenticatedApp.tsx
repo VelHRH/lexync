@@ -308,9 +308,9 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
         <section className="app-content app-content-canvas" aria-labelledby="app-heading">
           <p className="eyebrow"><span /> Your private learning space</p>
           <h1 id="app-heading">{activeSection}</h1>
-          {activeSection === 'Home' && <section className="review-availability" data-ui="visual-primitive" aria-label="Lesson availability">
-            <div className="review-availability-row"><span>{lessonLoading ? 'Loading Lesson availability…' : <>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></>}</span><span className="review-availability-actions">{!lessonLoading && (canLaunchLesson ? <Link className="secondary-button" href="/lesson">{lessonLaunchLabel}</Link> : <button className="secondary-button" type="button" disabled>{lessonLaunchLabel}</button>)}<Link className="text-link" href="/lesson-history">Lesson history</Link></span></div>
-            {!lessonLoading && !lessonAvailable && lessonStatus !== 'active' && <p className="review-unavailable">A Lesson requires at least two eligible Senses.</p>}
+          {activeSection === 'Home' && <section className="lesson-availability" data-ui="visual-primitive" aria-label="Lesson availability">
+            <div className="lesson-availability-row"><span>{lessonLoading ? 'Loading Lesson availability…' : <>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></>}</span><span className="lesson-availability-actions">{!lessonLoading && (canLaunchLesson ? <Link className="secondary-button" href="/lesson">{lessonLaunchLabel}</Link> : <button className="secondary-button" type="button" disabled>{lessonLaunchLabel}</button>)}<Link className="text-link" href="/lesson-history">Lesson history</Link></span></div>
+            {!lessonLoading && !lessonAvailable && lessonStatus !== 'active' && <p className="lesson-unavailable">A Lesson requires at least two eligible Senses.</p>}
           </section>}
           {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
           {lessonError && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}

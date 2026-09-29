@@ -154,8 +154,9 @@ async function answerCurrentQuestion(page: Page, preferredAnswer?: string) {
 }
 
 async function progressValue(page: Page, property: 'max' | 'value') {
-  return lessonShell(page).getByRole('progressbar').evaluate((element, progressProperty) => {
-    const progress = element as HTMLProgressElement;
+  return lessonShell(page).getByRole('progressbar').evaluateAll((elements, progressProperty) => {
+    const progress = elements[0] as HTMLProgressElement | undefined;
+    if (!progress) throw new Error('Lesson progress is unavailable.');
     return progressProperty === 'max' ? progress.max : progress.value;
   }, property);
 }
@@ -540,6 +541,7 @@ test.describe('web Lesson', () => {
     const fixture = await seedEntries('lesson-result');
     await signIn(page, fixture.account);
     await startFromHome(page);
+    await expect(lessonShell(page).getByText(/\bReview Sessions?\b/i)).toHaveCount(0);
     const total = await progressValue(page, 'max');
     const first = await questionSnapshot(page);
     const completedPrompt = first.prompt;
@@ -554,6 +556,7 @@ test.describe('web Lesson', () => {
     }
     const result = lessonShell(page);
     await expect(result.getByRole('heading', { name: 'Lesson complete' })).toBeVisible();
+    await expect(result.getByText(/\bReview Sessions?\b/i)).toHaveCount(0);
     await expect(result.getByText(new RegExp(`\\d+/${total}`))).toBeVisible();
     await expect(result.getByText(/\d+%/)).toBeVisible();
     const missed = result.getByRole('region', { name: 'Missed answers' });
@@ -575,6 +578,7 @@ test.describe('web Lesson', () => {
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await lessonLaunch(page, 'Resume lesson').click();
     await expect(lessonQuestion(page)).toBeVisible();
+    await expect(lessonShell(page).getByText(/\bReview Sessions?\b/i)).toHaveCount(0);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/');
   });

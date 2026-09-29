@@ -54,7 +54,7 @@ Optional private audio saved with learning material. A Vocabulary Entry has at m
 
 ## Card
 
-A review direction for one Sense and one Answer Language. Recognition presents the Learning Language and asks for that Answer Language; recall presents a translation in that Answer Language and asks for the Learning Language. Cards do not have schedules or due dates.
+A practice direction for one Sense and one Answer Language. Recognition presents the Learning Language and asks for that Answer Language; recall presents a translation in that Answer Language and asks for the Learning Language. Cards do not have schedules or due dates.
 
 ## Collection
 
@@ -84,20 +84,10 @@ A Learner's durable recorded answer to one Lesson Question, including the submit
 
 An extension mode enabled by the Learner for a website. It exposes saved Expressions and offers capture actions for unsaved words and selected phrases.
 
-## Review
+## Historical Review Participation
 
-Learner-initiated practice of Cards. A Review Session belongs to exactly one Learning Language, may mix Answer Languages, and contains a Sense at most once. Review prioritizes less-practiced Senses and randomizes among equally practiced Senses. A Learner may complete any number of Review Sessions. Review does not use spaced-repetition schedules or due dates.
-
-## Review Session
-
-A persisted, resumable sequence of Review questions for one Learning Language. Its question count, Senses, directions, order, question content, and answer choices are fixed as a snapshot when the session is created and remain stable across vocabulary edits, page reloads, browser tabs, and devices. Each question uses one Translation of its Sense, may use any Answer Language, contains at most one answer choice from any Sense, and excludes every other Sense of the prompted Vocabulary Entry. Deleted Senses and suspended Vocabulary Entries are removed from its unanswered questions. Deleting a Vocabulary Entry deletes its Review Attempts; suspending it preserves recorded attempts. A Learning Language has at most one active Review Session; leaving Review pauses that session until the Learner resumes and completes it.
-
-Existing Review-named database and API contracts are temporary compatibility aliases over the canonical Lesson model during expand-and-contract. Review UI terminology remains during the compatibility phase.
-
-## Review Attempt
-
-A Learner's recorded answer to one question in a Review Session. It identifies the Sense and review direction and records when the answer was submitted and whether it was correct.
+Review participation describes legacy Card-based practice records that may remain in historical data. It is not the canonical model for current practice; current practice uses Lesson, Lesson Question, and Lesson Attempt.
 
 ## Suspended Vocabulary Entry
 
-A Vocabulary Entry retained as known learning material but excluded from Review until resumed.
+A Vocabulary Entry retained as known learning material but excluded from a Lesson until resumed.

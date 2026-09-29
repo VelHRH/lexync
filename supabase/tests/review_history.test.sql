@@ -3,8 +3,8 @@ begin;
 select plan(39);
 
 select ok(
-  to_regprocedure('public.review_history(uuid)') is not null,
-  'Review history exposes the selected Learning Language RPC'
+  to_regprocedure('public.lesson_history(uuid)') is not null,
+  'Lesson history exposes the selected Learning Language RPC'
 );
 
 insert into auth.users (id)
@@ -75,7 +75,7 @@ values
   ('a1700000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', (select id from public.cards where sense_id = 'a1400000-0000-0000-0000-000000000001' and direction = 'recognition'), '2026-09-19T08:00:00Z'),
   ('a1700000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', (select id from public.cards where sense_id = 'a1400000-0000-0000-0000-000000000003' and direction = 'recognition'), '2026-09-21T08:00:00Z');
 
-insert into public.review_sessions (id, learner_id, learning_language_id, status, created_at, completed_at, correct_count, total_count)
+insert into public.lessons (id, learner_id, learning_language_id, status, created_at, completed_at, correct_count, total_count)
 values
   ('a2000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'completed', '2026-09-20T09:00:00Z', '2026-09-20T10:00:00Z', 0, 1),
   ('a2000000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'completed', '2026-09-22T09:00:00Z', '2026-09-22T10:00:00Z', 2, 3),
@@ -84,8 +84,8 @@ values
   ('a2000000-0000-0000-0000-000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000002', 'completed', '2026-09-21T09:00:00Z', '2026-09-21T10:00:00Z', 1, 1),
   ('b2000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1000000-0000-0000-0000-000000000001', 'completed', '2026-09-22T09:00:00Z', '2026-09-22T10:00:00Z', 1, 1);
 
-insert into public.review_session_questions (
-  id, session_id, learner_id, sense_id, ordinal, prompt, question_type, direction, answer_language_tag,
+insert into public.lesson_questions (
+  id, lesson_id, learner_id, sense_id, ordinal, prompt, question_type, direction, answer_language_tag,
   choices, choice_sense_ids, choice_vocabulary_entry_ids, selected_answer, correct_answer, is_correct, answered_at
 )
 values
@@ -98,8 +98,8 @@ values
   ('a2100000-0000-0000-0000-000000000007', 'a2000000-0000-0000-0000-000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000005', 1, 'chat', 'translation', 'recognition', 'en', array['cat', 'house'], array['a1400000-0000-0000-0000-000000000005'::uuid, 'a1400000-0000-0000-0000-000000000001'::uuid], null, 'cat', 'cat', true, '2026-09-21T10:00:00Z'),
   ('b2100000-0000-0000-0000-000000000001', 'b2000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1400000-0000-0000-0000-000000000001', 1, 'casa', 'translation', 'recognition', 'en', array['house', 'book'], null, null, 'house', 'house', true, '2026-09-22T10:00:00Z');
 
-insert into public.review_attempts (
-  id, session_id, question_id, learner_id, sense_id, question_type, direction, selected_answer, correct_answer, is_correct, answered_at
+insert into public.lesson_attempts (
+  id, lesson_id, question_id, learner_id, sense_id, question_type, direction, selected_answer, correct_answer, is_correct, answered_at
 )
 values
   ('a2200000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000001', 'a2100000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000001', 'translation', 'recognition', 'wrong', 'house', false, '2026-09-20T10:00:00Z'),
@@ -118,32 +118,32 @@ select set_config('test.new_session', 'a2000000-0000-0000-0000-000000000002', tr
 select set_config('test.empty_session', 'a2000000-0000-0000-0000-000000000003', true);
 
 select throws_ok(
-  $$select public.review_history('b1000000-0000-0000-0000-000000000001')$$,
+  $$select public.lesson_history('b1000000-0000-0000-0000-000000000001')$$,
   'P0001',
   'Learning Language is unavailable.',
   'a Learner cannot select another Learner''s Learning Language'
 );
 
-select set_config('test.history_before', public.review_history(current_setting('test.es')::uuid)::text, true);
-select is(jsonb_array_length(current_setting('test.history_before')::jsonb->'sessions'), 4, 'history returns all completed sessions across Learning Languages');
-select is(current_setting('test.history_before')::jsonb->'sessions'->0->>'id', 'a2000000-0000-0000-0000-000000000003', 'completed sessions are newest first');
-select is(current_setting('test.history_before')::jsonb->'sessions'->0->>'learning_language_tag', 'es', 'history identifies the Learning Language');
-select is(current_setting('test.history_before')::jsonb->'sessions'->0->>'completed_at', '2026-09-23T10:00:00+00:00', 'history exposes the completion timestamp');
-select is((current_setting('test.history_before')::jsonb->'sessions'->0->>'correct_count')::integer, 0, 'zero correct answers are preserved');
-select is((current_setting('test.history_before')::jsonb->'sessions'->0->>'total_count')::integer, 1, 'total answer count is preserved');
-select is((select jsonb_array_length(session_value->'questions') from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') session_value where session_value->>'id' = current_setting('test.new_session')), 3, 'a session exposes all surviving question details');
-select is((select question_value->>'question_type' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), 'translation', 'translation details expose their question type');
-select is((select question_value->>'direction' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), 'recognition', 'translation details expose their direction');
-select is((select question_value->>'selected_answer' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), 'house', 'question details expose the selected answer');
-select is((select question_value->>'correct_answer' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), 'house', 'question details expose the correct answer');
-select is((select (question_value->>'is_correct')::boolean from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), true, 'question details expose correctness');
-select is((select question_value->>'question_type' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), 'cloze', 'Cloze details expose their question type');
-select is((select question_value->>'direction' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), null, 'Cloze details expose a null direction');
-select is((select question_value->>'selected_answer' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), 'mesa', 'Cloze details expose the selected answer');
-select is((select (question_value->>'is_correct')::boolean from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), false, 'Cloze details expose correctness');
-select is((select question_value->>'answered_at' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), '2026-09-22T10:01:00+00:00', 'question details expose the answer timestamp');
-select is((select (session_value->>'correct_count')::integer from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') session_value where session_value->>'id' = current_setting('test.new_session')), 2, 'history reports the completed session score');
-select is((select (session_value->>'total_count')::integer from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sessions') session_value where session_value->>'id' = current_setting('test.new_session')), 3, 'history reports the completed session total');
+select set_config('test.history_before', public.lesson_history(current_setting('test.es')::uuid)::text, true);
+select is(jsonb_array_length(current_setting('test.history_before')::jsonb->'lessons'), 4, 'history returns all completed Lessons across Learning Languages');
+select is(current_setting('test.history_before')::jsonb->'lessons'->0->>'id', 'a2000000-0000-0000-0000-000000000003', 'completed Lessons are newest first');
+select is(current_setting('test.history_before')::jsonb->'lessons'->0->>'learning_language_tag', 'es', 'history identifies the Learning Language');
+select is(current_setting('test.history_before')::jsonb->'lessons'->0->>'completed_at', '2026-09-23T10:00:00+00:00', 'history exposes the completion timestamp');
+select is((current_setting('test.history_before')::jsonb->'lessons'->0->>'correct_count')::integer, 0, 'zero correct answers are preserved');
+select is((current_setting('test.history_before')::jsonb->'lessons'->0->>'total_count')::integer, 1, 'total answer count is preserved');
+select is((select jsonb_array_length(session_value->'questions') from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') session_value where session_value->>'id' = current_setting('test.new_session')), 3, 'all Lesson Questions expose all surviving question details');
+select is((select question_value->>'question_type' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), 'translation', 'translation details expose their question type');
+select is((select question_value->>'direction' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), 'recognition', 'translation details expose their direction');
+select is((select question_value->>'selected_answer' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), 'house', 'question details expose the selected answer');
+select is((select question_value->>'correct_answer' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), 'house', 'question details expose the correct answer');
+select is((select (question_value->>'is_correct')::boolean from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '1'), true, 'question details expose correctness');
+select is((select question_value->>'question_type' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), 'cloze', 'Cloze details expose their question type');
+select is((select question_value->>'direction' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), null, 'Cloze details expose a null direction');
+select is((select question_value->>'selected_answer' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), 'mesa', 'Cloze details expose the selected answer');
+select is((select (question_value->>'is_correct')::boolean from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), false, 'Cloze details expose correctness');
+select is((select question_value->>'answered_at' from jsonb_array_elements((select session_value->'questions' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') as session_value where session_value->>'id' = current_setting('test.new_session'))) as question_value where question_value->>'ordinal' = '2'), '2026-09-22T10:01:00+00:00', 'question details expose the answer timestamp');
+select is((select (session_value->>'correct_count')::integer from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') session_value where session_value->>'id' = current_setting('test.new_session')), 2, 'history reports the completed Lesson score');
+select is((select (session_value->>'total_count')::integer from jsonb_array_elements(current_setting('test.history_before')::jsonb->'lessons') session_value where session_value->>'id' = current_setting('test.new_session')), 3, 'history reports the completed Lesson total');
 select is(jsonb_array_length(current_setting('test.history_before')::jsonb->'sense_statistics'), 4, 'statistics include surviving Senses in the selected Learning Language');
 select is((select (statistic_value->>'practice_count')::integer from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sense_statistics') statistic_value where statistic_value->>'sense_id' = 'a1400000-0000-0000-0000-000000000001'), 3, 'statistics count Attempts and legacy participation');
 select is((select statistic_value->>'expression' from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sense_statistics') statistic_value where statistic_value->>'sense_id' = 'a1400000-0000-0000-0000-000000000001'), 'casa', 'statistics identify the Sense Expression');
@@ -152,24 +152,24 @@ select is((select (statistic_value->>'practice_count')::integer from jsonb_array
 select ok(not jsonb_path_exists(current_setting('test.history_before')::jsonb, '$.sense_statistics[*] ? (@.sense_id == "a1400000-0000-0000-0000-000000000005")'), 'statistics exclude Senses from another Learning Language');
 
 select public.set_vocabulary_entry_suspended('a1300000-0000-0000-0000-000000000003', true);
-select is(public.review_history(current_setting('test.es')::uuid)->'sense_statistics', current_setting('test.history_before')::jsonb->'sense_statistics', 'suspension does not change retained history or statistics');
+select is(public.lesson_history(current_setting('test.es')::uuid)->'sense_statistics', current_setting('test.history_before')::jsonb->'sense_statistics', 'suspension does not change retained history or statistics');
 
 select public.delete_vocabulary_entry('a1300000-0000-0000-0000-000000000002');
-select is((select correct_count from public.review_sessions where id = current_setting('test.new_session')::uuid), 2, 'deleting an entry recomputes the surviving correct count');
-select is((select total_count from public.review_sessions where id = current_setting('test.new_session')::uuid), 2, 'deleting an entry recomputes the surviving total count');
-select is((select jsonb_array_length(session_value->'questions') from jsonb_array_elements(public.review_history(current_setting('test.es')::uuid)->'sessions') session_value where session_value->>'id' = current_setting('test.new_session')), 2, 'deleted question details disappear from history');
-select is((select (statistic_value->>'practice_count')::integer from jsonb_array_elements(public.review_history(current_setting('test.es')::uuid)->'sense_statistics') statistic_value where statistic_value->>'sense_id' = 'a1400000-0000-0000-0000-000000000002'), null, 'deleted entry statistics disappear');
+select is((select correct_count from public.lessons where id = current_setting('test.new_session')::uuid), 2, 'deleting an entry recomputes the surviving correct count');
+select is((select total_count from public.lessons where id = current_setting('test.new_session')::uuid), 2, 'deleting an entry recomputes the surviving total count');
+select is((select jsonb_array_length(session_value->'questions') from jsonb_array_elements(public.lesson_history(current_setting('test.es')::uuid)->'lessons') session_value where session_value->>'id' = current_setting('test.new_session')), 2, 'deleted question details disappear from history');
+select is((select (statistic_value->>'practice_count')::integer from jsonb_array_elements(public.lesson_history(current_setting('test.es')::uuid)->'sense_statistics') statistic_value where statistic_value->>'sense_id' = 'a1400000-0000-0000-0000-000000000002'), null, 'deleted entry statistics disappear');
 
 select public.delete_vocabulary_entry('a1300000-0000-0000-0000-000000000004');
-select is((select count(*) from public.review_sessions where id = current_setting('test.empty_session')::uuid), 1::bigint, 'deleting an entry retains the completed session row');
-select is((select correct_count from public.review_sessions where id = current_setting('test.empty_session')::uuid), 0, 'an emptied session recomputes to zero correct answers');
-select is((select total_count from public.review_sessions where id = current_setting('test.empty_session')::uuid), 0, 'an emptied session recomputes to zero total answers');
+select is((select count(*) from public.lessons where id = current_setting('test.empty_session')::uuid), 1::bigint, 'deleting an entry retains the completed Lesson row');
+select is((select correct_count from public.lessons where id = current_setting('test.empty_session')::uuid), 0, 'an emptied session recomputes to zero correct answers');
+select is((select total_count from public.lessons where id = current_setting('test.empty_session')::uuid), 0, 'an emptied session recomputes to zero total answers');
 
 select set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true);
-select is(jsonb_array_length(public.review_history('b1000000-0000-0000-0000-000000000001')->'sessions'), 1, 'a second Learner sees only its own completed sessions');
-select ok(not jsonb_path_exists(public.review_history('b1000000-0000-0000-0000-000000000001'), '$.sessions[*] ? (@.id == "a2000000-0000-0000-0000-000000000002")'), 'a second Learner cannot see another Learner''s sessions');
+select is(jsonb_array_length(public.lesson_history('b1000000-0000-0000-0000-000000000001')->'lessons'), 1, 'a second Learner sees only its own completed Lessons');
+select ok(not jsonb_path_exists(public.lesson_history('b1000000-0000-0000-0000-000000000001'), '$.lessons[*] ? (@.id == "a2000000-0000-0000-0000-000000000002")'), 'a second Learner cannot see another Learner''s Lessons');
 select throws_ok(
-  $$select public.review_history('a1000000-0000-0000-0000-000000000001')$$,
+  $$select public.lesson_history('a1000000-0000-0000-0000-000000000001')$$,
   'P0001',
   'Learning Language is unavailable.',
   'a second Learner cannot select another Learner''s history language'
@@ -177,10 +177,10 @@ select throws_ok(
 
 set local role anon;
 select throws_ok(
-  $$select public.review_history('a1000000-0000-0000-0000-000000000001')$$,
+  $$select public.lesson_history('a1000000-0000-0000-0000-000000000001')$$,
   '42501',
-  'permission denied for function review_history',
-  'anonymous clients cannot access Review history'
+  'permission denied for function lesson_history',
+  'anonymous clients cannot access Lesson history'
 );
 
 select * from finish();
