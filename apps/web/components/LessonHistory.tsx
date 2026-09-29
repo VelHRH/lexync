@@ -115,13 +115,13 @@ function percentage(lesson: CompletedLesson): number {
 
 function QuestionDetail({ question }: { question: LessonQuestion }) {
   const typeLabel = question.question_type === 'cloze' ? 'Cloze' : 'Translation';
-  return <li className="review-history-question">
-    <div className="review-history-question-heading"><strong>{typeLabel}</strong>{question.direction && <span>{question.direction === 'recognition' ? 'Recognition' : 'Recall'}</span>}</div>
-    <dl className="review-history-question-details">
+  return <li className="lesson-history-question">
+    <div className="lesson-history-question-heading"><strong>{typeLabel}</strong>{question.direction && <span>{question.direction === 'recognition' ? 'Recognition' : 'Recall'}</span>}</div>
+    <dl className="lesson-history-question-details">
       <div><dt>Selected answer</dt><dd>{question.selected_answer ?? 'Not answered'}</dd></div>
       <div><dt>Correct answer</dt><dd>{question.correct_answer ?? 'Unavailable'}</dd></div>
       <div><dt>Answered</dt><dd>{question.answered_at ? <time dateTime={question.answered_at}>{formatDate(question.answered_at)}</time> : 'Not answered'}</dd></div>
-      <div><dt>Result</dt><dd className={question.is_correct === true ? 'review-history-result correct' : question.is_correct === false ? 'review-history-result incorrect' : 'review-history-result'}>{question.is_correct === true ? 'Correct' : question.is_correct === false ? 'Incorrect' : 'Not scored'}</dd></div>
+      <div><dt>Result</dt><dd className={question.is_correct === true ? 'lesson-history-result correct' : question.is_correct === false ? 'lesson-history-result incorrect' : 'lesson-history-result'}>{question.is_correct === true ? 'Correct' : question.is_correct === false ? 'Incorrect' : 'Not scored'}</dd></div>
     </dl>
   </li>;
 }
@@ -156,30 +156,30 @@ export function LessonHistory({ learningLanguageId, learningLanguageTag }: { lea
   const lessons = useMemo(() => [...history.lessons].sort((first, second) => Date.parse(second.completed_at) - Date.parse(first.completed_at)), [history.lessons]);
   const selectedLanguageName = languageName(learningLanguageTag);
 
-  return <div className="review-history" aria-busy={loading}>
-    <section className="review-history-section" aria-labelledby="completed-lesson-sessions-heading">
-      <div className="review-history-heading">
+  return <div className="lesson-history" aria-busy={loading}>
+    <section className="lesson-history-section" aria-labelledby="completed-lesson-sessions-heading">
+      <div className="lesson-history-heading">
         <p className="eyebrow"><span /> Completed practice</p>
         <h2 id="completed-lesson-sessions-heading">Completed Lessons</h2>
-        <p className="review-history-context">All completed Lessons across your Learning Languages.</p>
+        <p className="lesson-history-context">All completed Lessons across your Learning Languages.</p>
       </div>
-      {loading && <div className="review-history-loading" role="status"><span aria-hidden="true" />Loading Lesson history…</div>}
+      {loading && <div className="lesson-history-loading" role="status"><span aria-hidden="true" />Loading Lesson history…</div>}
       {!loading && error && <p className="form-notice error" role="alert">{error}</p>}
-      {!loading && !error && lessons.length === 0 && <p className="review-history-empty">No completed Lessons yet. Start a Lesson from Home to build your history.</p>}
-      {!loading && !error && lessons.length > 0 && <div className="review-history-list">{lessons.map((lesson) => <details className="review-history-session" key={lesson.id}>
-        <summary><span className="review-history-session-language">{languageName(lesson.learning_language_tag)} <small>{lesson.learning_language_tag}</small></span><time dateTime={lesson.completed_at}>{formatDate(lesson.completed_at)}</time><span className="review-history-score">{lesson.correct_count}/{lesson.total_count} · {percentage(lesson)}%</span></summary>
-        <ol className="review-history-questions">{lesson.questions.map((question) => <QuestionDetail key={`${lesson.id}-${question.ordinal}`} question={question} />)}</ol>
+      {!loading && !error && lessons.length === 0 && <p className="lesson-history-empty">No completed Lessons yet. Start a Lesson from Home to build your history.</p>}
+      {!loading && !error && lessons.length > 0 && <div className="lesson-history-list">{lessons.map((lesson) => <details className="lesson-history-session" key={lesson.id}>
+        <summary><span className="lesson-history-session-language">{languageName(lesson.learning_language_tag)} <small>{lesson.learning_language_tag}</small></span><time dateTime={lesson.completed_at}>{formatDate(lesson.completed_at)}</time><span className="lesson-history-score">{lesson.correct_count}/{lesson.total_count} · {percentage(lesson)}%</span></summary>
+        <ol className="lesson-history-questions">{lesson.questions.map((question) => <QuestionDetail key={`${lesson.id}-${question.ordinal}`} question={question} />)}</ol>
       </details>)}</div>}
     </section>
-    <section className="review-history-section review-history-statistics" aria-label="Per-Sense practice statistics">
-      <div className="review-history-heading">
+    <section className="lesson-history-section lesson-history-statistics" aria-label="Per-Sense practice statistics">
+      <div className="lesson-history-heading">
         <p className="eyebrow"><span /> Practice by Sense</p>
         <h2>Per-Sense practice</h2>
-        <p className="review-history-context">Selected Learning Language: <strong>{selectedLanguageName} · {learningLanguageTag}</strong></p>
+        <p className="lesson-history-context">Selected Learning Language: <strong>{selectedLanguageName} · {learningLanguageTag}</strong></p>
       </div>
-      {!loading && !error && history.senseStatistics.length === 0 && <p className="review-history-empty">No Senses are available in this Learning Language yet. Add vocabulary to begin practising.</p>}
-      {loading && <div className="review-history-statistics-skeleton" aria-hidden="true"><span /><span /><span /></div>}
-      {!loading && !error && history.senseStatistics.length > 0 && <ul className="review-history-sense-list">{history.senseStatistics.map((statistic) => <li key={statistic.sense_id}>
+      {!loading && !error && history.senseStatistics.length === 0 && <p className="lesson-history-empty">No Senses are available in this Learning Language yet. Add vocabulary to begin practising.</p>}
+      {loading && <div className="lesson-history-statistics-skeleton" aria-hidden="true"><span /><span /><span /></div>}
+      {!loading && !error && history.senseStatistics.length > 0 && <ul className="lesson-history-sense-list">{history.senseStatistics.map((statistic) => <li key={statistic.sense_id}>
         <strong>{statistic.expression}</strong>
         <span><span>Practice count</span> <b>{statistic.practice_count}</b></span>
         <span>{statistic.last_practiced_at ? <time dateTime={statistic.last_practiced_at}>{formatDate(statistic.last_practiced_at)}</time> : 'Not practised yet'}</span>

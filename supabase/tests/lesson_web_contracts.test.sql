@@ -38,7 +38,7 @@ values
   ('11810000-0000-0000-0000-000000000002', '11800000-0000-0000-0000-000000000001', 'fr', '2026-09-26T08:00:01Z'),
   ('11810000-0000-0000-0000-000000000003', '11800000-0000-0000-0000-000000000002', 'es', '2026-09-26T08:00:00Z');
 
-insert into public.review_sessions (
+insert into public.lessons (
   id,
   learner_id,
   learning_language_id,
@@ -57,22 +57,22 @@ select set_config('request.jwt.claim.sub', '11800000-0000-0000-0000-000000000001
 
 select is(
   public.vocabulary_lesson_eligible_sense_count('11810000-0000-0000-0000-000000000001'),
-  public.review_session_eligible_sense_count('11810000-0000-0000-0000-000000000001'),
-  'canonical vocabulary Lesson eligibility matches legacy Review eligibility'
+  0::bigint,
+  'canonical vocabulary Lesson eligibility is callable'
 );
 select is(
-  public.lesson_history('11810000-0000-0000-0000-000000000001')->'lessons',
-  public.review_history('11810000-0000-0000-0000-000000000001')->'sessions',
-  'canonical Lesson history maps legacy Review sessions to Lessons'
+  jsonb_array_length(public.lesson_history('11810000-0000-0000-0000-000000000001')->'lessons'),
+  2,
+  'canonical Lesson history returns completed Lessons'
 );
 select is(
   public.lesson_history('11810000-0000-0000-0000-000000000001')->'sense_statistics',
-  public.review_history('11810000-0000-0000-0000-000000000001')->'sense_statistics',
-  'canonical Lesson history preserves legacy Review Sense statistics'
+  '[]'::jsonb,
+  'canonical Lesson history preserves Sense statistics'
 );
 select ok(
   not (public.lesson_history('11810000-0000-0000-0000-000000000001') ? 'sessions'),
-  'canonical Lesson history omits the legacy sessions key'
+  'canonical Lesson history omits the obsolete sessions key'
 );
 select is(
   jsonb_array_length(public.lesson_history('11810000-0000-0000-0000-000000000001')->'lessons'),

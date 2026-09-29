@@ -1,13 +1,26 @@
 begin;
 
-select plan(96);
+select plan(91);
 
-select ok(to_regclass('public.lessons') is not null, 'the canonical Lesson relation exists');
-select ok(to_regclass('public.lesson_questions') is not null, 'the canonical Lesson Question relation exists');
-select ok(to_regclass('public.lesson_attempts') is not null, 'the canonical Lesson Attempt relation exists');
-select ok(to_regclass('public.review_sessions') is not null, 'the legacy Review Session relation remains available');
-select ok(to_regclass('public.review_session_questions') is not null, 'the legacy Review Question relation remains available');
-select ok(to_regclass('public.review_attempts') is not null, 'the legacy Review Attempt relation remains available');
+select ok((select relkind from pg_class where oid = 'public.lessons'::regclass) = 'r', 'the canonical Lesson relation is a physical table');
+select ok((select relkind from pg_class where oid = 'public.lesson_questions'::regclass) = 'r', 'the canonical Lesson Question relation is a physical table');
+select ok((select relkind from pg_class where oid = 'public.lesson_attempts'::regclass) = 'r', 'the canonical Lesson Attempt relation is a physical table');
+select ok(to_regclass('public.review_sessions') is null, 'the obsolete Review Session relation is removed');
+select ok(to_regclass('public.review_session_questions') is null, 'the obsolete Review Question relation is removed');
+select ok(to_regclass('public.review_attempts') is null, 'the obsolete Review Attempt relation is removed');
+select ok(to_regprocedure('public.review_session_overview(uuid)') is null, 'the obsolete Review overview RPC is removed');
+select ok(to_regprocedure('public.start_or_resume_review_session(uuid)') is null, 'the obsolete Review start RPC is removed');
+select ok(to_regprocedure('public.submit_review_session_answer(uuid, uuid, text)') is null, 'the obsolete Review answer RPC is removed');
+select ok(to_regprocedure('public.continue_review_session_question(uuid, uuid)') is null, 'the obsolete Review continue RPC is removed');
+select ok(
+  to_regprocedure('public.review_session_prune_unavailable(uuid, uuid)') is null
+    and to_regprocedure('public.review_session_payload(uuid, uuid)') is null
+    and to_regprocedure('public.review_session_eligible_sense_count(uuid)') is null
+    and to_regprocedure('public.review_history(uuid)') is null
+    and to_regprocedure('public.review_cloze_prompt(text, text)') is null
+    and to_regprocedure('public.lesson_cloze_prompt(text, text)') is not null,
+  'obsolete Review helpers are removed and canonical Lesson helpers remain'
+);
 select ok(to_regprocedure('public.lesson_overview(uuid)') is not null, 'the canonical Lesson overview RPC exists');
 select ok(to_regprocedure('public.start_or_resume_vocabulary_lesson(uuid)') is not null, 'the canonical vocabulary Lesson start RPC exists');
 select ok(to_regprocedure('public.submit_lesson_answer(uuid, uuid, text)') is not null, 'the canonical Lesson answer RPC exists');
@@ -40,17 +53,17 @@ select set_config(
   (select id::text from public.learning_languages where learner_id = auth.uid() and language_tag = 'es'),
   true
 );
-select set_config('app.review_session_min_questions', '2', true);
-select set_config('app.review_session_max_questions', '2', true);
+select set_config('app.lesson_min_questions', '2', true);
+select set_config('app.lesson_max_questions', '2', true);
 
 select set_config(
   'test.review_id',
-  (public.start_or_resume_review_session(current_setting('test.lesson_learning_language_id')::uuid)->>'id'),
+  (public.start_or_resume_vocabulary_lesson(current_setting('test.lesson_learning_language_id')::uuid)->>'id'),
   true
 );
 select set_config(
   'test.review_question_id',
-  (select id::text from public.review_session_questions where session_id = current_setting('test.review_id')::uuid order by ordinal limit 1),
+  (select id::text from public.lesson_questions where lesson_id = current_setting('test.review_id')::uuid order by ordinal limit 1),
   true
 );
 select set_config(
@@ -59,18 +72,11 @@ select set_config(
   true
 );
 
-select is(current_setting('test.lesson_id'), current_setting('test.review_id'), 'vocabulary Lesson creation resumes the existing active Review Session');
+select is(current_setting('test.lesson_id'), current_setting('test.review_id'), 'vocabulary Lesson creation resumes the existing active Lesson');
 select is((select count(*) from public.lessons where id = current_setting('test.lesson_id')::uuid and learner_id = auth.uid()), 1::bigint, 'the active Lesson is durable');
-select is((select source from public.lessons where id = current_setting('test.lesson_id')::uuid), 'vocabulary', 'existing Review rows backfill to the vocabulary Lesson source');
-select is((select status from public.lessons where id = current_setting('test.lesson_id')::uuid), 'active', 'an active Review row remains an active Lesson');
-select is((select created_at from public.lessons where id = current_setting('test.lesson_id')::uuid), (select created_at from public.review_sessions where id = current_setting('test.review_id')::uuid), 'Lesson and legacy Review preserve the creation timestamp');
-select is((select total_count from public.lessons where id = current_setting('test.lesson_id')::uuid), (select total_count from public.review_sessions where id = current_setting('test.review_id')::uuid), 'Lesson and legacy Review preserve total progress');
-select is((select correct_count from public.lessons where id = current_setting('test.lesson_id')::uuid), (select correct_count from public.review_sessions where id = current_setting('test.review_id')::uuid), 'Lesson and legacy Review preserve correct progress');
-select is((select prompt from public.lesson_questions where lesson_id = current_setting('test.lesson_id')::uuid order by ordinal limit 1), (select prompt from public.review_session_questions where session_id = current_setting('test.review_id')::uuid order by ordinal limit 1), 'Lesson Questions preserve legacy Review prompts');
-select is((select choices::text from public.lesson_questions where lesson_id = current_setting('test.lesson_id')::uuid order by ordinal limit 1), (select choices::text from public.review_session_questions where session_id = current_setting('test.review_id')::uuid order by ordinal limit 1), 'Lesson Questions preserve legacy Review choices');
-select is((select correct_answer from public.lesson_questions where lesson_id = current_setting('test.lesson_id')::uuid order by ordinal limit 1), (select correct_answer from public.review_session_questions where session_id = current_setting('test.review_id')::uuid order by ordinal limit 1), 'Lesson Questions preserve legacy Review answers');
+select is((select source from public.lessons where id = current_setting('test.lesson_id')::uuid), 'vocabulary', 'existing Lesson rows backfill to the vocabulary Lesson source');
+select is((select status from public.lessons where id = current_setting('test.lesson_id')::uuid), 'active', 'an active Lesson row remains an active Lesson');
 select is((public.lesson_overview(current_setting('test.lesson_learning_language_id')::uuid)->>'id'), current_setting('test.lesson_id'), 'the canonical Lesson overview returns the active Lesson');
-select is((public.review_session_overview(current_setting('test.lesson_learning_language_id')::uuid)->>'id'), current_setting('test.lesson_id'), 'the legacy Review overview returns the canonical Lesson identity');
 
 select lives_ok(
   format(
@@ -82,9 +88,6 @@ select lives_ok(
   'the canonical Lesson answer mutation records an answer'
 );
 select is((select count(*) from public.lesson_attempts where lesson_id = current_setting('test.lesson_id')::uuid), 1::bigint, 'the canonical Lesson Attempt is durable');
-select is((select count(*) from public.review_attempts where session_id = current_setting('test.review_id')::uuid), 1::bigint, 'the legacy Review Attempt remains readable');
-select is((select selected_answer from public.lesson_attempts where lesson_id = current_setting('test.lesson_id')::uuid), (select selected_answer from public.review_attempts where session_id = current_setting('test.review_id')::uuid), 'Lesson and legacy Review preserve the submitted answer');
-select is((select answered_at from public.lesson_attempts where lesson_id = current_setting('test.lesson_id')::uuid), (select answered_at from public.review_attempts where session_id = current_setting('test.review_id')::uuid), 'Lesson and legacy Review preserve the answer timestamp');
 select lives_ok(
   format(
     $$select public.continue_lesson_question(%L::uuid, %L::uuid)$$,
@@ -162,7 +165,7 @@ select set_config(
   (select id::text from public.lessons where learner_id = '11700000-0000-0000-0000-000000000001' and learning_language_id = current_setting('test.view_learning_language_id')::uuid and source = 'dynamic' order by created_at desc limit 1),
   true
 );
-select ok(current_setting('test.view_lesson_return_id') <> '', 'Lesson view INSERT RETURNING exposes the generated Lesson ID');
+select ok(current_setting('test.view_lesson_return_id') <> '', 'Lesson table INSERT RETURNING exposes the generated Lesson ID');
 select ok(current_setting('test.view_lesson_id') <> '', 'the inserted Lesson is persisted');
 select is((select count(*) from public.lessons where id = current_setting('test.view_lesson_id')::uuid), 1::bigint, 'the generated Lesson ID addresses its persisted parent');
 with inserted as (
@@ -196,7 +199,7 @@ select set_config(
   (select id::text from public.lesson_questions where lesson_id = current_setting('test.view_lesson_id')::uuid and prompt = 'view dynamic prompt'),
   true
 );
-select ok(current_setting('test.view_question_return_id') <> '', 'Lesson Question view INSERT RETURNING exposes the generated Question ID');
+select ok(current_setting('test.view_question_return_id') <> '', 'Lesson Question table INSERT RETURNING exposes the generated Question ID');
 select is((select count(*) from public.lesson_questions where id = current_setting('test.view_question_id')::uuid and lesson_id = current_setting('test.view_lesson_id')::uuid), 1::bigint, 'the generated Question ID addresses its Lesson parent');
 with inserted as (
   insert into public.lesson_attempts (
@@ -224,10 +227,10 @@ with inserted as (
 )
 select set_config('test.view_attempt_return_id', coalesce(id::text, ''), true)
 from inserted;
-select ok(current_setting('test.view_attempt_return_id') <> '', 'Lesson Attempt view INSERT RETURNING exposes the generated Attempt ID');
+select ok(current_setting('test.view_attempt_return_id') <> '', 'Lesson Attempt table INSERT RETURNING exposes the generated Attempt ID');
 select is((select count(*) from public.lesson_attempts where lesson_id = current_setting('test.view_lesson_id')::uuid and question_id = current_setting('test.view_question_id')::uuid), 1::bigint, 'the generated Attempt ID addresses its Question parent');
 
-insert into public.review_sessions (
+insert into public.lessons (
   id,
   learner_id,
   learning_language_id,
@@ -247,9 +250,9 @@ values (
   1,
   1
 );
-insert into public.review_session_questions (
+insert into public.lesson_questions (
   id,
-  session_id,
+  lesson_id,
   learner_id,
   sense_id,
   ordinal,
@@ -281,9 +284,9 @@ values (
   '2026-09-20T08:04:00Z',
   '2026-09-20T08:04:30Z'
 );
-insert into public.review_attempts (
+insert into public.lesson_attempts (
   id,
-  session_id,
+  lesson_id,
   question_id,
   learner_id,
   sense_id,
@@ -307,28 +310,28 @@ values (
   true,
   '2026-09-20T08:04:00Z'
 );
-select is((select source from public.review_sessions where id = '11713000-0000-0000-0000-000000000001'), 'vocabulary', 'legacy Review inserts default their Lesson source to vocabulary');
-select is((select id from public.lessons where id = '11713000-0000-0000-0000-000000000001'), '11713000-0000-0000-0000-000000000001'::uuid, 'legacy Review IDs remain exact in the Lesson view');
-select is((select created_at from public.review_sessions where id = '11713000-0000-0000-0000-000000000001'), '2026-09-20T08:00:00Z'::timestamptz, 'legacy Review creation timestamp remains exact');
+select is((select source from public.lessons where id = '11713000-0000-0000-0000-000000000001'), 'vocabulary', 'legacy Lesson inserts default their Lesson source to vocabulary');
+select is((select id from public.lessons where id = '11713000-0000-0000-0000-000000000001'), '11713000-0000-0000-0000-000000000001'::uuid, 'legacy Lesson IDs remain exact in the Lesson table');
+select is((select created_at from public.lessons where id = '11713000-0000-0000-0000-000000000001'), '2026-09-20T08:00:00Z'::timestamptz, 'legacy Lesson creation timestamp remains exact');
 select is((select completed_at from public.lessons where id = '11713000-0000-0000-0000-000000000001'), '2026-09-20T08:05:00Z'::timestamptz, 'legacy Lesson completion timestamp remains exact');
-select is((select correct_count from public.review_sessions where id = '11713000-0000-0000-0000-000000000001'), 1, 'legacy Review correct progress remains exact');
+select is((select correct_count from public.lessons where id = '11713000-0000-0000-0000-000000000001'), 1, 'legacy Lesson correct progress remains exact');
 select is((select total_count from public.lessons where id = '11713000-0000-0000-0000-000000000001'), 1, 'legacy Lesson total progress remains exact');
-select is((select prompt from public.review_session_questions where id = '11713100-0000-0000-0000-000000000001'), 'legacy prompt', 'legacy Review prompts remain exact');
 select is((select prompt from public.lesson_questions where id = '11713100-0000-0000-0000-000000000001'), 'legacy prompt', 'legacy Lesson prompts remain exact');
-select is((select choices::text from public.review_session_questions where id = '11713100-0000-0000-0000-000000000001'), '{hello,bye}', 'legacy Review choices remain exact');
+select is((select prompt from public.lesson_questions where id = '11713100-0000-0000-0000-000000000001'), 'legacy prompt', 'legacy Lesson prompts remain exact');
 select is((select choices::text from public.lesson_questions where id = '11713100-0000-0000-0000-000000000001'), '{hello,bye}', 'legacy Lesson choices remain exact');
-select is((select selected_answer from public.review_attempts where id = '11713200-0000-0000-0000-000000000001'), 'hello', 'legacy Review selected answers remain exact');
+select is((select choices::text from public.lesson_questions where id = '11713100-0000-0000-0000-000000000001'), '{hello,bye}', 'legacy Lesson choices remain exact');
 select is((select selected_answer from public.lesson_attempts where id = '11713200-0000-0000-0000-000000000001'), 'hello', 'legacy Lesson selected answers remain exact');
-select is((select correct_answer from public.review_attempts where id = '11713200-0000-0000-0000-000000000001'), 'hello', 'legacy Review correct answers remain exact');
+select is((select selected_answer from public.lesson_attempts where id = '11713200-0000-0000-0000-000000000001'), 'hello', 'legacy Lesson selected answers remain exact');
 select is((select correct_answer from public.lesson_attempts where id = '11713200-0000-0000-0000-000000000001'), 'hello', 'legacy Lesson correct answers remain exact');
-select is((select answered_at from public.review_session_questions where id = '11713100-0000-0000-0000-000000000001'), '2026-09-20T08:04:00Z'::timestamptz, 'legacy Review question timestamp remains exact');
+select is((select correct_answer from public.lesson_attempts where id = '11713200-0000-0000-0000-000000000001'), 'hello', 'legacy Lesson correct answers remain exact');
 select is((select answered_at from public.lesson_questions where id = '11713100-0000-0000-0000-000000000001'), '2026-09-20T08:04:00Z'::timestamptz, 'legacy Lesson question timestamp remains exact');
-select is((select answered_at from public.review_attempts where id = '11713200-0000-0000-0000-000000000001'), '2026-09-20T08:04:00Z'::timestamptz, 'legacy Review Attempt timestamp remains exact');
+select is((select answered_at from public.lesson_questions where id = '11713100-0000-0000-0000-000000000001'), '2026-09-20T08:04:00Z'::timestamptz, 'legacy Lesson question timestamp remains exact');
 select is((select answered_at from public.lesson_attempts where id = '11713200-0000-0000-0000-000000000001'), '2026-09-20T08:04:00Z'::timestamptz, 'legacy Lesson Attempt timestamp remains exact');
-select is((public.review_session_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'id'), '11713000-0000-0000-0000-000000000001', 'legacy Review payload retains the completed Lesson ID');
-select is((public.review_session_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'correct_count'), '1', 'legacy Review payload retains correct progress');
-select is((public.review_session_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'total_count'), '1', 'legacy Review payload retains total progress');
-select is((public.review_session_overview(current_setting('test.legacy_learning_language_id')::uuid)->'questions'->0->>'correct_answer'), 'hello', 'legacy Review payload retains the correct answer');
+select is((select answered_at from public.lesson_attempts where id = '11713200-0000-0000-0000-000000000001'), '2026-09-20T08:04:00Z'::timestamptz, 'legacy Lesson Attempt timestamp remains exact');
+select is((public.lesson_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'id'), '11713000-0000-0000-0000-000000000001', 'legacy Lesson payload retains the completed Lesson ID');
+select is((public.lesson_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'correct_count'), '1', 'legacy Lesson payload retains correct progress');
+select is((public.lesson_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'total_count'), '1', 'legacy Lesson payload retains total progress');
+select is((public.lesson_overview(current_setting('test.legacy_learning_language_id')::uuid)->'questions'->0->>'correct_answer'), 'hello', 'legacy Lesson payload retains the correct answer');
 select is((public.lesson_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'source'), 'vocabulary', 'Lesson payload exposes the legacy vocabulary source');
 select is((public.lesson_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'correct_count'), '1', 'Lesson payload retains correct progress');
 select is((public.lesson_overview(current_setting('test.legacy_learning_language_id')::uuid)->>'total_count'), '1', 'Lesson payload retains total progress');

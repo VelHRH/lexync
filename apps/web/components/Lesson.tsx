@@ -274,55 +274,55 @@ export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { le
   const progress = lesson ? Math.min(total, question ? questionPosition : answeredCount(lesson)) : 0;
   const feedback = question?.is_correct === true ? 'Correct' : question?.is_correct === false ? 'Incorrect' : '';
 
-  return <main className="review-session-shell" aria-label="Lesson">
-    <header className="review-session-header">
-      <button className="review-session-exit" type="button" onClick={onExit}>Exit</button>
-      <Image className="review-session-mark" src="/brand/mark-dark-on-light.png" alt="Lexync" width={44} height={44} priority unoptimized />
-      <p className="review-session-language-name">{languageName(learningLanguageTag)}</p>
+  return <main className="lesson-shell" aria-label="Lesson">
+    <header className="lesson-header">
+      <button className="lesson-exit" type="button" onClick={onExit}>Exit</button>
+      <Image className="lesson-mark" src="/brand/mark-dark-on-light.png" alt="Lexync" width={44} height={44} priority unoptimized />
+      <p className="lesson-language-name">{languageName(learningLanguageTag)}</p>
     </header>
-    <div className="review-session-main">
-      {loading && <div className="review-session-state" role="status" aria-live="polite"><span className="review-session-skeleton" aria-hidden="true" />Opening Lesson…</div>}
-      {!loading && error && <div className="review-session-state review-session-error" role="alert"><p>Lesson is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
+    <div className="lesson-main">
+      {loading && <div className="lesson-state" role="status" aria-live="polite"><span className="lesson-skeleton" aria-hidden="true" />Opening Lesson…</div>}
+      {!loading && error && <div className="lesson-state lesson-error" role="alert"><p>Lesson is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
       {!loading && !error && lesson && !isComplete && question && <>
-        <div className="review-session-progress-row">
+        <div className="lesson-progress-row">
           <span>Lesson question {questionPosition} of {total}</span>
           <progress aria-label="Lesson progress" max={total} value={progress} />
         </div>
-        <section className="review-session-question" role="region" aria-label="Lesson question">
-          <p className="review-session-direction">{question.question_type === 'cloze' ? 'Cloze' : question.direction === 'recall' ? 'Recall' : 'Recognition'}{question.question_type === 'translation' && question.answer_language_tag ? ` · ${question.answer_language_tag}` : ''}</p>
-          <h1 id="review-session-question-heading">{question.prompt}</h1>
-          <fieldset className="review-session-choices">
+        <section className="lesson-question" role="region" aria-label="Lesson question">
+          <p className="lesson-direction">{question.question_type === 'cloze' ? 'Cloze' : question.direction === 'recall' ? 'Recall' : 'Recognition'}{question.question_type === 'translation' && question.answer_language_tag ? ` · ${question.answer_language_tag}` : ''}</p>
+          <h1 id="lesson-question-heading">{question.prompt}</h1>
+          <fieldset className="lesson-choices">
             <legend>{question.question_type === 'cloze' ? 'Choose the missing expression.' : question.direction === 'recall' ? 'Choose the matching Learning Language expression.' : 'Choose the best answer.'}</legend>
             {question.choices.map((choice) => {
               const isSelected = selectedChoice === choice || question.selected_answer === choice;
               const isCorrect = question.correct_answer === choice;
               const choiceState = question.is_correct === false && isCorrect ? ' correct' : question.is_correct === false && isSelected ? ' incorrect' : question.is_correct === true && isSelected ? ' correct' : '';
-              return <label className={`review-session-choice${isSelected ? ' selected' : ''}${choiceState}`} key={choice}>
-                <input checked={isSelected} disabled={Boolean(question.selected_answer || selectedChoice || submitting)} name={`review-session-answer-${question.id}`} onChange={() => void submitAnswer(choice)} type="radio" value={choice} />
+              return <label className={`lesson-choice${isSelected ? ' selected' : ''}${choiceState}`} key={choice}>
+                <input checked={isSelected} disabled={Boolean(question.selected_answer || selectedChoice || submitting)} name={`lesson-answer-${question.id}`} onChange={() => void submitAnswer(choice)} type="radio" value={choice} />
                 <span>{choice}</span>
-                {choiceState && <span className="review-session-choice-icon" aria-hidden="true">{choiceState.includes('correct') ? '✓' : '×'}</span>}
+                {choiceState && <span className="lesson-choice-icon" aria-hidden="true">{choiceState.includes('correct') ? '✓' : '×'}</span>}
               </label>;
             })}
           </fieldset>
-          <div className={`review-session-feedback${feedback ? ` ${feedback.toLowerCase()}` : ''}`} aria-live="polite" role="status">
-            {feedback && <><span className="review-session-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'Correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span><span>{feedback}</span>{feedback === 'Incorrect' && question.correct_answer && <><span className="review-session-correction-label">Correct answer</span><span>{question.correct_answer}</span></>}</>}
+          <div className={`lesson-feedback${feedback ? ` ${feedback.toLowerCase()}` : ''}`} aria-live="polite" role="status">
+            {feedback && <><span className="lesson-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'Correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span><span>{feedback}</span>{feedback === 'Incorrect' && question.correct_answer && <><span className="lesson-correction-label">Correct answer</span><span>{question.correct_answer}</span></>}</>}
           </div>
         </section>
-        <div className="review-session-footer"><button className="primary-button review-session-continue" type="button" disabled={!question.selected_answer && !selectedChoice || submitting || advancing} onClick={() => void continueLesson()}>{advancing ? 'Loading…' : 'Continue'}</button></div>
+        <div className="lesson-footer"><button className="primary-button lesson-continue" type="button" disabled={!question.selected_answer && !selectedChoice || submitting || advancing} onClick={() => void continueLesson()}>{advancing ? 'Loading…' : 'Continue'}</button></div>
       </>}
-      {!loading && !error && lesson && !isComplete && !question && <div className="review-session-state" role="status"><p>This Lesson has no available questions.</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
-      {!loading && !error && lesson && isComplete && <section className="review-session-complete" aria-labelledby="lesson-complete-heading">
+      {!loading && !error && lesson && !isComplete && !question && <div className="lesson-state" role="status"><p>This Lesson has no available questions.</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
+      {!loading && !error && lesson && isComplete && <section className="lesson-complete" aria-labelledby="lesson-complete-heading">
         <h1 id="lesson-complete-heading">Lesson complete</h1>
-        <p className="review-session-score">{lesson.correct_count ?? 0}/{total} · {percentage(lesson)}%</p>
-        {lesson.questions.some((lessonQuestion) => lessonQuestion.is_correct === false) && <section className="review-session-missed" aria-label="Missed answers">
+        <p className="lesson-score">{lesson.correct_count ?? 0}/{total} · {percentage(lesson)}%</p>
+        {lesson.questions.some((lessonQuestion) => lessonQuestion.is_correct === false) && <section className="lesson-missed" aria-label="Missed answers">
           <h2>Missed answers</h2>
-          {lesson.questions.filter((lessonQuestion) => lessonQuestion.is_correct === false).map((lessonQuestion) => <div className="review-session-missed-item" key={lessonQuestion.id}>
+          {lesson.questions.filter((lessonQuestion) => lessonQuestion.is_correct === false).map((lessonQuestion) => <div className="lesson-missed-item" key={lessonQuestion.id}>
             <p>{lessonQuestion.prompt}</p>
             <p><span>Selected</span><strong>{lessonQuestion.selected_answer}</strong></p>
             <p><span>Correct</span><strong>{lessonQuestion.correct_answer}</strong></p>
           </div>)}
         </section>}
-        <div className="review-session-complete-actions"><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>
+        <div className="lesson-complete-actions"><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>
       </section>}
     </div>
   </main>;

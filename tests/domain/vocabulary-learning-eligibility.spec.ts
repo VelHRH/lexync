@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test';
 import { isVocabularyEntryLearningEligible } from '../../packages/domain/src/index';
 
 test.describe('Vocabulary Entry learning eligibility', () => {
-  test('excludes suspended and cross-pair material from Review selection', () => {
+  test('excludes suspended and cross-pair material from Lesson selection', () => {
     expect(isVocabularyEntryLearningEligible({ studyPairId: 'spanish-english', suspended: false }, 'spanish-english')).toBeTruthy();
     expect(isVocabularyEntryLearningEligible({ studyPairId: 'spanish-english', suspended: true }, 'spanish-english')).toBeFalsy();
     expect(isVocabularyEntryLearningEligible({ studyPairId: 'italian-english', suspended: false }, 'spanish-english')).toBeFalsy();
   });
 
-  test('excludes suspended and cross-pair material from Review distractors', () => {
+  test('excludes suspended and cross-pair material from Lesson distractors', () => {
     const activeStudyPairId = 'spanish-english';
     const candidates = [
       { id: 'active', studyPairId: activeStudyPairId, suspended: false },

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import * as domain from '../../packages/domain/src/index';
 import type { LearningCard } from '../../packages/domain/src/index';
 
-test.describe('Review domain contract', () => {
+test.describe('Lesson domain contract', () => {
   test('does not export scheduling, due-date, retention, or rating state', () => {
     expect(domain).not.toHaveProperty('deriveRecognitionCardSchedule');
     expect(domain).not.toHaveProperty('scheduledReviewRetention');
@@ -19,7 +19,7 @@ test.describe('Review domain contract', () => {
     expect(new Set(cards.map((card) => `${card.senseId}:${card.answerLanguageTag}:${card.direction}`)).size).toBe(3);
   });
 
-  test('suspension excludes material from future Review eligibility', () => {
+  test('suspension excludes material from future Lesson eligibility', () => {
     expect(domain.isVocabularyEntryLearningEligible({ studyPairId: 'spanish-english', suspended: false }, 'spanish-english')).toBe(true);
     expect(domain.isVocabularyEntryLearningEligible({ studyPairId: 'spanish-english', suspended: true }, 'spanish-english')).toBe(false);
   });
