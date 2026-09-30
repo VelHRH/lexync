@@ -149,6 +149,25 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
 .pair-onboarding-actions { margin-top: 2rem; }
 .app-content select { margin-top: .25rem; }
 .pair-management, .lesson-availability { display: grid; gap: 1rem; margin-top: 2.5rem; }
+.learning-materials { display: grid; gap: 1rem; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--web-line); }
+.learning-materials-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.learning-materials-heading h2 { margin-bottom: .4rem; font-size: var(--lexync-type-size-xl); }
+.learning-materials-heading p, .learning-materials-language, .learning-materials-help, .learning-materials-empty { margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }
+.learning-materials-language { white-space: nowrap; }
+.learning-materials-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: .65rem 1rem; }
+.learning-materials-form label { grid-column: 1 / -1; color: var(--web-ink); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); }
+.learning-materials-form input { min-width: 0; min-height: 2.75rem; padding: .55rem .7rem; border: 1px solid var(--web-line-strong); border-radius: var(--lexync-radius-md); background: var(--web-surface); color: var(--web-ink); }
+.learning-materials-form input:hover { border-color: var(--web-primary); }
+.learning-materials-form input:disabled { cursor: not-allowed; opacity: .55; }
+.learning-materials-help { grid-column: 1 / -1; }
+.learning-materials-form .primary-button { min-width: 13rem; }
+.learning-materials-announcement { margin: 0; color: var(--web-primary-active); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
+.learning-materials-list { display: grid; gap: 0; margin: 0; padding: 0; border-top: 1px solid var(--web-line); list-style: none; }
+.learning-material-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-width: 0; min-height: 3.5rem; padding: .75rem 0; border-bottom: 1px solid var(--web-line); }
+.learning-material-name { min-width: 0; overflow-wrap: anywhere; font-weight: var(--lexync-type-weight-semibold); }
+.learning-material-status { flex: 0 0 auto; color: var(--web-muted); font-family: var(--lexync-type-family-mono); font-size: var(--lexync-type-size-xs); text-transform: capitalize; }
+.learning-material-status.ready { color: var(--lexync-color-success); }
+.learning-material-status.processing { color: var(--web-primary-active); }
 .pair-management > h2 { margin-bottom: 0; font-size: var(--lexync-type-size-2xl); }
 .pair-row, .lesson-availability-row, .language-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--web-line); }
 .pair-row-heading p { max-width: 28rem; margin: .4rem 0 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
@@ -239,6 +258,9 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
   .vocabulary-discovery-controls, .lesson-choices { grid-template-columns: 1fr; }
   .vocabulary-editor-row, .vocabulary-example-editor { grid-template-columns: 1fr; }
   .vocabulary-editor-row label:first-child, .vocabulary-example-editor label:first-child { grid-column: auto; }
+  .learning-materials-heading { align-items: flex-start; flex-direction: column; }
+  .learning-materials-form { grid-template-columns: 1fr; }
+  .learning-materials-form .primary-button { width: 100%; }
 }
 
 .lesson-unavailable { margin: -.35rem 0 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }

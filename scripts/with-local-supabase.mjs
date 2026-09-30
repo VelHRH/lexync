@@ -39,6 +39,7 @@ const child = spawn(command, args, {
     WXT_PUBLIC_WEB_URL: 'http://127.0.0.1:3000',
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
     NEXT_PUBLIC_SUPABASE_URL: values.API_URL,
+    LEXYNC_EMBEDDING_PROVIDER: 'deterministic',
   },
   stdio: 'inherit',
 });
