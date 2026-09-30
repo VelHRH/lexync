@@ -165,15 +165,21 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
 .learning-materials-list { display: grid; gap: 0; margin: 0; padding: 0; border-top: 1px solid var(--web-line); list-style: none; }
 .learning-material-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-width: 0; min-height: 3.5rem; padding: .75rem 0; border-bottom: 1px solid var(--web-line); }
 .learning-material-name { min-width: 0; overflow-wrap: anywhere; font-weight: var(--lexync-type-weight-semibold); }
+.learning-material-row-details { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .75rem 1rem; min-width: min(100%, 16rem); }
+.learning-material-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .5rem; }
+.learning-material-actions .secondary-button { min-height: 2.75rem; }
 .learning-material-status { flex: 0 0 auto; color: var(--web-muted); font-family: var(--lexync-type-family-mono); font-size: var(--lexync-type-size-xs); text-transform: capitalize; }
 .learning-material-status.ready { color: var(--lexync-color-success); }
 .learning-material-status.processing { color: var(--web-primary-active); }
+.learning-material-status.failed { color: var(--lexync-color-danger); }
+.learning-material-delete-dialog::backdrop { background: var(--lexync-color-scrim); }
 .pair-management > h2 { margin-bottom: 0; font-size: var(--lexync-type-size-2xl); }
 .pair-row, .lesson-availability-row, .language-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--web-line); }
 .pair-row-heading p { max-width: 28rem; margin: .4rem 0 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
 .pair-row strong, .lesson-availability-row strong, .language-row strong { margin-left: .35rem; color: var(--web-primary-active); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); }
 .pair-language-form, .pair-delete-dialog, .vocabulary-move-panel, .extension-recommendation, .vocabulary-form, .vocabulary-editor, .vocabulary-entry { display: grid; width: 100%; gap: .75rem; padding: 1.25rem; border: 1px solid var(--web-line); border-radius: var(--lexync-radius-lg); background: var(--web-subtle); }
 .pair-delete-dialog { position: fixed; z-index: var(--lexync-z-dialog); inset: 50% auto auto 50%; width: min(calc(100% - 2rem), 34rem); max-height: calc(100dvh - 2rem); overflow: auto; transform: translate(-50%, -50%); box-shadow: var(--lexync-elevation-high); }
+.learning-material-delete-dialog:not([open]) { display: none; }
 .pair-delete-dialog h2, .vocabulary-move-panel h3, .vocabulary-move-panel p { margin: 0; }
 .pair-delete-dialog > div { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
 .text-button { min-height: 2.5rem; border: 0; padding: .35rem; background: transparent; color: var(--web-ink); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); cursor: pointer; }
@@ -261,6 +267,10 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
   .learning-materials-heading { align-items: flex-start; flex-direction: column; }
   .learning-materials-form { grid-template-columns: 1fr; }
   .learning-materials-form .primary-button { width: 100%; }
+  .learning-material-row { align-items: stretch; flex-direction: column; }
+  .learning-material-row-details { align-items: flex-start; justify-content: flex-start; flex-direction: column; }
+  .learning-material-actions { justify-content: flex-start; width: 100%; }
+  .learning-material-actions > * { flex: 1 1 auto; }
 }
 
 .lesson-unavailable { margin: -.35rem 0 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }
