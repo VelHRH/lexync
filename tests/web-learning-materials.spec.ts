@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -7,6 +7,7 @@ const maxLearningMaterialBytes = 1_048_576;
 
 type Account = { email: string; password: string };
 type LearningLanguage = { id: string; language_tag: string };
+type SeededMaterial = { id: string; storagePath: string };
 
 function credentials(prefix = 'web-learning-material') {
   return {
@@ -29,7 +30,8 @@ async function register(account: Account, languageTags: string[]) {
     .select('id,language_tag')
     .order('created_at');
   if (languageError || !languages) throw languageError ?? new Error('The Learning Language fixtures are missing.');
-  return { client, languages: languages as LearningLanguage[] };
+  if (!data.user) throw new Error('The local learner fixture is missing its user.');
+  return { client, languages: languages as LearningLanguage[], userId: data.user.id };
 }
 
 async function signIn(page: Page, account: Account) {
@@ -55,6 +57,43 @@ async function expectReadyMaterial(page: Page, name: string) {
   const material = region.getByRole('listitem').filter({ hasText: name });
   await expect(material).toContainText(/ready/i, { timeout: 30_000 });
   await expect(material).toContainText(name);
+}
+
+async function expectMaterialStatus(page: Page, name: string, status: 'processing' | 'failed' | 'ready') {
+  const material = materialsRegion(page).getByRole('listitem').filter({ hasText: name });
+  await expect(material).toContainText(new RegExp(`\\b${status}\\b`, 'i'));
+  return material;
+}
+
+async function seedMaterial(
+  client: SupabaseClient,
+  userId: string,
+  learningLanguageId: string,
+  fileName: string,
+  status: 'processing' | 'failed',
+): Promise<SeededMaterial> {
+  const id = crypto.randomUUID();
+  const storagePath = `${userId}/${learningLanguageId}/${id}/${fileName}`;
+  const content = Buffer.from(`Fixture content for ${fileName}.`, 'utf8');
+  const { error: insertError } = await client.from('learning_materials').insert({
+    id,
+    learner_id: userId,
+    learning_language_id: learningLanguageId,
+    file_name: fileName,
+    storage_path: storagePath,
+    byte_size: content.byteLength,
+    status,
+  });
+  if (insertError) throw insertError;
+  const { error: uploadError } = await client.storage.from('learning-materials').upload(storagePath, content, { contentType: 'text/plain' });
+  if (uploadError) throw uploadError;
+  return { id, storagePath };
+}
+
+async function expectSourceUnavailable(client: SupabaseClient, storagePath: string) {
+  const { data, error } = await client.storage.from('learning-materials').download(storagePath);
+  expect(data).toBeNull();
+  expect(error).toBeTruthy();
 }
 
 async function expectNoLearnerFacingTechnicalTerms(page: Page) {
@@ -192,5 +231,103 @@ test.describe('web Learning Materials', () => {
     } finally {
       await otherContext.close();
     }
+  });
+
+  test('shows a failed material safely, retries it to ready, and keeps retry idempotent', async ({ page }) => {
+    const account = credentials('web-learning-material-retry');
+    const setup = await register(account, ['es']);
+    const spanish = setup.languages.find((language) => language.language_tag === 'es');
+    if (!spanish) throw new Error('The Spanish Learning Language fixture is missing.');
+    const filename = 'retry-me.txt';
+    await seedMaterial(setup.client, setup.userId, spanish.id, filename, 'failed');
+
+    await signIn(page, account);
+    await page.getByLabel('Active Learning Language').selectOption(spanish.id);
+    const material = await expectMaterialStatus(page, filename, 'failed');
+    await expect(material.getByRole('button', { name: /^Retry\b/i })).toBeVisible();
+    await expectNoLearnerFacingTechnicalTerms(page);
+
+    await material.getByRole('button', { name: /^Retry\b/i }).click();
+    await expect(page.getByRole('status')).toContainText(new RegExp(`${filename}.*processing`, 'i'));
+    await expectMaterialStatus(page, filename, 'ready');
+    await expectNoLearnerFacingTechnicalTerms(page);
+
+    const retriedMaterial = await expectMaterialStatus(page, filename, 'ready');
+    await expect(retriedMaterial.getByRole('button', { name: /^Retry\b/i })).toHaveCount(0);
+  });
+
+  test('deletes failed, ready, and processing materials through a keyboard confirmation flow', async ({ page }) => {
+    const account = credentials('web-learning-material-delete');
+    const setup = await register(account, ['es']);
+    const spanish = setup.languages.find((language) => language.language_tag === 'es');
+    if (!spanish) throw new Error('The Spanish Learning Language fixture is missing.');
+    const failedFilename = 'failed-delete.txt';
+    const processingFilename = 'processing-delete.txt';
+    const failedSeed = await seedMaterial(setup.client, setup.userId, spanish.id, failedFilename, 'failed');
+    const processingSeed = await seedMaterial(setup.client, setup.userId, spanish.id, processingFilename, 'processing');
+
+    await signIn(page, account);
+    await page.getByLabel('Active Learning Language').selectOption(spanish.id);
+    await uploadMaterial(page, 'ready-delete.txt', Buffer.from('Ready material for deletion.', 'utf8'));
+    await expectReadyMaterial(page, 'ready-delete.txt');
+
+    const failedMaterial = await expectMaterialStatus(page, failedFilename, 'failed');
+    const failedDelete = failedMaterial.getByRole('button', { name: /^Delete\b/i });
+    await failedDelete.focus();
+    await expect(failedDelete).toBeFocused();
+    await page.keyboard.press('Enter');
+    const failedDialog = page.getByRole('dialog');
+    await expect(failedDialog).toBeVisible();
+    await failedDialog.getByRole('button', { name: /cancel/i }).click();
+    await expect(failedMaterial).toBeVisible();
+    const failedDeleteAfterCancel = failedMaterial.getByRole('button', { name: /^Delete\b/i });
+    await failedDeleteAfterCancel.focus();
+    await expect(failedDeleteAfterCancel).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(failedDialog).toBeVisible();
+    await failedDialog.getByRole('button', { name: /^Delete\b/i }).click();
+    await expect(failedMaterial).toHaveCount(0);
+    await expect(page.getByRole('status')).toContainText(/deleted/i);
+    await expectSourceUnavailable(setup.client, failedSeed.storagePath);
+
+    const readyMaterial = await expectMaterialStatus(page, 'ready-delete.txt', 'ready');
+    await readyMaterial.getByRole('button', { name: /^Delete\b/i }).click();
+    const readyDialog = page.getByRole('dialog');
+    await expect(readyDialog).toBeVisible();
+    await readyDialog.getByRole('button', { name: /^Delete\b/i }).click();
+    await expect(readyMaterial).toHaveCount(0);
+
+    const processingMaterial = await expectMaterialStatus(page, processingFilename, 'processing');
+    await processingMaterial.getByRole('button', { name: /^Delete\b/i }).click();
+    const processingDialog = page.getByRole('dialog');
+    await expect(processingDialog).toBeVisible();
+    await processingDialog.getByRole('button', { name: /^Delete\b/i }).click();
+    await expect(processingMaterial).toHaveCount(0);
+    await expectSourceUnavailable(setup.client, processingSeed.storagePath);
+    await expectNoLearnerFacingTechnicalTerms(page);
+  });
+
+  test('deleting one same-name material preserves the other material', async ({ page }) => {
+    const account = credentials('web-learning-material-same-name');
+    const setup = await register(account, ['es']);
+    const spanish = setup.languages.find((language) => language.language_tag === 'es');
+    if (!spanish) throw new Error('The Spanish Learning Language fixture is missing.');
+
+    await signIn(page, account);
+    await page.getByLabel('Active Learning Language').selectOption(spanish.id);
+    const filename = 'same-name.txt';
+    await uploadMaterial(page, filename, Buffer.from('First same-name material.', 'utf8'));
+    await expectReadyMaterial(page, filename);
+    await uploadMaterial(page, filename, Buffer.from('Second same-name material.', 'utf8'));
+    await expect(page.getByRole('listitem').filter({ hasText: filename })).toHaveCount(2);
+
+    const firstMaterial = page.getByRole('listitem').filter({ hasText: filename }).first();
+    await firstMaterial.getByRole('button', { name: /^Delete\b/i }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: /^Delete\b/i }).click();
+    await expect(page.getByRole('listitem').filter({ hasText: filename })).toHaveCount(1);
+    await expect(page.getByRole('listitem').filter({ hasText: filename }).getByRole('button', { name: /^Delete\b/i })).toBeVisible();
+    await expectNoLearnerFacingTechnicalTerms(page);
   });
 });
