@@ -19,7 +19,6 @@ export class LearningMaterialValidationError extends Error {
     super(message);
   }
 }
-
 function readableFileName(fileName: string): string {
   const baseName = fileName.split(/[\\/]/).pop() ?? 'learning-material.txt';
   const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -67,4 +66,3 @@ export async function validateLearningMaterial(file: File): Promise<ValidatedLea
 
   return { fileName: readableFileName(file.name), rawBytes, sourceText };
 }
-

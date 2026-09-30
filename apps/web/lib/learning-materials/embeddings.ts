@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
-import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
+import { Embeddings } from '@langchain/core/embeddings';
 
 export const EMBEDDING_DIMENSION = 768;
 export const GEMINI_EMBEDDING_MODEL = 'gemini-embedding-001';
@@ -9,7 +9,25 @@ export type EmbeddingProvider = {
   readonly model: string;
   readonly dimension: number;
   embedDocuments(texts: readonly string[]): Promise<number[][]>;
+  embedQuery(text: string): Promise<number[]>;
 };
+
+export type GeminiEmbeddingClient = {
+  readonly models: {
+    embedContent(parameters: {
+      model: string;
+      contents: string[];
+      config: {
+        outputDimensionality: number;
+        taskType: 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY';
+      };
+    }): Promise<{
+      embeddings?: Array<{ values?: number[] }>;
+    }>;
+  };
+};
+
+const GEMINI_DOCUMENT_BATCH_SIZE = 100;
 
 function deterministicVector(text: string): number[] {
   const values: number[] = [];
@@ -29,54 +47,65 @@ export class DeterministicEmbeddingProvider implements EmbeddingProvider {
   async embedDocuments(texts: readonly string[]): Promise<number[][]> {
     return texts.map(deterministicVector);
   }
+
+  async embedQuery(text: string): Promise<number[]> {
+    return deterministicVector(text);
+  }
+}
+
+class OfficialGeminiEmbeddings extends Embeddings {
+  private readonly client: GeminiEmbeddingClient;
+
+  constructor(apiKey: string, client?: GeminiEmbeddingClient) {
+    super({});
+    this.client = client ?? new GoogleGenAI({ apiKey });
+  }
+
+  private async embed(texts: string[], taskType: 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'): Promise<number[][]> {
+    const response = await this.client.models.embedContent({
+      model: GEMINI_EMBEDDING_MODEL,
+      contents: texts,
+      config: {
+        outputDimensionality: EMBEDDING_DIMENSION,
+        taskType,
+      },
+    });
+    const embeddings = response.embeddings?.map((embedding) => embedding.values ?? []) ?? [];
+    if (embeddings.length !== texts.length || embeddings.some((embedding) => embedding.length !== EMBEDDING_DIMENSION)) {
+      throw new Error('The embedding provider returned an unexpected result.');
+    }
+    return embeddings;
+  }
+
+  async embedDocuments(texts: string[]): Promise<number[][]> {
+    const embeddings: number[][] = [];
+    for (let start = 0; start < texts.length; start += GEMINI_DOCUMENT_BATCH_SIZE) {
+      embeddings.push(...await this.embed(texts.slice(start, start + GEMINI_DOCUMENT_BATCH_SIZE), 'RETRIEVAL_DOCUMENT'));
+    }
+    return embeddings;
+  }
+
+  async embedQuery(text: string): Promise<number[]> {
+    const [embedding] = await this.embed([text], 'RETRIEVAL_QUERY');
+    return embedding;
+  }
 }
 
 export class GeminiEmbeddingProvider implements EmbeddingProvider {
   readonly model = GEMINI_EMBEDDING_MODEL;
   readonly dimension = EMBEDDING_DIMENSION;
-  private readonly client: GoogleGenAI;
+  private readonly provider: OfficialGeminiEmbeddings;
 
-  constructor(apiKey: string) {
-    this.client = new GoogleGenAI({ apiKey });
+  constructor(apiKey: string, client?: GeminiEmbeddingClient) {
+    this.provider = new OfficialGeminiEmbeddings(apiKey, client);
   }
 
   async embedDocuments(texts: readonly string[]): Promise<number[][]> {
-    const response = await this.client.models.embedContent({
-      model: this.model,
-      contents: [...texts],
-      config: {
-        outputDimensionality: this.dimension,
-        taskType: 'RETRIEVAL_DOCUMENT',
-      },
-    });
-    const embeddings = response.embeddings?.map((embedding) => embedding.values ?? []) ?? [];
-    if (embeddings.length !== texts.length || embeddings.some((embedding) => embedding.length !== this.dimension)) {
-      throw new Error('The embedding provider returned an unexpected result.');
-    }
-    return embeddings;
-  }
-}
-
-export class LangChainGeminiEmbeddingProvider implements EmbeddingProvider {
-  readonly model = GEMINI_EMBEDDING_MODEL;
-  readonly dimension = EMBEDDING_DIMENSION;
-  private readonly provider: GoogleGenerativeAIEmbeddings;
-
-  constructor(apiKey: string) {
-    this.provider = new GoogleGenerativeAIEmbeddings({
-      apiKey,
-      model: this.model,
-      outputDimensionality: this.dimension,
-      taskType: 'RETRIEVAL_DOCUMENT' as never,
-    });
+    return this.provider.embedDocuments([...texts]);
   }
 
-  async embedDocuments(texts: readonly string[]): Promise<number[][]> {
-    const embeddings = await this.provider.embedDocuments([...texts]);
-    if (embeddings.length !== texts.length || embeddings.some((embedding) => embedding.length !== this.dimension)) {
-      throw new Error('The embedding provider returned an unexpected result.');
-    }
-    return embeddings;
+  async embedQuery(text: string): Promise<number[]> {
+    return this.provider.embedQuery(text);
   }
 }
 

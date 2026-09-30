@@ -16,7 +16,7 @@ function toLearningMaterial(row: LearningMaterialRow): LearningMaterial | null {
   return { id: row.id, fileName: row.file_name, status: row.status, createdAt: row.created_at };
 }
 
-export function LearningMaterials({ accessToken, learningLanguageId }: { accessToken: string; learningLanguageId: string }) {
+export function LearningMaterials({ accessToken, learningLanguageId, learningLanguageLabel }: { accessToken: string; learningLanguageId: string; learningLanguageLabel: string }) {
   const online = useOnlineStatus();
   const [materials, setMaterials] = useState<LearningMaterial[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -120,7 +120,7 @@ export function LearningMaterials({ accessToken, learningLanguageId }: { accessT
         <h2 id="learning-materials-heading">Learning Materials</h2>
         <p>Keep a private reading text ready for future Lessons.</p>
       </div>
-      <span className="learning-materials-language">Active language</span>
+      <span className="learning-materials-language">{learningLanguageLabel}</span>
     </div>
     <form className="learning-materials-form" onSubmit={upload}>
       <label htmlFor="learning-material-file">Learning Material file</label>

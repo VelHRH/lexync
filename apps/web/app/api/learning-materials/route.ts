@@ -6,12 +6,15 @@ import {
   splitLearningMaterial,
 } from '../../../lib/learning-materials/processing';
 import {
+  MAX_LEARNING_MATERIAL_BYTES,
   LearningMaterialValidationError,
+  learningMaterialMessages,
   validateLearningMaterial,
 } from '../../../lib/learning-materials/validation';
 
 const safeProcessingError = 'Learning Material could not be prepared right now.';
 const safeAuthError = 'Please sign in to manage Learning Materials.';
+const MAX_MULTIPART_REQUEST_BYTES = MAX_LEARNING_MATERIAL_BYTES + 64 * 1024;
 
 type MaterialRow = {
   id: string;
@@ -93,6 +96,17 @@ export async function POST(request: Request) {
     return Response.json({ error: safeProcessingError }, { status: 500 });
   }
   if (!authenticated) return Response.json({ error: safeAuthError }, { status: 401 });
+
+  const contentLengthHeader = request.headers.get('content-length');
+  const contentLength = contentLengthHeader === null ? null : Number(contentLengthHeader);
+  if (
+    request.headers.get('content-type')?.toLowerCase().startsWith('multipart/form-data')
+    && contentLength !== null
+    && Number.isSafeInteger(contentLength)
+    && contentLength > MAX_MULTIPART_REQUEST_BYTES
+  ) {
+    return Response.json({ error: learningMaterialMessages.size }, { status: 413 });
+  }
 
   let formData: FormData;
   try {

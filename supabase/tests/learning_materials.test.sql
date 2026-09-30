@@ -162,15 +162,15 @@ select throws_ok(
 
 select public.complete_learning_material(
   '66666666-6666-6666-6666-666666666666',
-  'Alpha beta',
+  '😀Alpha',
   'ci-deterministic',
   768,
   1,
   jsonb_build_array(jsonb_build_object(
     'ordinal', 0,
     'start_offset', 0,
-    'end_offset', 10,
-    'text', 'Alpha beta',
+    'end_offset', 6,
+    'text', '😀Alpha',
     'embedding_model', 'ci-deterministic',
     'schema_version', 1,
     'embedding', ('[' || repeat('0,', 767) || '0]')::jsonb
@@ -178,11 +178,11 @@ select public.complete_learning_material(
 );
 set local role postgres;
 select is((select status from public.learning_materials where id = '66666666-6666-6666-6666-666666666666'), 'ready', 'completion transitions the material to ready');
-select is((select normalized_text from public.learning_materials where id = '66666666-6666-6666-6666-666666666666'), 'Alpha beta', 'completion stores normalized text');
+select is((select normalized_text from public.learning_materials where id = '66666666-6666-6666-6666-666666666666'), '😀Alpha', 'completion stores normalized text');
 select is((select count(*) from public.learning_material_passages where material_id = '66666666-6666-6666-6666-666666666666'), 1::bigint, 'completion inserts passages atomically');
 select is((select ordinal from public.learning_material_passages where material_id = '66666666-6666-6666-6666-666666666666'), 0, 'passages retain source order');
 select is((select source_start from public.learning_material_passages where material_id = '66666666-6666-6666-6666-666666666666'), 0, 'passages retain normalized-text start offsets');
-select is((select source_end from public.learning_material_passages where material_id = '66666666-6666-6666-6666-666666666666'), 10, 'passages retain normalized-text end offsets');
+select is((select source_end from public.learning_material_passages where material_id = '66666666-6666-6666-6666-666666666666'), 6, 'passages retain Unicode code-point end offsets');
 select is((select embedding_dimension from public.learning_material_passages where material_id = '66666666-6666-6666-6666-666666666666'), 768, 'passages retain embedding dimension metadata');
 select is((select passage_schema_version from public.learning_material_passages where material_id = '66666666-6666-6666-6666-666666666666'), 1, 'passages retain schema version metadata');
 select is((select embedding_model from public.learning_material_passages where material_id = '66666666-6666-6666-6666-666666666666'), 'ci-deterministic', 'passages retain embedding model identity');

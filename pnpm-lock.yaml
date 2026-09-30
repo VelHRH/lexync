@@ -69,9 +69,9 @@ importers:
       '@google/genai':
         specifier: 2.24.0
         version: 2.24.0
-      '@langchain/google-genai':
-        specifier: 2.3.2
-        version: 2.3.2(@langchain/core@1.2.13(ws@8.22.0))
+      '@langchain/core':
+        specifier: 1.2.13
+        version: 1.2.13(ws@8.22.0)
       '@langchain/textsplitters':
         specifier: 1.0.2
         version: 1.0.2(@langchain/core@1.2.13(ws@8.22.0))
@@ -84,6 +84,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 2.112.3
         version: 2.112.3
+      js-tiktoken:
+        specifier: 1.0.21
+        version: 1.0.21
       next:
         specifier: 16.2.9
         version: 16.2.9(@babel/core@7.29.7)(@playwright/test@1.61.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -300,10 +303,6 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@google/generative-ai@0.24.1':
-    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
-    engines: {node: '>=18.0.0'}
-
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
     engines: {node: '>=18.18.0'}
@@ -496,12 +495,6 @@ packages:
   '@langchain/core@1.2.13':
     resolution: {integrity: sha512-ADGTxZ84n3civruUX1LlTOdua/PDGoni2U6TmKTX7hvRU2Jlepu8vLJI4Wnwj45KUKhUCrW94Il12Q2bxE3e8A==}
     engines: {node: '>=20'}
-
-  '@langchain/google-genai@2.3.2':
-    resolution: {integrity: sha512-wiiHx3aBJmWJcKmYs/4xZo5KNRICYjdbwegtmH8ega7liYFKBY6e1F4ocMNL+ylApaRIYeO54ceAHNbKmRVHeQ==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      '@langchain/core': ^1.2.11
 
   '@langchain/textsplitters@1.0.2':
     resolution: {integrity: sha512-UNCmlyFIRlRfVxqpmcRsp1jQrscnIVVqRKrrjFF2wHHq+VGTv+VDkGZLyEVUopJfHIdaiXfOKlSrROQui7VLFA==}
@@ -3762,8 +3755,6 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@google/generative-ai@0.24.1': {}
-
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -3910,11 +3901,6 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
       - ws
-
-  '@langchain/google-genai@2.3.2(@langchain/core@1.2.13(ws@8.22.0))':
-    dependencies:
-      '@google/generative-ai': 0.24.1
-      '@langchain/core': 1.2.13(ws@8.22.0)
 
   '@langchain/textsplitters@1.0.2(@langchain/core@1.2.13(ws@8.22.0))':
     dependencies:
