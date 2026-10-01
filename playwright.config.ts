@@ -120,6 +120,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-dynamic-lesson',
+      testMatch: /web-dynamic-lesson\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-dynamic-lesson-mobile',
+      testMatch: /web-dynamic-lesson\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-design-system',
       testMatch: /web-design-system\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },

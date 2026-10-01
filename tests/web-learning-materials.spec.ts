@@ -43,7 +43,7 @@ async function signIn(page: Page, account: Account) {
 }
 
 function materialsRegion(page: Page) {
-  return page.getByRole('region', { name: 'Learning Materials' });
+  return page.getByRole('region', { name: 'Learning Materials', exact: true });
 }
 
 async function uploadMaterial(page: Page, name: string, buffer: Buffer) {
@@ -248,7 +248,7 @@ test.describe('web Learning Materials', () => {
     await expectNoLearnerFacingTechnicalTerms(page);
 
     await material.getByRole('button', { name: /^Retry\b/i }).click();
-    await expect(page.getByRole('status')).toContainText(new RegExp(`${filename}.*processing`, 'i'));
+    await expect(page.getByRole('status').filter({ hasText: filename })).toContainText(new RegExp(`${filename}.*processing`, 'i'));
     await expectMaterialStatus(page, filename, 'ready');
     await expectNoLearnerFacingTechnicalTerms(page);
 

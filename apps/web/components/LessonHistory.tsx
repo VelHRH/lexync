@@ -20,6 +20,7 @@ type CompletedLesson = {
   completed_at: string;
   correct_count: number;
   total_count: number;
+  source: 'vocabulary' | 'dynamic' | null;
   questions: LessonQuestion[];
 };
 
@@ -82,6 +83,7 @@ function parseLesson(value: unknown): CompletedLesson | null {
     completed_at: completedAt,
     correct_count: Math.max(0, numberValue(value.correct_count, 0)),
     total_count: Math.max(0, numberValue(value.total_count, rawQuestions.length)),
+    source: value.source === 'dynamic' ? 'dynamic' : value.source === 'vocabulary' ? 'vocabulary' : null,
     questions: rawQuestions.map(parseQuestion).filter((question): question is LessonQuestion => Boolean(question)).sort((first, second) => first.ordinal - second.ordinal),
   };
 }
@@ -167,7 +169,7 @@ export function LessonHistory({ learningLanguageId, learningLanguageTag }: { lea
       {!loading && error && <p className="form-notice error" role="alert">{error}</p>}
       {!loading && !error && lessons.length === 0 && <p className="lesson-history-empty">No completed Lessons yet. Start a Lesson from Home to build your history.</p>}
       {!loading && !error && lessons.length > 0 && <div className="lesson-history-list">{lessons.map((lesson) => <details className="lesson-history-session" key={lesson.id}>
-        <summary><span className="lesson-history-session-language">{languageName(lesson.learning_language_tag)} <small>{lesson.learning_language_tag}</small></span><time dateTime={lesson.completed_at}>{formatDate(lesson.completed_at)}</time><span className="lesson-history-score">{lesson.correct_count}/{lesson.total_count} · {percentage(lesson)}%</span></summary>
+        <summary><span className="lesson-history-session-language">{languageName(lesson.learning_language_tag)} <small>{lesson.learning_language_tag}</small>{lesson.source && <span className="lesson-history-session-source">{lesson.source === 'dynamic' ? 'From your Learning Materials' : 'From your vocabulary'}</span>}</span><time dateTime={lesson.completed_at}>{formatDate(lesson.completed_at)}</time><span className="lesson-history-score">{lesson.correct_count}/{lesson.total_count} · {percentage(lesson)}%</span></summary>
         <ol className="lesson-history-questions">{lesson.questions.map((question) => <QuestionDetail key={`${lesson.id}-${question.ordinal}`} question={question} />)}</ol>
       </details>)}</div>}
     </section>

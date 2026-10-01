@@ -27,6 +27,7 @@ type LessonState = {
   id: string;
   learning_language_id: string;
   status: 'active' | 'completed';
+  source: 'vocabulary' | 'dynamic';
   created_at: string;
   completed_at: string | null;
   correct_count: number | null;
@@ -93,6 +94,7 @@ function parseLesson(value: unknown): LessonState | null {
     id: candidate.id,
     learning_language_id: candidate.learning_language_id,
     status: candidate.status,
+    source: candidate.source === 'dynamic' ? 'dynamic' : 'vocabulary',
     created_at: typeof candidate.created_at === 'string' ? candidate.created_at : '',
     completed_at: typeof candidate.completed_at === 'string' ? candidate.completed_at : null,
     correct_count: typeof candidate.correct_count === 'number' ? candidate.correct_count : null,
@@ -322,7 +324,7 @@ export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { le
             <p><span>Correct</span><strong>{lessonQuestion.correct_answer}</strong></p>
           </div>)}
         </section>}
-        <div className="lesson-complete-actions"><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>
+        <div className="lesson-complete-actions">{lesson.source === 'dynamic' ? <button className="primary-button" type="button" onClick={onExit}>Practise something else</button> : <><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></>}</div>
       </section>}
     </div>
   </main>;

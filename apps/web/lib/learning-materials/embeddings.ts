@@ -28,11 +28,13 @@ export type GeminiEmbeddingClient = {
 };
 
 const GEMINI_DOCUMENT_BATCH_SIZE = 100;
+const DISTINCTIVE_TOKEN_MIN_LENGTH = 4;
+const DISTINCTIVE_TOKEN_LIMIT = 8;
 
-function deterministicVector(text: string): number[] {
+function fillUnitVector(digestInputAt: (index: number) => string): number[] {
   const values: number[] = [];
   for (let index = 0; index < EMBEDDING_DIMENSION; index += 1) {
-    const digest = createHash('sha256').update(`${index}\u0000${text}`).digest();
+    const digest = createHash('sha256').update(digestInputAt(index)).digest();
     const unsigned = digest.readUInt32BE(0);
     values.push(unsigned / 2_147_483_647 - 1);
   }
@@ -40,16 +42,45 @@ function deterministicVector(text: string): number[] {
   return values.map((value) => value / length);
 }
 
+function deterministicVector(text: string): number[] {
+  return fillUnitVector((index) => `${index}\u0000${text}`);
+}
+
+function distinctiveTokenVector(token: string): number[] {
+  return fillUnitVector((index) => `${index} ${token}`);
+}
+
+function distinctiveTokens(text: string): string[] {
+  const normalized = text.normalize('NFKC').toLowerCase();
+  const tokens = normalized.split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= DISTINCTIVE_TOKEN_MIN_LENGTH);
+  const uniqueTokens = [...new Set(tokens)];
+  return uniqueTokens
+    .sort((first, second) => second.length - first.length || (first < second ? -1 : first > second ? 1 : 0))
+    .slice(0, DISTINCTIVE_TOKEN_LIMIT);
+}
+
+function lexicalVector(text: string): number[] {
+  const tokens = distinctiveTokens(text);
+  if (tokens.length === 0) return deterministicVector(text);
+  const sum = new Array(EMBEDDING_DIMENSION).fill(0);
+  for (const token of tokens) {
+    const vector = distinctiveTokenVector(token);
+    for (let index = 0; index < EMBEDDING_DIMENSION; index += 1) sum[index] += vector[index];
+  }
+  const length = Math.sqrt(sum.reduce((total, value) => total + value * value, 0));
+  return sum.map((value) => value / length);
+}
+
 export class DeterministicEmbeddingProvider implements EmbeddingProvider {
-  readonly model = 'lexync-deterministic-768-v1';
+  readonly model = 'lexync-deterministic-768-v2';
   readonly dimension = EMBEDDING_DIMENSION;
 
   async embedDocuments(texts: readonly string[]): Promise<number[][]> {
-    return texts.map(deterministicVector);
+    return texts.map(lexicalVector);
   }
 
   async embedQuery(text: string): Promise<number[]> {
-    return deterministicVector(text);
+    return lexicalVector(text);
   }
 }
 

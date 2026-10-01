@@ -173,6 +173,19 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
 .learning-material-status.processing { color: var(--web-primary-active); }
 .learning-material-status.failed { color: var(--lexync-color-danger); }
 .learning-material-delete-dialog::backdrop { background: var(--lexync-color-scrim); }
+.dynamic-lesson-request { display: grid; gap: 1rem; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--web-line); }
+.dynamic-lesson-request-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.dynamic-lesson-request-heading h2 { margin-bottom: .4rem; font-size: var(--lexync-type-size-xl); }
+.dynamic-lesson-request-heading p, .dynamic-lesson-request-language, .dynamic-lesson-request-help { margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }
+.dynamic-lesson-request-language { white-space: nowrap; }
+.dynamic-lesson-request-form { display: grid; gap: .65rem; }
+.dynamic-lesson-request-form label { color: var(--web-ink); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); }
+.dynamic-lesson-request-form textarea, .dynamic-lesson-request-form input { min-height: 2.75rem; padding: .55rem .7rem; border: 1px solid var(--web-line-strong); border-radius: var(--lexync-radius-md); background: var(--web-surface); color: var(--web-ink); }
+.dynamic-lesson-request-form textarea { min-height: 6rem; resize: vertical; }
+.dynamic-lesson-request-form textarea:hover, .dynamic-lesson-request-form input:hover { border-color: var(--web-primary); }
+.dynamic-lesson-request-form textarea:disabled, .dynamic-lesson-request-form input:disabled { cursor: not-allowed; opacity: .55; }
+.dynamic-lesson-request-form .primary-button { width: fit-content; min-width: 13rem; }
+.dynamic-lesson-generating { margin: 0; color: var(--web-primary-active); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
 .pair-management > h2 { margin-bottom: 0; font-size: var(--lexync-type-size-2xl); }
 .pair-row, .lesson-availability-row, .language-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--web-line); }
 .pair-row-heading p { max-width: 28rem; margin: .4rem 0 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
@@ -271,6 +284,8 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
   .learning-material-row-details { align-items: flex-start; justify-content: flex-start; flex-direction: column; }
   .learning-material-actions { justify-content: flex-start; width: 100%; }
   .learning-material-actions > * { flex: 1 1 auto; }
+  .dynamic-lesson-request-heading { align-items: flex-start; flex-direction: column; }
+  .dynamic-lesson-request-form .primary-button { width: 100%; }
 }
 
 .lesson-unavailable { margin: -.35rem 0 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }
@@ -346,6 +361,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacit
 .lesson-history-session summary time, .lesson-history-score { color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
 .lesson-history-session-language { min-width: 0; font-weight: var(--lexync-type-weight-semibold); }
 .lesson-history-session-language small { margin-left: .35rem; color: var(--web-muted); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-regular); }
+.lesson-history-session-source { display: block; margin-top: .15rem; color: var(--web-muted); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-regular); }
 .lesson-history-score { justify-self: end; color: var(--web-ink); font-weight: var(--lexync-type-weight-semibold); white-space: nowrap; }
 .lesson-history-questions { display: grid; gap: 1rem; margin: 0; padding: 0 0 1.25rem 1.5rem; }
 .lesson-history-question { padding: 1rem 0 0; border-top: 1px solid var(--web-line); }
