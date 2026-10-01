@@ -18,7 +18,7 @@ function toLearningMaterial(row: LearningMaterialRow): LearningMaterial | null {
   return { id: row.id, fileName: row.file_name, status: row.status, createdAt: row.created_at };
 }
 
-export function LearningMaterials({ accessToken, learningLanguageId, learningLanguageLabel }: { accessToken: string; learningLanguageId: string; learningLanguageLabel: string }) {
+export function LearningMaterials({ accessToken, learningLanguageId, learningLanguageLabel, onMaterialsChanged }: { accessToken: string; learningLanguageId: string; learningLanguageLabel: string; onMaterialsChanged?: (readyCount: number) => void }) {
   const online = useOnlineStatus();
   const [materials, setMaterials] = useState<LearningMaterial[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -71,6 +71,11 @@ export function LearningMaterials({ accessToken, learningLanguageId, learningLan
       loadRequestId.current += 1;
     };
   }, [loadMaterials]);
+
+  useEffect(() => {
+    if (loading) return;
+    onMaterialsChanged?.(materials.filter((material) => material.status === 'ready').length);
+  }, [loading, materials, onMaterialsChanged]);
 
   useEffect(() => {
     if (previousLanguageRef.current === learningLanguageId) return;
