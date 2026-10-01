@@ -315,6 +315,28 @@ test.describe('web Dynamic Lesson', () => {
     expect(await questionSnapshot(page)).toEqual(initial);
   });
 
+  test('resumes the active Dynamic Lesson when the ordinary Vocabulary Lesson launch control is used', async ({ page }) => {
+    const setup = await registerWithLanguage('dynamic-lesson-resume-vocabulary-control');
+    await captureEntry(setup.client, setup.learningLanguageId, 'casa', 'house');
+    await captureEntry(setup.client, setup.learningLanguageId, 'perro', 'dog');
+    await signIn(page, setup.account);
+    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await uploadMaterial(page, 'resume-via-vocabulary-control-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
+    await expectReadyMaterial(page, 'resume-via-vocabulary-control-notes.txt');
+    await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
+    await expect(page).toHaveURL('/lesson');
+    const initial = await questionSnapshot(page);
+    await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
+    await expect(page).toHaveURL('/');
+    await expect(resumeLessonLink(page)).toBeVisible();
+    await resumeLessonLink(page).click();
+    await expect(page).toHaveURL('/lesson');
+    expect(await questionSnapshot(page)).toEqual(initial);
+    await completeLesson(page);
+    await expect(lessonShell(page).getByRole('button', { name: 'Practise something else' })).toBeVisible();
+    await expect(lessonShell(page).getByRole('button', { name: 'Start another lesson' })).toHaveCount(0);
+  });
+
   test('requires a Preferred Answer Language before generating when the Learner has none', async ({ page }) => {
     const setup = await registerWithLanguage('dynamic-lesson-answer-language');
     await signIn(page, setup.account);

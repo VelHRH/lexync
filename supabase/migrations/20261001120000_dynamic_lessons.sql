@@ -501,7 +501,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  current_learner_id uuid := auth.uid();
+  current_learner_id uuid := (select auth.uid());
 begin
   if current_learner_id is null then
     raise exception 'Authentication is required.';

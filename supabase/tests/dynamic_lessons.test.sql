@@ -1,6 +1,6 @@
 begin;
 
-select plan(39);
+select plan(43);
 
 select ok(
   to_regprocedure('public.retrieve_dynamic_lesson_context(uuid, jsonb, text)') is not null,
@@ -218,6 +218,27 @@ select is(
   (select count(*) from public.lessons where learner_id = '12200000-0000-0000-0000-000000000001' and learning_language_id = '12200000-0000-0000-0000-000000000012'),
   1::bigint,
   'resuming an active Dynamic Lesson creates no second Lesson row'
+);
+
+select is(
+  (public.start_or_resume_vocabulary_lesson('12200000-0000-0000-0000-000000000012'::uuid)->>'id'),
+  current_setting('test.dynamic_first_id'),
+  'the ordinary Vocabulary Lesson entry point resumes the active Dynamic Lesson instead of creating one'
+);
+select is(
+  (select count(*) from public.lessons where learner_id = '12200000-0000-0000-0000-000000000001' and learning_language_id = '12200000-0000-0000-0000-000000000012'),
+  1::bigint,
+  'the ordinary Vocabulary Lesson entry point creates no additional Lesson row for the Dynamic Lesson Learning Language'
+);
+select is(
+  (select string_agg(id::text, ',' order by ordinal) from public.lesson_questions where lesson_id = current_setting('test.dynamic_first_id')::uuid),
+  current_setting('test.dynamic_first_question_ids'),
+  'the ordinary Vocabulary Lesson entry point leaves the Dynamic Lesson Questions untouched'
+);
+select is(
+  (select count(*) from public.lesson_questions where lesson_id = current_setting('test.dynamic_first_id')::uuid),
+  2::bigint,
+  'the ordinary Vocabulary Lesson entry point does not prune the Dynamic Lesson Questions'
 );
 
 select throws_ok(

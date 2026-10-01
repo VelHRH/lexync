@@ -3,15 +3,7 @@ import type { DynamicLessonQuestionCandidate } from './generation';
 
 export class DynamicLessonGenerationError extends Error {}
 
-export type ValidatedDynamicLessonQuestion = {
-  questionType: 'translation' | 'cloze';
-  direction: 'recognition' | 'recall' | null;
-  answerLanguageTag: string | null;
-  prompt: string;
-  choices: string[];
-  correctAnswer: string;
-  supportingPassageIds: string[];
-};
+export type ValidatedDynamicLessonQuestion = DynamicLessonQuestionCandidate;
 
 export type DynamicLessonValidationContext = {
   minQuestions: number;
