@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { selectLearningLanguage } from './support/language-switcher';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -69,7 +70,12 @@ function lessonQuestion(page: Page) {
   return page.getByRole('region', { name: 'Lesson question' });
 }
 
+async function openLessons(page: Page) {
+  if (new URL(page.url()).pathname !== '/lessons') await page.goto('/lessons');
+}
+
 async function startLesson(page: Page) {
+  await openLessons(page);
   await page.getByRole('link', { name: /Start lesson|Resume lesson/ }).click();
   await expect(page).toHaveURL('/lesson');
   await expect(lessonQuestion(page)).toBeVisible();
@@ -98,6 +104,7 @@ async function completeLesson(page: Page, answerFirst = true) {
 }
 
 async function openHistory(page: Page) {
+  await openLessons(page);
   await page.getByRole('link', { name: 'Lesson history', exact: true }).click();
   await expect(page).toHaveURL(/\/lesson-history$/);
   await expect(page.getByRole('heading', { name: 'Lesson history', exact: true })).toBeVisible();
@@ -120,7 +127,9 @@ test.describe('web Lesson history', () => {
     const fixture = await registerLearner('lesson-history-empty');
     await signIn(page, fixture.account);
     const navigation = page.getByRole('navigation', { name: 'Main navigation' });
-    await expect(navigation.getByRole('link', { name: /Lesson|history/i })).toHaveCount(0);
+    await expect(navigation.getByRole('link', { name: 'Lesson', exact: true })).toHaveCount(0);
+    await expect(navigation.getByRole('link', { name: /history/i })).toHaveCount(0);
+    await openLessons(page);
     await expect(page.getByRole('link', { name: 'Lesson history', exact: true })).toBeVisible();
     await openHistory(page);
     await expect(page.getByText(/no completed Lessons yet/i)).toBeVisible();
@@ -164,7 +173,8 @@ test.describe('web Lesson history', () => {
     await startLesson(page);
     await completeLesson(page);
     await lessonShell(page).getByRole('button', { name: 'Back to Home' }).click();
-    await page.getByLabel('Active Learning Language').selectOption(secondLanguageId);
+    await selectLearningLanguage(page, secondLanguageId);
+    await openLessons(page);
     await expect(page.getByText(/French.*2 Senses ready/)).toBeVisible();
     await startLesson(page);
     await completeLesson(page);
@@ -175,7 +185,7 @@ test.describe('web Lesson history', () => {
     await expect(stats.getByText('casa', { exact: true })).toHaveCount(0);
     await expect(stats.getByText(/Practice count/i).first()).toBeVisible();
     expect(await stats.locator('time[datetime]').count()).toBeGreaterThan(0);
-    await page.getByLabel('Active Learning Language').selectOption(fixture.learningLanguageId);
+    await selectLearningLanguage(page, fixture.learningLanguageId);
     await expect(stats.getByText('casa', { exact: true })).toBeVisible();
     await expect(stats.getByText('chat', { exact: true })).toHaveCount(0);
   });

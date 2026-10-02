@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { selectLearningLanguage } from './support/language-switcher';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -57,23 +58,42 @@ async function signIn(page: Page, account: Account) {
   await expect(page).toHaveURL('/');
 }
 
+async function openSection(page: Page, pathname: string) {
+  if (new URL(page.url()).pathname !== pathname) await page.goto(pathname);
+}
+
+function openHome(page: Page) {
+  return openSection(page, '/');
+}
+
+function openMaterials(page: Page) {
+  return openSection(page, '/materials');
+}
+
+function openLessons(page: Page) {
+  return openSection(page, '/lessons');
+}
+
 function materialsRegion(page: Page) {
   return page.getByRole('region', { name: 'Learning Materials', exact: true });
 }
 
 async function uploadMaterial(page: Page, name: string, buffer: Buffer) {
+  await openMaterials(page);
   const region = materialsRegion(page);
   await region.getByLabel('Learning Material file').setInputFiles({ name, mimeType: 'text/plain', buffer });
   await region.getByRole('button', { name: 'Upload Learning Material' }).click();
 }
 
 async function expectReadyMaterial(page: Page, name: string) {
+  await openMaterials(page);
   const region = materialsRegion(page);
   const material = region.getByRole('listitem').filter({ hasText: name });
   await expect(material).toContainText(/ready/i, { timeout: 30_000 });
 }
 
 async function waitForMaterialsLoaded(page: Page) {
+  await openMaterials(page);
   await expect(materialsRegion(page).getByText('Loading your Learning Materials…')).toHaveCount(0);
 }
 
@@ -104,6 +124,7 @@ function createLessonButton(page: Page) {
 }
 
 async function submitPracticeRequest(page: Page, text: string) {
+  await openHome(page);
   await dynamicLessonRegion(page).getByLabel('What do you want to practise?').fill(text);
   await createLessonButton(page).click();
 }
@@ -208,7 +229,7 @@ test.describe('web Dynamic Lesson', () => {
     const setup = await registerWithLanguage('dynamic-lesson-relevant');
     await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'reading-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'reading-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
@@ -227,7 +248,7 @@ test.describe('web Dynamic Lesson', () => {
     const setup = await registerWithLanguage('dynamic-lesson-reload');
     await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'reload-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'reload-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
@@ -242,12 +263,13 @@ test.describe('web Dynamic Lesson', () => {
     const setup = await registerWithLanguage('dynamic-lesson-irrelevant');
     await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'irrelevant-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'irrelevant-notes.txt');
     await submitPracticeRequest(page, IRRELEVANT_PRACTICE_REQUEST);
     await expect(dynamicLessonRegion(page).getByRole('status').filter({ hasText: INSUFFICIENT_MATERIAL_MESSAGE })).toBeVisible();
     await expect(page).toHaveURL('/');
+    await openLessons(page);
     await expect(resumeLessonLink(page)).toHaveCount(0);
     const { data: overview, error } = await setup.client.rpc('lesson_overview', { p_learning_language_id: setup.learningLanguageId });
     if (error) throw error;
@@ -257,23 +279,28 @@ test.describe('web Dynamic Lesson', () => {
   test('keeps Dynamic Lesson creation unavailable without a ready Learning Material', async ({ page }) => {
     const setup = await registerWithLanguage('dynamic-lesson-unready');
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     const region = dynamicLessonRegion(page);
     await waitForMaterialsLoaded(page);
+    await openHome(page);
     await expect(createLessonButton(page)).toBeDisabled();
     await expect(region.getByRole('status').filter({ hasText: NO_READY_MATERIAL_MESSAGE })).toBeVisible();
 
     await seedMaterial(setup.client, setup.userId, setup.learningLanguageId, 'processing-only.txt', 'processing');
+    await openMaterials(page);
     await page.reload();
     await expect(materialsRegion(page).getByRole('listitem').filter({ hasText: 'processing-only.txt' })).toBeVisible();
     await waitForMaterialsLoaded(page);
+    await openHome(page);
     await expect(createLessonButton(page)).toBeDisabled();
     await expect(region.getByRole('status').filter({ hasText: NO_READY_MATERIAL_MESSAGE })).toBeVisible();
 
     await seedMaterial(setup.client, setup.userId, setup.learningLanguageId, 'failed-only.txt', 'failed');
+    await openMaterials(page);
     await page.reload();
     await expect(materialsRegion(page).getByRole('listitem').filter({ hasText: 'failed-only.txt' })).toBeVisible();
     await waitForMaterialsLoaded(page);
+    await openHome(page);
     await expect(createLessonButton(page)).toBeDisabled();
     await expect(region.getByRole('status').filter({ hasText: NO_READY_MATERIAL_MESSAGE })).toBeVisible();
   });
@@ -283,9 +310,10 @@ test.describe('web Dynamic Lesson', () => {
     await captureEntry(setup.client, setup.learningLanguageId, 'casa', 'house');
     await captureEntry(setup.client, setup.learningLanguageId, 'perro', 'dog');
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'vocabulary-blocks-dynamic.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'vocabulary-blocks-dynamic.txt');
+    await openLessons(page);
     await page.getByRole('link', { name: 'Start lesson' }).click();
     await expect(page).toHaveURL('/lesson');
     await expect(lessonQuestion(page)).toBeVisible();
@@ -301,7 +329,7 @@ test.describe('web Dynamic Lesson', () => {
     const setup = await registerWithLanguage('dynamic-lesson-resume-home');
     await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'resume-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'resume-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
@@ -309,6 +337,7 @@ test.describe('web Dynamic Lesson', () => {
     const initial = await questionSnapshot(page);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/');
+    await openLessons(page);
     await expect(resumeLessonLink(page)).toBeVisible();
     await resumeLessonLink(page).click();
     await expect(page).toHaveURL('/lesson');
@@ -320,7 +349,7 @@ test.describe('web Dynamic Lesson', () => {
     await captureEntry(setup.client, setup.learningLanguageId, 'casa', 'house');
     await captureEntry(setup.client, setup.learningLanguageId, 'perro', 'dog');
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'resume-via-vocabulary-control-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'resume-via-vocabulary-control-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
@@ -328,6 +357,7 @@ test.describe('web Dynamic Lesson', () => {
     const initial = await questionSnapshot(page);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/');
+    await openLessons(page);
     await expect(resumeLessonLink(page)).toBeVisible();
     await resumeLessonLink(page).click();
     await expect(page).toHaveURL('/lesson');
@@ -340,9 +370,10 @@ test.describe('web Dynamic Lesson', () => {
   test('requires a Preferred Answer Language before generating when the Learner has none', async ({ page }) => {
     const setup = await registerWithLanguage('dynamic-lesson-answer-language');
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'answer-language-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'answer-language-notes.txt');
+    await openHome(page);
     const region = dynamicLessonRegion(page);
     await expect(region.getByLabel('Language you want to answer in')).toHaveCount(0);
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
@@ -358,9 +389,11 @@ test.describe('web Dynamic Lesson', () => {
   test('keeps Dynamic Lesson creation unavailable offline with an accessible reason', async ({ page }) => {
     const setup = await registerWithLanguage('dynamic-lesson-offline');
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'offline-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'offline-notes.txt');
+    await openHome(page);
+    await expect(dynamicLessonRegion(page).getByLabel('What do you want to practise?')).toBeVisible();
     await page.context().setOffline(true);
     const region = dynamicLessonRegion(page);
     await expect(region.getByRole('status').filter({ hasText: OFFLINE_MESSAGE })).toBeVisible();
@@ -371,7 +404,7 @@ test.describe('web Dynamic Lesson', () => {
     const setup = await registerWithLanguage('dynamic-lesson-history');
     await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'history-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'history-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
@@ -379,6 +412,7 @@ test.describe('web Dynamic Lesson', () => {
     await completeLesson(page);
     await lessonShell(page).getByRole('button', { name: 'Practise something else' }).click();
     await expect(page).toHaveURL('/');
+    await openLessons(page);
     await page.getByRole('link', { name: 'Lesson history', exact: true }).click();
     await expect(page).toHaveURL(/\/lesson-history$/);
     const lessons = page.locator('details').filter({ has: page.locator('summary') });
@@ -390,11 +424,12 @@ test.describe('web Dynamic Lesson', () => {
     const happy = await registerWithLanguage('dynamic-lesson-copy-happy');
     await seedPreferredAnswerLanguage(happy.client, happy.learningLanguageId);
     await signIn(page, happy.account);
-    await page.getByLabel('Active Learning Language').selectOption(happy.learningLanguageId);
+    await selectLearningLanguage(page, happy.learningLanguageId);
     const region = dynamicLessonRegion(page);
     await expectNoLearnerFacingTechnicalTerms(page);
     await uploadMaterial(page, 'copy-ban-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'copy-ban-notes.txt');
+    await openHome(page);
     await region.getByLabel('What do you want to practise?').fill(RELEVANT_PRACTICE_REQUEST);
     await createLessonButton(page).click();
     await expect(region.getByRole('status').filter({ hasText: 'Building your Lesson from your Learning Materials…' })).toBeVisible();
@@ -410,7 +445,7 @@ test.describe('web Dynamic Lesson', () => {
       const insufficient = await registerWithLanguage('dynamic-lesson-copy-insufficient');
       await seedPreferredAnswerLanguage(insufficient.client, insufficient.learningLanguageId);
       await signIn(insufficientPage, insufficient.account);
-      await insufficientPage.getByLabel('Active Learning Language').selectOption(insufficient.learningLanguageId);
+      await selectLearningLanguage(insufficientPage, insufficient.learningLanguageId);
       await uploadMaterial(insufficientPage, 'copy-ban-insufficient.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
       await expectReadyMaterial(insufficientPage, 'copy-ban-insufficient.txt');
       await submitPracticeRequest(insufficientPage, IRRELEVANT_PRACTICE_REQUEST);
@@ -425,7 +460,7 @@ test.describe('web Dynamic Lesson', () => {
     const setup = await registerWithLanguage('dynamic-lesson-responsive');
     await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
     await signIn(page, setup.account);
-    await page.getByLabel('Active Learning Language').selectOption(setup.learningLanguageId);
+    await selectLearningLanguage(page, setup.learningLanguageId);
     await uploadMaterial(page, 'responsive-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'responsive-notes.txt');
     await assertNoHorizontalOverflow(page);

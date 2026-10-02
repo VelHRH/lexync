@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
+import { selectLearningLanguage } from './support/language-switcher';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -69,9 +70,7 @@ test.describe('web Vocabulary Entry library', () => {
     if (languagesError) throw languagesError;
     const italian = languages?.find((language) => language.language_tag === 'it');
     if (!italian) throw new Error('The Italian Learning Language fixture is missing.');
-    const activeLanguage = page.getByLabel('Active Learning Language');
-    await activeLanguage.selectOption(italian.id);
-    await expect(activeLanguage).toHaveValue(italian.id);
+    await selectLearningLanguage(page, italian.id);
     await expect(page.getByLabel('Vocabulary status')).toHaveValue('all');
     await page.getByLabel('Vocabulary status').selectOption('suspended');
     await expect(page.getByLabel('Vocabulary status')).toHaveValue('suspended');
@@ -290,6 +289,7 @@ test.describe('web Vocabulary Entry library', () => {
     const { client: otherClient } = await registerWithPair(other);
     const { error: ownershipError } = await otherClient.rpc('capture_manual_entry', { p_expression: 'intruso', p_study_pair_id: pair.id, p_translation: 'intruder' });
     expect(ownershipError).toBeTruthy();
+    await page.goto('/profile');
     await page.getByRole('button', { name: 'Sign out' }).click();
     await signIn(page, other);
     await page.goto('/library');

@@ -17,13 +17,17 @@ import { ExtensionRecommendation } from './ExtensionRecommendation';
 import { LessonHistory } from './LessonHistory';
 import { LearningMaterials } from './LearningMaterials';
 import { DynamicLessonRequest } from './DynamicLessonRequest';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 const destinations = [
   ['Home', '/'],
+  ['Lessons', '/lessons'],
+  ['Learning Materials', '/materials'],
   ['Library', '/library'],
   ['Collections', '/collections'],
-  ['Settings', '/settings'],
 ] as const;
+
+const navigationShortLabels: Record<string, string> = { 'Learning Materials': 'Materials' };
 
 type LearningLanguageRow = { id: string; language_tag: string };
 type CompatibilityPair = StudyPair & { learningLanguageId: string };
@@ -34,9 +38,22 @@ function toLearningLanguage(row: LearningLanguageRow): LearningLanguage {
 }
 
 function sectionLabel(section: string) {
-  if (section.toLowerCase() === 'lesson') return 'Lesson';
-  if (section.toLowerCase() === 'lesson-history') return 'Lesson history';
-  return destinations.find(([label]) => label.toLowerCase() === section.toLowerCase())?.[0] ?? section;
+  const normalized = section.toLowerCase();
+  if (normalized === 'lesson') return 'Lesson';
+  if (normalized === 'lesson-history') return 'Lesson history';
+  if (normalized === 'materials') return 'Learning Materials';
+  if (normalized === 'profile') return 'Profile';
+  if (normalized === 'settings') return 'Settings';
+  return destinations.find(([label]) => label.toLowerCase() === normalized)?.[0] ?? section;
+}
+
+function AppNavigation({ activeSection }: { activeSection: string }) {
+  return <nav className="app-navigation app-navigation-rail" data-ui="task-navigation" aria-label="Main navigation">
+    {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>
+      <span className="app-navigation-label">{label}</span>
+      <span className="app-navigation-label-short">{navigationShortLabels[label] ?? label}</span>
+    </Link>)}
+  </nav>;
 }
 
 function AppLoadingShell({ section, message, alert = false }: { section: string; message: string; alert?: boolean }) {
@@ -44,12 +61,12 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
 
   return <main className="app-shell" data-design="app-shell" data-ui="product-shell" aria-busy={!alert}>
     <header className="app-header" data-ui="product-header">
-      <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
+      <div className="app-header-inner">
+        <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home"><BrandArtwork background="dark" /></Link>
+      </div>
     </header>
     <div className="app-body">
-      <nav className="app-navigation app-navigation-rail" data-ui="task-navigation" aria-label="Main navigation">
-        {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
-      </nav>
+      <AppNavigation activeSection={activeSection} />
       <section className="app-content app-content-canvas" aria-labelledby="app-heading">
         <div className="page-heading"><div className="page-heading-text"><h1 id="app-heading">{activeSection}</h1></div></div>
         <p className={`form-notice${alert ? ' error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
@@ -96,6 +113,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   const [removingLanguageId, setRemovingLanguageId] = useState('');
   const [readyMaterialCount, setReadyMaterialCount] = useState<number | null>(null);
   const lessonRequestId = useRef(0);
+  const materialRequestId = useRef(0);
   const online = useOnlineStatus();
   const learnerId = session?.user.id;
   const loadLanguages = useCallback(async (): Promise<string | null> => {
@@ -132,6 +150,21 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   }, []);
 
   const effectiveLessonLanguageId = activeLanguageId;
+
+  const refreshReadyMaterialCount = useCallback(async (learningLanguageId: string) => {
+    const requestId = ++materialRequestId.current;
+    if (!learningLanguageId) {
+      if (requestId === materialRequestId.current) setReadyMaterialCount(0);
+      return;
+    }
+    const { count, error } = await supabase
+      .from('learning_materials')
+      .select('id', { count: 'exact', head: true })
+      .eq('learning_language_id', learningLanguageId)
+      .eq('status', 'ready');
+    if (requestId !== materialRequestId.current) return;
+    setReadyMaterialCount(error ? 0 : count ?? 0);
+  }, []);
 
   const refreshLessonState = useCallback(async (learningLanguageId: string) => {
     const requestId = ++lessonRequestId.current;
@@ -181,7 +214,8 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   useEffect(() => {
     if (!session || !effectiveLessonLanguageId) return;
     queueMicrotask(() => void refreshLessonState(effectiveLessonLanguageId));
-  }, [effectiveLessonLanguageId, refreshLessonState, session]);
+    queueMicrotask(() => void refreshReadyMaterialCount(effectiveLessonLanguageId));
+  }, [effectiveLessonLanguageId, refreshLessonState, refreshReadyMaterialCount, session]);
 
   useEffect(() => {
     if (!session) return;
@@ -227,6 +261,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
 
   const activeLanguage = languages.find((language) => language.id === activeLanguageId) ?? languages[0];
   const displayedLanguage = activeLanguage;
+  const languageLabel = `${languageName(displayedLanguage.languageTag)} · ${displayedLanguage.languageTag}`;
   const lessonAvailable = eligibleSenseCount >= 2;
   const canLaunchLesson = lessonStatus === 'active' || lessonAvailable;
   const lessonLaunchLabel = lessonStatus === 'active' ? 'Resume lesson' : 'Start lesson';
@@ -288,59 +323,86 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   return (
     <main className="app-shell" data-design="app-shell" data-ui="product-shell">
       <header className="app-header" data-ui="product-header">
-        <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home"><BrandArtwork background="light" /></Link>
-        <div className="app-header-controls">
-          <div className="language-switcher" data-ui="language-switcher">
-            <label className="pair-selector-label" htmlFor="active-learning-language">Active Learning Language</label>
-            <select id="active-learning-language" aria-label="Active Learning Language" value={displayedLanguage.id} disabled={activeSection === 'Lesson'} onChange={(event) => void setActiveLanguage(event.target.value)}>
-              {languages.map((language) => <option key={language.id} value={language.id}>{languageName(language.languageTag)} · {language.languageTag}</option>)}
-            </select>
-          </div>
-          {activeSection !== 'Library' && (online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>)}
-          <div className="profile-region" data-ui="profile-account" aria-label="Profile and account controls">
-            <span className="profile-email">{session.user.email}</span>
-            <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
+        <div className="app-header-inner">
+          <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home"><BrandArtwork background="dark" /></Link>
+          <div className="app-header-controls">
+            <LanguageSwitcher languages={languages} value={displayedLanguage.id} onChange={(languageId) => void setActiveLanguage(languageId)} />
+            <div className="profile-region" data-ui="profile-account" aria-label="Profile and account controls">
+              <Link aria-current={activeSection === 'Profile' ? 'page' : undefined} aria-label="Profile" className="profile-button" href="/profile">
+                <span aria-hidden="true" className="profile-initial">{(session.user.email ?? '?').trim().charAt(0).toUpperCase()}</span>
+                <span className="profile-button-label">Profile</span>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
       <div className="app-body">
-        <nav className="app-navigation app-navigation-rail" data-ui="task-navigation" aria-label="Main navigation">
-          {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
-        </nav>
+        <AppNavigation activeSection={activeSection} />
         <section className="app-content app-content-canvas" aria-labelledby="app-heading">
           <div className="page-heading">
             <div className="page-heading-text">
               <h1 id="app-heading">{activeSection}</h1>
-              <p className="eyebrow">{languageName(displayedLanguage.languageTag)} · {displayedLanguage.languageTag}</p>
+              <p className="eyebrow">{languageLabel}</p>
             </div>
           </div>
-          {activeSection === 'Home' && <section className="lesson-availability" data-ui="visual-primitive" aria-label="Lesson availability">
-            <div className="lesson-availability-row"><span>{lessonLoading ? 'Loading Lesson availability…' : <>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></>}</span><span className="lesson-availability-actions">{!lessonLoading && (canLaunchLesson ? <Link className="secondary-button" href="/lesson">{lessonLaunchLabel}</Link> : <button className="secondary-button" type="button" disabled>{lessonLaunchLabel}</button>)}<Link className="text-link" href="/lesson-history">Lesson history</Link></span></div>
-            {!lessonLoading && !lessonAvailable && lessonStatus !== 'active' && <p className="lesson-unavailable">A Lesson requires at least two eligible Senses.</p>}
+          {activeSection === 'Home' && <>
+            <DynamicLessonRequest key={`dynamic-lesson-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} readyMaterialCount={readyMaterialCount} activeLesson={lessonStatus === 'active'} onLessonCreated={() => void refreshLessonState(activeLanguage.id)} />
+            <ExtensionRecommendation extensionId={extensionId} />
+          </>}
+          {activeSection === 'Lessons' && <section className="panel lesson-availability" data-ui="visual-primitive" aria-label="Lesson availability">
+            <div className="panel-header"><h2>Scheduled practice</h2></div>
+            <div className="panel-body">
+              <div className="lesson-availability-row">
+                <span>{lessonLoading ? 'Loading Lesson availability…' : <>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></>}</span>
+                <span className="lesson-availability-actions">
+                  {!lessonLoading && (canLaunchLesson ? <Link className="primary-button" href="/lesson">{lessonLaunchLabel}</Link> : <button className="primary-button" type="button" disabled>{lessonLaunchLabel}</button>)}
+                  <Link className="text-link" href="/lesson-history">Lesson history</Link>
+                </span>
+              </div>
+              {!lessonLoading && !lessonAvailable && lessonStatus !== 'active' && <p className="lesson-unavailable">A Lesson requires at least two eligible Senses.</p>}
+              {lessonStatus === 'active' && <p className="form-notice" role="status">A Lesson is in progress. Resume it here, or finish it before asking for a new Dynamic Lesson on Home.</p>}
+              <p className="panel-footnote">Want a Lesson built from your own reading instead? Ask for one on <Link className="text-link" href="/">Home</Link>.</p>
+            </div>
           </section>}
-          {activeSection === 'Home' && <LearningMaterials key={`learning-materials-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} learningLanguageLabel={`${languageName(activeLanguage.languageTag)} · ${activeLanguage.languageTag}`} onMaterialsChanged={setReadyMaterialCount} />}
-          {activeSection === 'Home' && <DynamicLessonRequest key={`dynamic-lesson-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} learningLanguageLabel={`${languageName(activeLanguage.languageTag)} · ${activeLanguage.languageTag}`} readyMaterialCount={readyMaterialCount} activeLesson={lessonStatus === 'active'} onLessonCreated={() => void refreshLessonState(activeLanguage.id)} />}
-          {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
-          {lessonError && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}
+          {activeSection === 'Learning Materials' && <>
+            <p className="page-lede">Learning Materials are the private reading texts your Dynamic Lessons are built from. Add one here, then ask for practice on <Link className="text-link" href="/">Home</Link>.</p>
+            <LearningMaterials key={`learning-materials-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} onMaterialsChanged={setReadyMaterialCount} />
+          </>}
+          {activeSection === 'Profile' && <section className="panel" aria-labelledby="profile-heading">
+            <div className="panel-header"><h2 id="profile-heading">Account</h2></div>
+            <div className="panel-body">
+              <dl className="detail-list">
+                <div><dt>Signed in as</dt><dd className="profile-email">{session.user.email}</dd></div>
+                <div><dt>Active Learning Language</dt><dd>{languageLabel}</dd></div>
+              </dl>
+              <div className="panel-actions">
+                <Link className="secondary-button" href="/settings">Settings</Link>
+                <button className="secondary-button danger" type="button" onClick={signOut}>Sign out</button>
+              </div>
+            </div>
+          </section>}
+          {lessonError && activeSection === 'Lessons' && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}
           {activeSection === 'Library' && <Suspense fallback={<div className="skeleton-list" aria-hidden="true"><div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line half" /></div><div className="skeleton-card"><div className="skeleton-line strong narrow" /><div className="skeleton-line wide" /></div></div>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshLessonState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Collections' && <Collections key={activeLanguage.id} language={activeLanguage} />}
           {activeSection === 'Lesson history' && <LessonHistory key={activeLanguage.id} learningLanguageId={activeLanguage.id} learningLanguageTag={activeLanguage.languageTag} />}
-          {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">
-            <h2 id="learning-languages-heading">Learning Languages</h2>
-            <form className="web-auth-form" onSubmit={addLanguage}>
-              <label htmlFor="settings-learning-language">Learning Language</label>
-              <input id="settings-learning-language" value={languageDraft} onChange={(event) => setLanguageDraft(event.target.value)} placeholder="fr-CA" autoComplete="off" />
-              <button className="primary-button" type="submit" disabled={!online || languageSaving}>{languageSaving ? 'Adding...' : 'Add Learning Language'}</button>
-            </form>
-            {languageError && <p className="form-notice error" role="alert">{languageError}</p>}
-            <ul>
-              {languages.map((language) => <li className="language-row" key={language.id}>
-                <span>{languageName(language.languageTag)} · <span>{language.languageTag}</span>{language.id === activeLanguage.id && <strong> Active</strong>}</span>
-                <button className="text-button danger" type="button" disabled={!online || languages.length === 1 || removingLanguageId === language.id} onClick={() => void removeLanguage(language)}>{removingLanguageId === language.id ? 'Removing…' : `Remove ${language.languageTag}`}</button>
-              </li>)}
-            </ul>
+          {activeSection === 'Settings' && <section className="panel pair-management" aria-labelledby="learning-languages-heading">
+            <div className="panel-header"><h2 id="learning-languages-heading">Learning Languages</h2></div>
+            <div className="panel-body">
+              <form className="web-auth-form" onSubmit={addLanguage}>
+                <label htmlFor="settings-learning-language">Learning Language</label>
+                <input id="settings-learning-language" value={languageDraft} onChange={(event) => setLanguageDraft(event.target.value)} placeholder="fr-CA" autoComplete="off" />
+                <button className="primary-button" type="submit" disabled={!online || languageSaving}>{languageSaving ? 'Adding...' : 'Add Learning Language'}</button>
+              </form>
+              {languageError && <p className="form-notice error" role="alert">{languageError}</p>}
+              <ul>
+                {languages.map((language) => <li className="language-row" key={language.id}>
+                  <span>{languageName(language.languageTag)} · <span>{language.languageTag}</span>{language.id === activeLanguage.id && <strong> Active</strong>}</span>
+                  <button className="text-button danger" type="button" disabled={!online || languages.length === 1 || removingLanguageId === language.id} onClick={() => void removeLanguage(language)}>{removingLanguageId === language.id ? 'Removing…' : `Remove ${language.languageTag}`}</button>
+                </li>)}
+              </ul>
+            </div>
           </section>}
-          {!['Home', 'Lesson', 'Lesson history', 'Library', 'Collections', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
+          {!['Home', 'Lesson', 'Lesson history', 'Lessons', 'Learning Materials', 'Library', 'Collections', 'Profile', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
         </section>
       </div>
     </main>

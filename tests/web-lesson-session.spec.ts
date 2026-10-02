@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
+import { expectActiveLearningLanguage } from './support/language-switcher';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -109,11 +110,16 @@ function continueButton(page: Page) {
   return lessonShell(page).getByRole('button', { name: 'Continue' });
 }
 
+async function openLessons(page: Page) {
+  if (new URL(page.url()).pathname !== '/lessons') await page.goto('/lessons');
+}
+
 function lessonLaunch(page: Page, name: RegExp | string) {
   return page.getByRole('button', { name }).or(page.getByRole('link', { name }));
 }
 
 async function startFromHome(page: Page) {
+  await openLessons(page);
   await lessonLaunch(page, /Start lesson|Resume lesson/).click();
   await expect(page).toHaveURL('/lesson');
   await expect(lessonQuestion(page)).toBeVisible();
@@ -211,11 +217,12 @@ test.describe('web Lesson', () => {
     const navigation = page.getByRole('navigation', { name: 'Main navigation' });
     await expect(navigation.getByRole('link', { name: 'Lesson', exact: true })).toHaveCount(0);
     await expect(page.getByLabel('Answer Language')).toHaveCount(0);
-    await expect(page.getByLabel('Active Learning Language')).toHaveValue(fixture.learningLanguageId);
+    await expectActiveLearningLanguage(page, fixture.learningLanguageId);
     await startFromHome(page);
     const initial = await questionSnapshot(page);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/');
+    await openLessons(page);
     await expect(lessonLaunch(page, 'Resume lesson')).toBeVisible();
     await startFromHome(page);
     expect(await questionSnapshot(page)).toEqual(initial);
@@ -224,6 +231,7 @@ test.describe('web Lesson', () => {
   test('keeps Lesson unavailable until the Active Learning Language has two eligible Senses', async ({ page }) => {
     const fixture = await seedEntries('lesson-unavailable', vocabulary.slice(0, 1));
     await signIn(page, fixture.account);
+    await openLessons(page);
     const unavailableLaunch = lessonLaunch(page, 'Start lesson');
     await expect.poll(async () => await unavailableLaunch.count() === 0 || await unavailableLaunch.isDisabled()).toBe(true);
     await expect(page.getByText(/at least two eligible Senses/i)).toBeVisible();
@@ -237,6 +245,7 @@ test.describe('web Lesson', () => {
     await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', 'bank');
     await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', ' BANK ', 'en', { createNewSense: true });
     await signIn(page, fixture.account);
+    await openLessons(page);
     await expect(page.getByText('0 Senses ready', { exact: true })).toBeVisible();
     const launch = lessonLaunch(page, 'Start lesson');
     await expect(launch).toBeDisabled();
@@ -430,6 +439,7 @@ test.describe('web Lesson', () => {
       await continueToNextQuestion(page);
       await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
       await expect(page).toHaveURL('/');
+      await openLessons(page);
       await lessonLaunch(page, 'Resume lesson').click();
       await expect(lessonQuestion(page)).toBeVisible();
       await expect(lessonShell(page).getByRole('button', { name: 'Exit' })).toBeVisible();
@@ -490,6 +500,7 @@ test.describe('web Lesson', () => {
       await expect(continueButton(page)).toBeEnabled();
       await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
       await expect(page).toHaveURL('/');
+      await openLessons(page);
       await expect(lessonLaunch(page, 'Resume lesson')).toBeVisible();
     } finally {
       await concurrentPage.close();
@@ -576,6 +587,7 @@ test.describe('web Lesson', () => {
     await expect(lessonQuestion(page)).toBeVisible();
     expect((await questionSnapshot(page)).prompt).not.toBe(completedPrompt);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
+    await openLessons(page);
     await lessonLaunch(page, 'Resume lesson').click();
     await expect(lessonQuestion(page)).toBeVisible();
     await expect(lessonShell(page).getByText(/\bReview Sessions?\b/i)).toHaveCount(0);

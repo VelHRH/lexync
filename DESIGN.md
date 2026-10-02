@@ -144,6 +144,7 @@ Lexync has no soft shadows. Elevation is a hard offset in ink with zero blur, an
 - **Medium (4px):** Primary actions, entry cards, the selected navigation block.
 - **High (6px):** Dialogs, capture sheets, and injected extension surfaces.
 - **Quiet (2px lavender):** A block that must separate from its background without claiming to be interactive.
+- **Edge (0 4px ink):** Reserved for the full-bleed slabs that frame the product: the header and the public footer.
 
 **The Earned Elevation Rule.** A shadow must explain interaction. If spacing, an outline, or a background layer communicates the same relationship, remove it.
 
@@ -179,7 +180,11 @@ Lexync has no soft shadows. Elevation is a hard offset in ink with zero blur, an
 
 ### Navigation
 
-Desktop product headers remain one aligned row. Brand, active Learning Language, primary action, and profile cluster have explicit priority and never wrap. Wide screens use a quiet navigation rail; narrow screens switch to reachable bottom navigation. Current location is visible through color, weight, and shape rather than a decorative dot.
+Desktop product headers remain one aligned row and carry only orientation: brand, the active Learning Language, and the profile entry. The header is an ink slab with an edge shadow so it reads as structure rather than page content, and it never collects task actions — those belong to the surface that owns the task. The Learning Language control is a flag and its tag, never a sentence. Account details and sign out live on the Profile surface, not in the header. Wide screens use a quiet navigation rail over the lavender ground; narrow screens switch to reachable bottom navigation. Current location is visible through color, weight, and shape rather than a decorative dot.
+
+### Surfaces and Separation
+
+The authenticated product is three layers: a lavender ground, one white working sheet with the ink outline and medium offset shadow, and panels inside it whose lavender header strip names the region. One task owns one surface: Home is the Practice Request composer alone, Lessons owns scheduled practice and its history, and Learning Materials owns the reading texts that Dynamic Lessons are built from. Related surfaces link to each other in one sentence instead of being stacked onto one page.
 
 ### Empty and Loading States
 

@@ -75,6 +75,9 @@
   --lexync-elevation-medium: 4px 4px 0 #20153f;
   --lexync-elevation-high: 6px 6px 0 #20153f;
   --lexync-elevation-quiet: 2px 2px 0 #d3c2ff;
+  --lexync-elevation-edge: 0 4px 0 #20153f;
+  --lexync-elevation-edge-high: 0 6px 0 #20153f;
+  --lexync-elevation-inset: inset 0 2px 0 #d3c2ff;
 
   --lexync-motion-duration-fast: 120ms;
   --lexync-motion-duration-normal: 180ms;

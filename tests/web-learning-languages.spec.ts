@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -114,8 +115,8 @@ test.describe('web Learning Language settings', () => {
     await expect(page.getByLabel(/Active Study Pair|Study Pair/i)).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText('Study Pair');
 
-    await page.getByLabel('Active Learning Language').selectOption(french.id);
-    await expect(page.getByLabel('Active Learning Language')).toHaveValue(french.id);
+    await selectLearningLanguage(page, french.id);
+    await expectActiveLearningLanguage(page, french.id);
     const { data: activeAfterSwitch, error: switchError } = await setup.client
       .from('learner_language_state')
       .select('active_learning_language_id')
@@ -136,6 +137,6 @@ test.describe('web Learning Language settings', () => {
 
     const { error: externalError } = await setup.client.rpc('set_active_learning_language', { p_learning_language_id: spanish.id });
     if (externalError) throw externalError;
-    await expect(page.getByLabel('Active Learning Language')).toHaveValue(spanish.id);
+    await expectActiveLearningLanguage(page, spanish.id);
   });
 });

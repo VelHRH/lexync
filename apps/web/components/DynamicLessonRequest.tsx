@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
@@ -8,7 +9,7 @@ type DynamicLessonResponse = { lesson?: { id: string; source: string; status: st
 
 class DynamicLessonRequestError extends Error {}
 
-export function DynamicLessonRequest({ accessToken, learningLanguageId, learningLanguageLabel, readyMaterialCount, activeLesson, onLessonCreated }: { accessToken: string; learningLanguageId: string; learningLanguageLabel: string; readyMaterialCount: number | null; activeLesson: boolean; onLessonCreated: () => void }) {
+export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMaterialCount, activeLesson, onLessonCreated }: { accessToken: string; learningLanguageId: string; readyMaterialCount: number | null; activeLesson: boolean; onLessonCreated: () => void }) {
   const online = useOnlineStatus();
   const router = useRouter();
   const [practiceRequest, setPracticeRequest] = useState('');
@@ -66,26 +67,27 @@ export function DynamicLessonRequest({ accessToken, learningLanguageId, learning
 
   return <section className="dynamic-lesson-request" aria-labelledby="dynamic-lesson-heading">
     <div className="dynamic-lesson-request-heading">
-      <div>
-        <h2 id="dynamic-lesson-heading">Practise from your Learning Materials</h2>
-        <p>Describe what you want to practise and Lexync builds a Lesson from your own reading.</p>
-      </div>
-      <span className="dynamic-lesson-request-language">{learningLanguageLabel}</span>
+      <h2 id="dynamic-lesson-heading">Practise from your Learning Materials</h2>
+      <p>Describe what you want to practise and Lexync builds a Lesson from your own reading.</p>
     </div>
     <form className="dynamic-lesson-request-form" onSubmit={submitRequest}>
-      <label htmlFor="practice-request">What do you want to practise?</label>
-      <textarea id="practice-request" aria-describedby="practice-request-help" value={practiceRequest} onChange={(event) => setPracticeRequest(event.target.value)} disabled={!online || submitting || activeLesson} />
-      <p className="dynamic-lesson-request-help" id="practice-request-help">Describe it in your own words, for example the ideas or wording you want to work on.</p>
-      {answerLanguageRequired && <>
+      <div className="composer">
+        <label className="composer-label" htmlFor="practice-request">What do you want to practise?</label>
+        <textarea id="practice-request" aria-describedby="practice-request-help" placeholder="The past tense in the article I saved yesterday…" rows={3} value={practiceRequest} onChange={(event) => setPracticeRequest(event.target.value)} disabled={!online || submitting || activeLesson} />
+        <div className="composer-footer">
+          <p className="composer-help" id="practice-request-help">Describe it in your own words, for example the ideas or wording you want to work on.</p>
+          <button className="primary-button" type="submit" disabled={!online || readyMaterialCount === null || readyMaterialCount === 0 || submitting || activeLesson}>{submitting ? 'Creating lesson…' : 'Create lesson'}</button>
+        </div>
+      </div>
+      {answerLanguageRequired && <div className="composer-field">
         <label htmlFor="practice-answer-language">Language you want to answer in</label>
         <input id="practice-answer-language" aria-describedby="practice-answer-language-help" value={answerLanguageTag} onChange={(event) => setAnswerLanguageTag(event.target.value)} disabled={!online || submitting || activeLesson} />
-        <p className="dynamic-lesson-request-help" id="practice-answer-language-help">Enter a language tag such as en or uk.</p>
-      </>}
-      <button className="primary-button" type="submit" disabled={!online || readyMaterialCount === null || readyMaterialCount === 0 || submitting || activeLesson}>{submitting ? 'Creating lesson…' : 'Create lesson'}</button>
+        <p className="composer-help" id="practice-answer-language-help">Enter a language tag such as en or uk.</p>
+      </div>}
     </form>
     {!online ? <p className="form-notice" role="status">You are offline. Creating a Lesson from your Learning Materials requires a connection.</p>
-      : activeLesson ? <p className="form-notice" role="status">You have a Lesson in progress.</p>
-      : readyMaterialCount === 0 ? <p className="form-notice" role="status">Add a Learning Material and wait for it to be ready before creating a Lesson from it.</p>
+      : activeLesson ? <p className="form-notice" role="status">You have a Lesson in progress. <Link className="text-link" href="/lesson">Resume it</Link></p>
+      : readyMaterialCount === 0 ? <p className="form-notice" role="status">Add a Learning Material and wait for it to be ready before creating a Lesson from it. <Link className="text-link" href="/materials">Open Learning Materials</Link></p>
       : null}
     {submitting && <><p className="dynamic-lesson-generating" role="status" aria-live="polite">Building your Lesson from your Learning Materials…</p><span className="lesson-skeleton" aria-hidden="true" /></>}
     {insufficientMaterial && <p className="form-notice" role="status">{insufficientMaterial}</p>}
