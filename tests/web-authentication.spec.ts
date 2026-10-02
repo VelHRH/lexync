@@ -87,6 +87,7 @@ test.describe('authenticated web learning client', () => {
     await page.getByRole('link', { name: 'Library' }).click();
     await expect(page).toHaveURL('/library');
 
+    await page.goto('/profile');
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL('/');
     const secondPage = await page.context().newPage();
@@ -105,6 +106,9 @@ test.describe('authenticated web learning client', () => {
 
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await page.getByRole('link', { name: 'Profile' }).click();
+    await expect(page).toHaveURL('/profile');
+    await expect(page.getByText(account.email)).toBeVisible();
     await page.getByRole('link', { name: 'Settings' }).click();
     await expect(page).toHaveURL('/settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();

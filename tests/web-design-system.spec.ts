@@ -162,7 +162,9 @@ test.describe('web design system surfaces', () => {
     const profile = header.locator('[data-ui="profile-account"]');
     await expect(language).toBeVisible();
     await expect(profile).toBeVisible();
-    await expect(header.getByRole('button', { name: /sign out/i })).toBeVisible();
+    await expect(header.getByRole('link', { name: /profile/i })).toBeVisible();
+    await expect(header.getByRole('button', { name: /sign out/i })).toHaveCount(0);
+    await expect(header.getByText(/Active Learning Language/)).toHaveCount(0);
     const layout = await header.evaluate((element) => {
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
@@ -188,8 +190,11 @@ test.describe('web design system surfaces', () => {
     const shell = page.locator('[data-ui="product-shell"]');
     await expect(shell).toBeVisible();
     await expect(shell.locator('[data-ui="task-navigation"]')).toBeVisible();
-    await expect(shell.locator('[data-ui="profile-account"]')).toContainText(account.email);
-    await expect(shell.locator('[data-ui="visual-primitive"]')).not.toHaveCount(0);
+    await shell.locator('[data-ui="profile-account"]').getByRole('link', { name: /profile/i }).click();
+    await expect(page).toHaveURL('/profile');
+    await expect(page.locator('.app-content')).toContainText(account.email);
+    await page.goto('/lessons');
+    await expect(page.locator('[data-ui="visual-primitive"]')).not.toHaveCount(0);
     await shell.getByRole('link', { name: 'Library', exact: true }).click();
     await expect(page).toHaveURL('/library');
     await expect(page.locator('[data-ui="empty-state"]')).toBeVisible();
@@ -218,7 +223,7 @@ test.describe('web design system surfaces', () => {
     await signIn(page, account);
     const shell = page.locator('[data-ui="product-shell"]');
     const navigation = shell.locator('[data-ui="task-navigation"]');
-    for (const name of ['Home', 'Library', 'Collections', 'Settings']) {
+    for (const name of ['Home', 'Lessons', 'Materials', 'Library', 'Collections']) {
       const link = navigation.getByRole('link', { name, exact: true });
       await expect(link).toBeVisible();
       const bounds = await link.evaluate((element) => {

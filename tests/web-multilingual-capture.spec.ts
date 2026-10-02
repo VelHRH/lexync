@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { selectLearningLanguage } from './support/language-switcher';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -72,7 +73,7 @@ test.describe('web multilingual manual capture', () => {
     if (languageError) throw languageError;
     const french = languages?.find((language) => language.language_tag === 'fr');
     if (!french) throw new Error('The French Learning Language fixture is missing.');
-    await page.getByLabel('Active Learning Language').selectOption(french.id);
+    await selectLearningLanguage(page, french.id);
     await expect(page.getByText('Casa', { exact: true })).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText('Study Pair');
   });

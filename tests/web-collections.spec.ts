@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
+import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -147,8 +148,8 @@ test.describe('web Collections', () => {
     await page.goto('/collections');
     await createCollection(page, 'Spanish study');
     await addEntryToCollection(page, 'Spanish study', 'casa');
-    await page.getByLabel('Active Learning Language').selectOption(italian.id);
-    await expect(page.getByLabel('Active Learning Language')).toHaveValue(italian.id);
+    await selectLearningLanguage(page, italian.id);
+    await expectActiveLearningLanguage(page, italian.id);
     await expect(page.getByRole('region', { name: 'Collection Spanish study' })).toHaveCount(0);
     await page.goto('/library');
     await expect(page.locator('summary').filter({ hasText: 'cane' })).toBeVisible();
@@ -190,7 +191,7 @@ test.describe('web Collections', () => {
     await page.getByRole('button', { name: 'Filter by Empty shelf' }).click();
     await expect(page.getByText('No vocabulary entries in “Empty shelf”.', { exact: true })).toBeVisible();
 
-    await page.getByLabel('Active Learning Language').selectOption(french.id);
+    await selectLearningLanguage(page, french.id);
     await expect(page.getByRole('region', { name: 'Collection Sunny' })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Collection Empty shelf' })).toHaveCount(0);
     await page.goto('/library');

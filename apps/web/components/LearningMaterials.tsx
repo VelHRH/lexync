@@ -18,7 +18,7 @@ function toLearningMaterial(row: LearningMaterialRow): LearningMaterial | null {
   return { id: row.id, fileName: row.file_name, status: row.status, createdAt: row.created_at };
 }
 
-export function LearningMaterials({ accessToken, learningLanguageId, learningLanguageLabel, onMaterialsChanged }: { accessToken: string; learningLanguageId: string; learningLanguageLabel: string; onMaterialsChanged?: (readyCount: number) => void }) {
+export function LearningMaterials({ accessToken, learningLanguageId, onMaterialsChanged }: { accessToken: string; learningLanguageId: string; onMaterialsChanged?: (readyCount: number) => void }) {
   const online = useOnlineStatus();
   const [materials, setMaterials] = useState<LearningMaterial[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -250,13 +250,7 @@ export function LearningMaterials({ accessToken, learningLanguageId, learningLan
   }
 
   return <section className="learning-materials" aria-labelledby="learning-materials-heading">
-    <div className="learning-materials-heading">
-      <div>
-        <h2 id="learning-materials-heading">Learning Materials</h2>
-        <p>Keep a private reading text ready for future Lessons.</p>
-      </div>
-      <span className="learning-materials-language">{learningLanguageLabel}</span>
-    </div>
+    <h2 className="sr-only" id="learning-materials-heading">Learning Materials</h2>
     <form className="learning-materials-form" onSubmit={upload}>
       <label htmlFor="learning-material-file">Learning Material file</label>
       <input id="learning-material-file" type="file" accept=".txt,text/plain" aria-describedby="learning-material-file-help" onChange={selectFile} disabled={!online || loading || uploading} />
