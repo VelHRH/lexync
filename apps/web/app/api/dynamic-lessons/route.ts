@@ -33,32 +33,38 @@ type TranslationUsageRow = {
   last_used_at: string | null;
 };
 
+function generationFailed(step: string, cause: unknown, status = 500) {
+  console.error(`dynamic-lesson creation failed at ${step}`, cause);
+  return Response.json({ error: safeGenerationError }, { status });
+}
+
 export async function POST(request: Request) {
   let authenticated: Awaited<ReturnType<typeof authenticatedClient>> = null;
   try {
     authenticated = await authenticatedClient(request);
-  } catch {
-    return Response.json({ error: safeGenerationError }, { status: 500 });
+  } catch (error) {
+    return generationFailed('authentication', error);
   }
   if (!authenticated) return Response.json({ error: safeAuthError }, { status: 401 });
 
   let body: unknown;
   try {
     body = await request.json();
-  } catch {
-    return Response.json({ error: safeGenerationError }, { status: 400 });
+  } catch (error) {
+    return generationFailed('request body', error, 400);
   }
   const payload = body && typeof body === 'object' ? body as Record<string, unknown> : {};
   const learningLanguageId = typeof payload.learningLanguageId === 'string' ? payload.learningLanguageId : null;
   const practiceRequest = typeof payload.practiceRequest === 'string' ? payload.practiceRequest.trim() : '';
   const requestedAnswerLanguageTag = typeof payload.answerLanguageTag === 'string' ? payload.answerLanguageTag : null;
 
-  if (!learningLanguageId) return Response.json({ error: safeGenerationError }, { status: 400 });
+  if (!learningLanguageId) return generationFailed('request body', 'learningLanguageId is missing', 400);
   if (!practiceRequest || practiceRequest.length > MAX_PRACTICE_REQUEST_LENGTH) {
     return Response.json({ error: safeRequestError }, { status: 400 });
   }
 
   const { client, user } = authenticated;
+  let step = 'Learning Language lookup';
 
   try {
     const { data: learningLanguage, error: learningLanguageError } = await client
@@ -67,7 +73,7 @@ export async function POST(request: Request) {
       .eq('id', learningLanguageId)
       .eq('learner_id', user.id)
       .maybeSingle();
-    if (learningLanguageError || !learningLanguage) return Response.json({ error: safeGenerationError }, { status: 400 });
+    if (learningLanguageError || !learningLanguage) return generationFailed(step, learningLanguageError ?? 'the Learning Language was not found', 400);
     const learningLanguageTag = (learningLanguage as { language_tag: string }).language_tag;
 
     let answerLanguageTag: string | null = null;
@@ -75,6 +81,7 @@ export async function POST(request: Request) {
       answerLanguageTag = canonicalLanguageTag(requestedAnswerLanguageTag);
       if (!answerLanguageTag) return Response.json({ error: safeAnswerLanguageError }, { status: 400 });
     } else {
+      step = 'answer language inference';
       const { data: entryRows, error: entryError } = await client
         .from('vocabulary_entries')
         .select('id')
@@ -112,9 +119,12 @@ export async function POST(request: Request) {
       return Response.json({ error: safeAnswerLanguageError, answerLanguageRequired: true }, { status: 409 });
     }
 
+    step = 'embedding provider';
     const embeddingProvider = createEmbeddingProvider();
+    step = 'practice request embedding';
     const queryEmbedding = await embeddingProvider.embedQuery(practiceRequest);
 
+    step = 'retrieve_dynamic_lesson_context';
     const { data: retrieval, error: retrievalError } = await client.rpc('retrieve_dynamic_lesson_context', {
       p_learning_language_id: learningLanguageId,
       p_query_embedding: queryEmbedding,
@@ -127,7 +137,9 @@ export async function POST(request: Request) {
       return Response.json({ insufficientMaterial: true, error: insufficientMaterialMessage });
     }
 
+    step = 'generation provider';
     const generationProvider = createGenerationProvider();
+    step = 'Lesson Question generation';
     const candidates = await generationProvider.generateLessonQuestions({
       practiceRequest,
       learningLanguageTag,
@@ -137,6 +149,7 @@ export async function POST(request: Request) {
       passages: retrievalResult.passages.map((passage) => ({ id: passage.id, text: passage.text })),
     });
 
+    step = 'Lesson Question validation';
     const validatedQuestions = validateDynamicLessonQuestions(candidates, {
       minQuestions: retrievalResult.min_questions,
       maxQuestions: retrievalResult.max_questions,
@@ -145,6 +158,7 @@ export async function POST(request: Request) {
       passages: retrievalResult.passages.map((passage) => ({ id: passage.id })),
     });
 
+    step = 'Lesson Question assembly';
     const passagesById = new Map(retrievalResult.passages.map((passage) => [passage.id, passage]));
     const questionsPayload = validatedQuestions.map((question) => ({
       question_type: question.questionType,
@@ -166,6 +180,7 @@ export async function POST(request: Request) {
       }),
     }));
 
+    step = 'create_dynamic_lesson';
     const { data: lesson, error: creationError } = await client.rpc('create_dynamic_lesson', {
       p_learning_language_id: learningLanguageId,
       p_questions: questionsPayload,
@@ -175,7 +190,7 @@ export async function POST(request: Request) {
     const lessonSummary = { id: lessonPayload.id, source: lessonPayload.source, status: lessonPayload.status };
 
     return Response.json({ lesson: lessonSummary });
-  } catch {
-    return Response.json({ error: safeGenerationError }, { status: 500 });
+  } catch (error) {
+    return generationFailed(step, error);
   }
 }
