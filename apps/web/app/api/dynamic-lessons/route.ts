@@ -34,7 +34,7 @@ type TranslationUsageRow = {
 };
 
 function generationFailed(step: string, cause: unknown, status = 500) {
-  console.error(`dynamic-lesson creation failed at ${step}`, cause);
+  console.error(`dynamic-lesson creation failed at ${step}`, cause instanceof Error ? { message: cause.message, cause: cause.cause, stack: cause.stack } : cause);
   return Response.json({ error: safeGenerationError }, { status });
 }
 
