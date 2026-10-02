@@ -34,7 +34,6 @@ export function LearningLanguageOnboarding({ onCreated }: { onCreated: (language
 
   return (
     <main className="pair-onboarding">
-      <p className="eyebrow"><span /> Your language context</p>
       <h1>Set up your first Learning Language</h1>
       <p className="app-empty">Choose the language you are learning. You can add more languages later.</p>
       <form className="web-auth-form" onSubmit={submit} aria-describedby={notice ? 'learning-language-notice' : undefined}>

@@ -1,6 +1,5 @@
 'use client';
 
-import { languageName } from '@lexync/domain';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -187,11 +186,9 @@ export function Collections({ language }: { language: LearningLanguage }) {
     await loadCollections();
   }
 
-  return <section className="collections-page" aria-labelledby="collections-heading">
+  return <section className="collections-page" aria-labelledby="app-heading">
     <div className="collections-toolbar">
       <div>
-        <p className="eyebrow"><span /> {languageName(language.languageTag)}</p>
-        <h2 id="collections-heading">Collections</h2>
         <p className="collections-intro">Keep related vocabulary together for the way you study.</p>
       </div>
       {online
@@ -210,7 +207,7 @@ export function Collections({ language }: { language: LearningLanguage }) {
         </div>)}
       </div>
     </>}
-    {!loading && collections.length === 0 && <p className="app-empty" role="status">No Collections yet. Add one to organize this Learning Language.</p>}
+    {!loading && collections.length === 0 && <div className="empty-state" role="status"><h3>No shelves yet.</h3><p>No Collections yet. Add one to organize this Learning Language.</p></div>}
     {!loading && <div className="collection-list">
       {collections.map((collection) => {
         const ids = memberIds(collection.id);
@@ -224,15 +221,16 @@ export function Collections({ language }: { language: LearningLanguage }) {
               <p>{members.length} {members.length === 1 ? 'entry' : 'entries'}</p>
             </div>
             <div className="collection-card-actions">
-              <button className="text-button" type="button" disabled={!online || saving} onClick={() => openRenameForm(collection)}>Rename {collection.name}</button>
-              <button className="text-button danger" type="button" disabled={!online || changingMembership === `delete:${collection.id}`} onClick={() => openDeleteDialog(collection)}>Delete {collection.name}</button>
+              <button className="text-button" type="button" aria-label={`Rename ${collection.name}`} disabled={!online || saving} onClick={() => openRenameForm(collection)}>Rename</button>
+              <button className="text-button danger" type="button" aria-label={`Delete ${collection.name}`} disabled={!online || changingMembership === `delete:${collection.id}`} onClick={() => openDeleteDialog(collection)}>Delete</button>
             </div>
           </div>
           {members.length > 0
-            ? <ul className="collection-members">{members.map((entry) => <li key={entry.id}><span>{entry.expression}</span><button className="text-button danger" type="button" disabled={!online || changingMembership === `remove:${collection.id}:${entry.id}`} onClick={() => void removeMembership(collection, entry.id)}>Remove {entry.expression} from {collection.name}</button></li>)}</ul>
-            : <p className="app-empty collection-empty" role="status">No entries in this Collection yet.</p>}
+            ? <ul className="collection-members">{members.map((entry) => <li key={entry.id}><span>{entry.expression}</span><button className="text-button danger" type="button" aria-label={`Remove ${entry.expression} from ${collection.name}`} disabled={!online || changingMembership === `remove:${collection.id}:${entry.id}`} onClick={() => void removeMembership(collection, entry.id)}>Remove</button></li>)}</ul>
+            : <p className="collection-empty" role="status">No entries in this Collection yet.</p>}
+          <div className="collection-card-controls">
           {eligibleEntries.length > 0 && <div className="collection-add-entry">
-            <button className="secondary-button" type="button" disabled={!online} onClick={() => setOpenAddCollectionId((current) => current === collection.id ? '' : collection.id)}>Add entry to {collection.name}</button>
+            <button className="secondary-button" type="button" aria-label={`Add entry to ${collection.name}`} disabled={!online} onClick={() => setOpenAddCollectionId((current) => current === collection.id ? '' : collection.id)}>Add entry</button>
             {openAddCollectionId === collection.id && <div className="collection-add-form">
               <label htmlFor={`collection-entry-${collection.id}`}>Vocabulary entry for {collection.name}</label>
               <select id={`collection-entry-${collection.id}`} value={selectedEntries[collection.id] ?? ''} disabled={!online || adding} onChange={(event) => setSelectedEntries((current) => ({ ...current, [collection.id]: event.target.value }))}>
@@ -242,7 +240,8 @@ export function Collections({ language }: { language: LearningLanguage }) {
               <button className="primary-button" type="button" disabled={!online || !selectedEntries[collection.id] || adding} onClick={() => void addMembership(collection)}>{adding ? 'Adding…' : `Add ${eligibleEntries.find((entry) => entry.id === selectedEntries[collection.id])?.expression ?? 'entry'} to ${collection.name}`}</button>
             </div>}
           </div>}
-          <button className="secondary-button collection-filter-button" type="button" onClick={() => router.push(`/library?collection=${encodeURIComponent(collection.id)}`)}>Filter by {collection.name}</button>
+          <button className="secondary-button collection-filter-button" type="button" aria-label={`Filter by ${collection.name}`} onClick={() => router.push(`/library?collection=${encodeURIComponent(collection.id)}`)}>Filter in Library</button>
+          </div>
         </article>;
       })}
     </div>}

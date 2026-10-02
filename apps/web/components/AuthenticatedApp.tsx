@@ -51,8 +51,7 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
         {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
       </nav>
       <section className="app-content app-content-canvas" aria-labelledby="app-heading">
-        <p className="eyebrow"><span /> Your private learning space</p>
-        <h1 id="app-heading">{activeSection}</h1>
+        <div className="page-heading"><div className="page-heading-text"><h1 id="app-heading">{activeSection}</h1></div></div>
         <p className={`form-notice${alert ? ' error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
       </section>
     </div>
@@ -62,7 +61,7 @@ function AppLoadingShell({ section, message, alert = false }: { section: string;
 function OnboardingLoadingShell({ message, alert = false }: { message: string; alert?: boolean }) {
   return <main className="pair-onboarding onboarding-loading" aria-label="Learning Language onboarding" aria-busy={!alert}>
     <div className="onboarding-loading-skeleton" aria-hidden="true">
-      <p className="eyebrow"><span /> Your language context</p>
+      <div className="onboarding-loading-label" />
       <div className="onboarding-loading-heading" />
       <div className="onboarding-loading-copy" />
       <div className="onboarding-loading-label" />
@@ -297,7 +296,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
               {languages.map((language) => <option key={language.id} value={language.id}>{languageName(language.languageTag)} · {language.languageTag}</option>)}
             </select>
           </div>
-          {online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>}
+          {activeSection !== 'Library' && (online ? <Link className="secondary-button" href="/library?add=1">Add vocabulary</Link> : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add vocabulary unavailable offline">Add vocabulary</span>)}
           <div className="profile-region" data-ui="profile-account" aria-label="Profile and account controls">
             <span className="profile-email">{session.user.email}</span>
             <button className="secondary-button" type="button" onClick={signOut}>Sign out</button>
@@ -309,8 +308,12 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
           {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>{label}</Link>)}
         </nav>
         <section className="app-content app-content-canvas" aria-labelledby="app-heading">
-          <p className="eyebrow"><span /> Your private learning space</p>
-          <h1 id="app-heading">{activeSection}</h1>
+          <div className="page-heading">
+            <div className="page-heading-text">
+              <h1 id="app-heading">{activeSection}</h1>
+              <p className="eyebrow">{languageName(displayedLanguage.languageTag)} · {displayedLanguage.languageTag}</p>
+            </div>
+          </div>
           {activeSection === 'Home' && <section className="lesson-availability" data-ui="visual-primitive" aria-label="Lesson availability">
             <div className="lesson-availability-row"><span>{lessonLoading ? 'Loading Lesson availability…' : <>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></>}</span><span className="lesson-availability-actions">{!lessonLoading && (canLaunchLesson ? <Link className="secondary-button" href="/lesson">{lessonLaunchLabel}</Link> : <button className="secondary-button" type="button" disabled>{lessonLaunchLabel}</button>)}<Link className="text-link" href="/lesson-history">Lesson history</Link></span></div>
             {!lessonLoading && !lessonAvailable && lessonStatus !== 'active' && <p className="lesson-unavailable">A Lesson requires at least two eligible Senses.</p>}
@@ -319,7 +322,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
           {activeSection === 'Home' && <DynamicLessonRequest key={`dynamic-lesson-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} learningLanguageLabel={`${languageName(activeLanguage.languageTag)} · ${activeLanguage.languageTag}`} readyMaterialCount={readyMaterialCount} activeLesson={lessonStatus === 'active'} onLessonCreated={() => void refreshLessonState(activeLanguage.id)} />}
           {activeSection === 'Home' && <ExtensionRecommendation extensionId={extensionId} />}
           {lessonError && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}
-          {activeSection === 'Library' && <Suspense fallback={<p className="app-empty">Loading your vocabulary...</p>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshLessonState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
+          {activeSection === 'Library' && <Suspense fallback={<div className="skeleton-list" aria-hidden="true"><div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line half" /></div><div className="skeleton-card"><div className="skeleton-line strong narrow" /><div className="skeleton-line wide" /></div></div>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshLessonState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Collections' && <Collections key={activeLanguage.id} language={activeLanguage} />}
           {activeSection === 'Lesson history' && <LessonHistory key={activeLanguage.id} learningLanguageId={activeLanguage.id} learningLanguageTag={activeLanguage.languageTag} />}
           {activeSection === 'Settings' && <section className="pair-management" aria-labelledby="learning-languages-heading">

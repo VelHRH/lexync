@@ -244,9 +244,10 @@ h2 {
   justify-content: center;
   min-height: 2.75rem;
   padding: 0 var(--lexync-space-4);
-  border: 1px solid var(--lexync-color-border-strong);
+  border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
   border-radius: var(--lexync-radius-md);
   background: var(--lexync-color-surface-subtle);
+  box-shadow: var(--lexync-elevation-low);
   color: var(--lexync-color-ink);
   font-size: var(--lexync-type-size-xs);
   font-weight: var(--lexync-type-weight-bold);
@@ -284,7 +285,7 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid var(--lexync-color-border-strong);
+  border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
   border-radius: var(--lexync-radius-md);
   outline: none;
   background: var(--lexync-color-white);
@@ -346,23 +347,25 @@ textarea:disabled { cursor: not-allowed; opacity: 0.6; }
 }
 
 .primary {
-  border: 1px solid var(--lexync-color-brand-primary);
+  border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
   background: var(--lexync-color-brand-primary);
   color: var(--lexync-color-white);
+  box-shadow: var(--lexync-elevation-medium);
 }
 
 .primary:hover { background: var(--lexync-color-brand-primary-hover); }
 
 .secondary {
-  border: 1px solid var(--lexync-color-border-strong);
+  border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
   background: var(--lexync-color-surface);
   color: var(--lexync-color-ink);
+  box-shadow: var(--lexync-elevation-low);
 }
 
-.secondary:hover { border-color: var(--lexync-color-brand-primary); background: var(--lexync-color-surface-subtle); }
+.secondary:hover { background: var(--lexync-color-surface-strong); }
 
 .primary:active,
-.secondary:active { transform: translateY(1px); }
+.secondary:active { transform: translate(2px, 2px); box-shadow: var(--lexync-elevation-none); }
 
 button:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); box-shadow: var(--lexync-focus-ring); }
 

@@ -59,7 +59,7 @@ test.describe('web multilingual manual capture', () => {
 
     await expect(page.getByLabel('Active Learning Language')).toBeVisible();
     await saveCapture(page, 'Casa', 'en-US', 'house');
-    const casaSummary = page.locator('.vocabulary-entry summary').filter({ hasText: /^Casa$/ });
+    const casaSummary = page.locator('.vocabulary-entry summary').filter({ has: page.getByRole('heading', { name: 'Casa', exact: true }) });
     await expect(casaSummary).toHaveCount(1);
     await saveCapture(page, ' casa ', 'uk-UA', 'дім');
     await expect(casaSummary).toHaveCount(1);
@@ -90,7 +90,7 @@ test.describe('web multilingual manual capture', () => {
     await setLanguage(answerLanguage, 'pt-BR');
     await form.getByLabel('Translation', { exact: true }).fill('computador');
     await form.getByRole('button', { name: /Save Vocabulary Entry|Save/i }).click();
-    const ordenadorSummary = page.locator('.vocabulary-entry summary').filter({ hasText: /^ordenador$/ });
+    const ordenadorSummary = page.locator('.vocabulary-entry summary').filter({ has: page.getByRole('heading', { name: 'ordenador', exact: true }) });
     await expect(ordenadorSummary).toHaveCount(1);
     await ordenadorSummary.click();
     const ordenadorEntry = ordenadorSummary.locator('..');

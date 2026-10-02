@@ -73,12 +73,14 @@ async function expectCustomSelect(field: Locator) {
       backgroundColor: computed.backgroundColor,
       backgroundImage: computed.backgroundImage,
       borderRadius: Number.parseFloat(computed.borderRadius),
+      borderWidth: Number.parseFloat(computed.borderTopWidth),
       paddingInlineEnd: Number.parseFloat(computed.paddingInlineEnd),
     };
   });
   expect(style.appearance).toBe('none');
   expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(style.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(style.borderRadius).toBe(0);
+  expect(style.borderWidth).toBeGreaterThanOrEqual(2);
   expect(style.paddingInlineEnd).toBeGreaterThanOrEqual(32);
   const indicator = field.locator('[data-ui="select-indicator"]');
   if (await indicator.count()) await expect(indicator).toBeVisible();

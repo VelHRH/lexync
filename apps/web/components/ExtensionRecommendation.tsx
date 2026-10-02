@@ -100,7 +100,6 @@ export function ExtensionRecommendation({ extensionId }: { extensionId?: string 
 
   return <section className="extension-recommendation" aria-labelledby="extension-recommendation-heading">
     <div>
-      <p className="eyebrow"><span /> Optional companion</p>
       <h2 id="extension-recommendation-heading">Add the Lexync extension</h2>
       <p>Capture language deliberately from third-party webpages and use Learning Mode while you browse. Your private learning data stays in Lexync.</p>
       {!supportedBrowser && <p className="form-notice">The extension is supported on desktop Chrome, Chromium, Edge, Brave, and Vivaldi. Firefox, Safari, and mobile browsers are not supported.</p>}

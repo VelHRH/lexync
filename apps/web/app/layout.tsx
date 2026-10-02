@@ -1,6 +1,23 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Atkinson_Hyperlegible, Courier_Prime } from 'next/font/google';
 import './globals.css';
+
+const display = Courier_Prime({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+  variable: '--web-font-display',
+});
+
+const body = Atkinson_Hyperlegible({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+  variable: '--web-font-body',
+});
 
 export const metadata: Metadata = {
   title: 'Lexync - Keep the words you choose',
@@ -32,7 +49,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>{children}</body>
     </html>
   );
