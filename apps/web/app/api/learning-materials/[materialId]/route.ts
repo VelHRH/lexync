@@ -42,18 +42,29 @@ export async function DELETE(request: Request, context: RouteContext) {
     .maybeSingle();
   if (materialError || !material) return Response.json({ error: safeUnavailableError }, { status: 404 });
 
+  const storagePath = material.storage_path as string;
   const { error: storageError } = await authenticated.client.storage
     .from('learning-materials')
-    .remove([material.storage_path as string]);
+    .remove([storagePath]);
 
   const { data: deletedMaterial, error: deleteError } = await authenticated.client.rpc('delete_learning_material', {
     p_material_id: materialId,
     p_learning_language_id: learningLanguageId,
   });
-  if (deleteError || !deletedMaterial) {
-    if (storageError) return deleteFailed('storage removal', storageError);
-    return deleteFailed('delete_learning_material', deleteError ?? 'the Learning Material row was not returned');
-  }
+  if (!deleteError && deletedMaterial) return Response.json({ deleted: true });
+
+  console.error('learning-material delete: the stored source outlived its Learning Material', {
+    storagePath,
+    storageError,
+    deleteError,
+  });
+  const { error: rowError } = await authenticated.client
+    .from('learning_materials')
+    .delete()
+    .eq('id', materialId)
+    .eq('learner_id', authenticated.user.id)
+    .eq('learning_language_id', learningLanguageId);
+  if (rowError) return deleteFailed('learning_materials row removal', rowError);
 
   return Response.json({ deleted: true });
 }
