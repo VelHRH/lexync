@@ -48,7 +48,7 @@ export default defineUnlistedScript(() => {
         z-index: var(--lexync-z-injected);
         max-width: 340px;
         padding: var(--lexync-space-3) var(--lexync-space-4);
-        border: 1px solid var(--lexync-color-border-strong);
+        border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
         border-radius: var(--lexync-radius-md);
         background: var(--lexync-color-surface);
         box-shadow: var(--lexync-elevation-medium);
@@ -64,7 +64,7 @@ export default defineUnlistedScript(() => {
         max-height: calc(100vh - 32px);
         overflow: auto;
         padding: var(--lexync-space-5);
-        border: 1px solid var(--lexync-color-border);
+        border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
         border-radius: var(--lexync-radius-md);
         background: var(--lexync-color-surface);
         box-shadow: var(--lexync-elevation-high);
@@ -99,7 +99,7 @@ export default defineUnlistedScript(() => {
       input, select, textarea {
         width: 100%;
         padding: var(--lexync-space-3);
-        border: 1px solid var(--lexync-color-border-strong);
+        border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
         border-radius: var(--lexync-radius-md);
         outline: none;
         background: var(--lexync-color-white);
@@ -123,14 +123,15 @@ export default defineUnlistedScript(() => {
       button {
         min-height: 2.75rem;
         padding: var(--lexync-space-3) var(--lexync-space-4);
-        border: 1px solid transparent;
+        border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
         border-radius: var(--lexync-radius-sm);
+        box-shadow: var(--lexync-elevation-low);
         cursor: pointer;
         font-weight: var(--lexync-type-weight-bold);
       }
-      button[type='submit'] { border-color: var(--lexync-color-brand-primary); background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); }
-      button[type='button'] { border-color: var(--lexync-color-border-strong); background: var(--lexync-color-surface-subtle); color: var(--lexync-color-ink); }
-      button:active { transform: translateY(1px); }
+      button[type='submit'] { background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); box-shadow: var(--lexync-elevation-medium); }
+      button[type='button'] { background: var(--lexync-color-surface); color: var(--lexync-color-ink); }
+      button:active { transform: translate(2px, 2px); box-shadow: var(--lexync-elevation-none); }
       button:disabled { cursor: wait; opacity: 0.55; }
       [hidden] { display: none !important; }
     </style>

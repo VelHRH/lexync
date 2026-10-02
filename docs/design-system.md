@@ -6,7 +6,7 @@ This is the shared light-mode contract for Lexync web, Chromium extension, Jetpa
 
 The contract covers brand assets, color and component state, typography, spacing, radii, elevation, motion, focus, and z-index. It is intentionally light-mode only. Audio controls are absent from this contract, and Android application rollout remains deferred to issue #46. Future SwiftUI rollout is specified here but not implemented by this ticket.
 
-The canonical brand color is `#6429f4`. The supporting palette is dark ink for readable content, white for primary surfaces, and lavender neutrals for quiet surfaces and selected states. State colors are reserved for success, warning, danger, and informational feedback; they are not interchangeable with the primary brand role.
+The visual language is neubrutalist: square corners, a two-pixel ink outline on anything operable, flat fills, and a hard offset shadow instead of a soft one. The canonical brand color is `#6429f4`. The supporting palette is dark ink for readable content, white for primary surfaces, and lavender neutrals for quiet surfaces and selected states. State colors are reserved for success, warning, danger, and informational feedback; they are not interchangeable with the primary brand role.
 
 ## Semantic roles
 
@@ -18,7 +18,9 @@ The canonical brand color is `#6429f4`. The supporting palette is dark ink for r
 | Muted ink | `--lexync-color-ink-muted` | Supporting copy and metadata |
 | Surface | `--lexync-color-surface` | Cards, dialogs, popup panels, auth callback panels |
 | Subtle/strong surface | `--lexync-color-surface-subtle`, `--lexync-color-surface-strong` | Page canvas, quiet panels, selected and hover backgrounds |
-| Border | `--lexync-color-border`, `--lexync-color-border-strong` | Dividers, field boundaries, elevated surfaces |
+| Border | `--lexync-color-border`, `--lexync-color-border-quiet`, `--lexync-color-border-strong` | Quiet dividers, lavender internal rules, and the ink outline on operable blocks |
+| Ink soft | `--lexync-color-ink-soft` | Quoted learner material that must sit below body copy without losing contrast |
+| Muted surface | `--lexync-color-surface-muted` | Disabled controls and out-of-rotation entries |
 | State | `--lexync-color-success`, `--lexync-color-warning`, `--lexync-color-danger`, `--lexync-color-info` | Feedback text and status indicators |
 | State surface | `--lexync-color-success-surface`, `--lexync-color-warning-surface`, `--lexync-color-danger-surface`, `--lexync-color-info-surface` | Readable feedback containers |
 | Focus | `--lexync-focus-color`, `--lexync-focus-ring` | Keyboard focus-visible treatment |
@@ -27,10 +29,11 @@ Use a semantic state role together with its matching state surface. A disabled c
 
 ## Token categories
 
-- Typography uses display and body families, a compact type scale, explicit weights, and tight/normal/relaxed line heights. Use `--lexync-type-family-display` for expressive headings and `--lexync-type-family-body` for interface copy.
+- Typography pairs a typewriter display family with a high-legibility body family. Use `--lexync-type-family-display` for page and card titles, for the learner's own captured language, and for counters; use `--lexync-type-family-body` for every operable control, label, and running sentence. Display type never sets a button, a navigation item, or a form label. Tracking roles are `--lexync-type-tracking-tight` for display headings and `--lexync-type-tracking-wide` for the small uppercase metadata line.
 - Spacing uses the `--lexync-space-*` scale from `0` through `20`; layout rhythm should come from this scale rather than one-off values.
-- Radii use `none`, `sm`, `md`, `lg`, `xl`, and `pill`. Use `pill` for compact actions and tags, and `xl` for major cards or dialogs.
-- Elevation uses `none`, `low`, `medium`, and `high`. Shadows communicate containment and hierarchy, not decoration.
+- Borders carry the structure. `--lexync-border-hairline` is a quiet divider inside a block; `--lexync-border-regular` is the standard outline on every card, field, button, and navigation item; `--lexync-border-thick` is reserved for emphasis a regular outline cannot carry. Outlines use `--lexync-color-border-strong` (ink); quiet internal rules use `--lexync-color-border` or `--lexync-color-border-quiet`.
+- Radii are square. `none`, `sm`, `md`, `lg`, and `xl` all resolve to `0`; the corner is not a hierarchy signal in this system. `pill` remains only for genuinely circular elements such as an account avatar.
+- Elevation is a hard offset shadow with no blur: `low` (2px), `medium` (4px), `high` (6px) in ink, plus `quiet` in lavender for a block that must separate without claiming an interaction. A shadow marks a block the learner can act on; a static panel takes `none`. Pressing an elevated control moves it by its own offset and drops the shadow, so the press is felt rather than animated.
 - Motion uses fast, normal, and slow durations with standard and emphasized easing. Every transition and animation must become effectively zero-duration when `prefers-reduced-motion: reduce` is active.
 - Focus uses a visible purple outline with a two-pixel offset and a semantic focus ring. Focus must remain visible for keyboard users on buttons, links, fields, selectors, and injected controls.
 - Z-index uses named layers (`base`, `sticky`, `dropdown`, `dialog`, `toast`, and `injected`). The injected layer is reserved for extension controls placed above a host page.

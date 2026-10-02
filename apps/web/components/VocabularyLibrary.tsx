@@ -1,6 +1,6 @@
 'use client';
 
-import { canonicalLanguageTag, languageName, type StudyPair } from '@lexync/domain';
+import { canonicalLanguageTag, type StudyPair } from '@lexync/domain';
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -354,6 +354,13 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       .toLocaleLowerCase();
     return matchesStatus && matchesCollection && (!normalizedQuery || searchableText.includes(normalizedQuery));
   });
+  const emptyHeading = selectedCollection
+    ? 'This Collection is empty.'
+    : normalizedQuery
+    ? 'No match in this library.'
+    : status === 'all' && entries.length === 0
+      ? 'Nothing filed under this language yet.'
+      : 'Nothing here right now.';
   const noResultsMessage = selectedCollection
     ? `No vocabulary entries in “${selectedCollection.name}”.`
     : normalizedQuery
@@ -363,25 +370,26 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       : `No ${status} Vocabulary Entries yet.`;
 
   return (
-    <section className="vocabulary-library" aria-labelledby="library-heading">
+    <section className="vocabulary-library" aria-labelledby="app-heading">
       <div className="library-toolbar">
-        <div>
-          <p className="eyebrow"><span /> {languageName(language.languageTag)}</p>
-          <h2 id="library-heading">Vocabulary Library</h2>
-        </div>
+        <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <button className="primary-button" type="button" disabled={!online} onClick={() => { setNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
       </div>
       {!online && <p className="form-notice" role="status">You are offline. Vocabulary changes require a connection.</p>}
       {selectedCollection && <div className="library-collection-filter" role="status"><span>Filtered by {selectedCollection.name}</span><button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button></div>}
       <div className="vocabulary-discovery-controls">
-        <label htmlFor="vocabulary-search">Search vocabulary</label>
-        <input id="vocabulary-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <label htmlFor="vocabulary-status">Vocabulary status</label>
-        <select id="vocabulary-status" value={status} onChange={(event) => setStatus(event.target.value as VocabularyStatus)}>
-          <option value="all">All entries</option>
-          <option value="active">Active entries</option>
-          <option value="suspended">Suspended entries</option>
-        </select>
+        <div className="field">
+          <label htmlFor="vocabulary-search">Search vocabulary</label>
+          <input id="vocabulary-search" type="search" value={query} placeholder="expression or translation" onChange={(event) => setQuery(event.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="vocabulary-status">Vocabulary status</label>
+          <select id="vocabulary-status" value={status} onChange={(event) => setStatus(event.target.value as VocabularyStatus)}>
+            <option value="all">All entries</option>
+            <option value="active">Active entries</option>
+            <option value="suspended">Suspended entries</option>
+          </select>
+        </div>
       </div>
       {showForm && <form className="web-auth-form vocabulary-form" onSubmit={save}>
         <label htmlFor="expression">Expression</label>
@@ -405,14 +413,27 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
           <button className="secondary-button" type="button" disabled={saving || !online} onClick={() => void capture(null, true)}>Create a new Sense</button>
         </fieldset>}
       </form>}
-      {loading && <p className="app-empty">Loading your vocabulary…</p>}
-      {!loading && visibleEntries.length === 0 && <p className="app-empty" data-ui="empty-state" role="status">{noResultsMessage}</p>}
+      {loading && <div className="skeleton-list" aria-hidden="true">
+        <div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line half" /><div className="skeleton-line narrow" /></div>
+        <div className="skeleton-card"><div className="skeleton-line strong narrow" /><div className="skeleton-line wide" /></div>
+        <div className="skeleton-card"><div className="skeleton-line strong half" /><div className="skeleton-line wide" /></div>
+      </div>}
+      {!loading && visibleEntries.length === 0 && <div className="empty-state" data-ui="empty-state" role="status">
+        <h3>{emptyHeading}</h3>
+        <p>{noResultsMessage}</p>
+      </div>}
       {suspensionNotice && <p className="form-notice" role="status">{suspensionNotice}</p>}
       {notice && !showForm && !draft && <p className="form-notice error" role="alert">{notice}</p>}
       <div className="vocabulary-entry-list">
         {visibleEntries.map((entry) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id}>
           <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>
-            <summary><span>{entry.expression}</span>{entry.suspended && <span className="vocabulary-status-badge">Suspended</span>}</summary>
+            <summary>
+              <span className="vocabulary-entry-identity">
+                <h3 className="vocabulary-entry-expression">{entry.expression}</h3>
+                <span className="vocabulary-entry-gloss">{entry.senses.flatMap((sense) => sense.translations.map((item) => item.text)).join(' · ') || 'No translation yet'}</span>
+              </span>
+              {entry.suspended ? <span className="vocabulary-status-badge">Suspended</span> : entry.senses.length > 1 && <span className="surface-tally">{entry.senses.length}</span>}
+            </summary>
             <div>
             {draft?.id === entry.id ? <form className="vocabulary-editor" onSubmit={saveDraft}>
               <label htmlFor={`edit-expression-${entry.id}`}>Expression</label>
@@ -447,24 +468,23 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
                 <button className="secondary-button" type="button" disabled={saving} onClick={() => { setDraft(null); setNotice(''); }}>Cancel</button>
               </div>
             </form> : <>
-              <h3>{entry.expression}</h3>
               {entry.senses.map((sense, index) => <div className="vocabulary-sense" key={sense.id}>
                 <h4>Sense {index + 1}</h4>
                 {sense.translations.map((item) => <p key={item.id}>{item.text} <span>{item.answer_language_tag}</span></p>)}
-                {sense.examples.length ? sense.examples.map((item) => <p className="vocabulary-example" key={item.id}>{item.text}</p>) : <p className="app-empty">No Example added</p>}
+                {sense.examples.map((item) => <p className="vocabulary-example" key={item.id}>{item.text}</p>)}
               </div>)}
               {collections.length > 0 && <fieldset className="library-collections" aria-labelledby={`entry-collections-${entry.id}`}>
                 <legend id={`entry-collections-${entry.id}`}>Collections</legend>
                 {collections.map((collection) => {
                   const member = memberships.some((membership) => membership.collection_id === collection.id && membership.learning_vocabulary_entry_id === entry.learningVocabularyEntryId);
                   const changing = changingMembership === `${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`;
-                  return <button className="secondary-button" type="button" key={collection.id} disabled={!online || changing} onClick={() => void changeMembership(entry, collection, member)}>{changing ? `${member ? 'Removing' : 'Adding'}…` : member ? `Remove ${entry.expression} from ${collection.name}` : `Add ${entry.expression} to ${collection.name}`}</button>;
+                  return <button className={`collection-chip${member ? ' selected' : ''}`} type="button" key={collection.id} aria-pressed={member} aria-label={member ? `Remove ${entry.expression} from ${collection.name}` : `Add ${entry.expression} to ${collection.name}`} disabled={!online || changing} onClick={() => void changeMembership(entry, collection, member)}>{changing ? `${member ? 'Removing' : 'Adding'}…` : collection.name}</button>;
                 })}
               </fieldset>}
               <div className="vocabulary-entry-actions">
-                <button className="secondary-button" type="button" disabled={!online} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit {entry.expression}</button>
-                <button className="secondary-button danger" type="button" disabled={!online} onClick={() => void deleteEntry(entry)}>Delete {entry.expression}</button>
-                <button className="secondary-button" type="button" disabled={!online} onClick={() => void setSuspended(entry, !entry.suspended)}>{entry.suspended ? 'Resume' : 'Suspend'} {entry.expression}</button>
+                <button className="secondary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit</button>
+                <button className="secondary-button" type="button" aria-label={`${entry.suspended ? 'Resume' : 'Suspend'} ${entry.expression}`} disabled={!online} onClick={() => void setSuspended(entry, !entry.suspended)}>{entry.suspended ? 'Resume' : 'Suspend'}</button>
+                <button className="secondary-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} onClick={() => void deleteEntry(entry)}>Delete</button>
               </div>
             </>}
             </div>

@@ -8,6 +8,7 @@ const prefixes = {
   color: 'color',
   typography: 'type',
   spacing: 'space',
+  border: 'border',
   radius: 'radius',
   elevation: 'elevation',
   motion: 'motion',

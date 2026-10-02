@@ -17,31 +17,31 @@ colors:
   info: "#2457a6"
 typography:
   display:
-    fontFamily: "Avenir Next, Segoe UI, sans-serif"
-    fontSize: "clamp(2.75rem, 6vw, 5.75rem)"
+    fontFamily: "Courier Prime, Courier New, monospace"
+    fontSize: "2.75rem"
     fontWeight: 700
-    lineHeight: 1.02
-    letterSpacing: "-0.035em"
+    lineHeight: 1
+    letterSpacing: "-0.03em"
   headline:
-    fontFamily: "Avenir Next, Segoe UI, sans-serif"
-    fontSize: "2rem"
+    fontFamily: "Courier Prime, Courier New, monospace"
+    fontSize: "1.75rem"
     fontWeight: 700
     lineHeight: 1.15
   body:
-    fontFamily: "Inter, Segoe UI, sans-serif"
+    fontFamily: "Atkinson Hyperlegible, Segoe UI, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.5
   label:
-    fontFamily: "Inter, Segoe UI, sans-serif"
+    fontFamily: "Atkinson Hyperlegible, Segoe UI, system-ui, sans-serif"
     fontSize: "0.875rem"
-    fontWeight: 600
-    lineHeight: 1.2
+    fontWeight: 700
+    lineHeight: 1.15
 rounded:
-  field: "10px"
-  control: "10px"
-  surface: "16px"
-  feature: "24px"
+  field: "0"
+  control: "0"
+  surface: "0"
+  feature: "0"
 spacing:
   xs: "4px"
   sm: "8px"
@@ -54,7 +54,9 @@ components:
     backgroundColor: "{colors.fox-purple}"
     textColor: "{colors.canvas}"
     rounded: "{rounded.control}"
-    padding: "12px 18px"
+    border: "2px solid {colors.deep-ink}"
+    shadow: "4px 4px 0 {colors.deep-ink}"
+    padding: "11px 18px"
     height: "44px"
   button-primary-hover:
     backgroundColor: "{colors.fox-purple-hover}"
@@ -64,33 +66,35 @@ components:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.deep-ink}"
     rounded: "{rounded.field}"
-    padding: "11px 14px"
-    height: "44px"
+    border: "2px solid {colors.deep-ink}"
+    padding: "11px 13px"
+    height: "48px"
   select:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.deep-ink}"
     rounded: "{rounded.field}"
-    padding: "11px 42px 11px 14px"
-    height: "44px"
+    border: "2px solid {colors.deep-ink}"
+    padding: "11px 42px 11px 13px"
+    height: "48px"
 ---
 
 # Design System: Lexync
 
 ## Overview
 
-**Creative North Star: "The Private Reading Desk"**
+**Creative North Star: "The Card Index"**
 
-Lexync should feel like a focused place where something noticed in the wild becomes material worth keeping. Public surfaces make that transformation tangible through the fox identity and a direct capture-to-sync-to-practice composition. Product surfaces are calmer and denser: controls feel deliberate, language context stays visible, and the current task owns the page.
+Lexync should feel like a card index an adult keeps for a language they actually live in: something noticed in the wild gets written down, filed, and found again. Every vocabulary entry is a card the learner owns. Product surfaces are calm and dense: controls feel deliberate, language context stays visible, and the current task owns the page.
 
-The system rejects generic AI editorial styling, default browser chrome, and card-grid dashboards. Purple is a precise action and identity signal, not atmospheric decoration. Character comes from strong alignment, compact control anatomy, clear state changes, and a few memorable brand moments.
+The execution is neubrutalist. Structure is carried by a two-pixel ink outline, square corners, flat fills, and a hard offset shadow with no blur. Nothing is soft, nothing floats, and nothing is decorated to look expensive. Purple is a precise action and identity signal, not atmospheric decoration.
 
 **Key Characteristics:**
 
-- Fox-led identity with product-derived learning visuals
+- A typewriter face for the learner's own language, a high-legibility sans for everything operable
+- Square corners and ink outlines instead of radius and blur
 - One dominant task per surface
 - Fixed, compact product typography
-- Custom-styled, accessible controls
-- Restrained lavender layering with decisive purple actions
+- Restrained lavender layering with decisive purple blocks
 
 ## Colors
 
@@ -113,16 +117,18 @@ The palette pairs a singular fox purple with dark violet ink, clear white canvas
 
 ## Typography
 
-**Display Font:** Avenir Next with Segoe UI fallback
-**Body Font:** Inter with Segoe UI fallback
+**Display Font:** Courier Prime with Courier New fallback
+**Body Font:** Atkinson Hyperlegible with Segoe UI and system-ui fallback
 
-**Character:** Brand headings are confident and rounded enough to belong with the fox mark. Product copy stays familiar, compact, and quiet so the learner's material remains the most important content.
+**Character:** The display face is a typewriter, used where the learner's own material and the system's counters live: page titles, card titles, captured expressions, card numbers, and the small uppercase metadata line. Atkinson Hyperlegible carries everything the learner operates — buttons, navigation, labels, fields, running sentences — because an adult reading an unfamiliar language needs letterforms that cannot be confused.
+
+**The Operable Face Rule.** Display type never sets a button, a navigation item, a form label, or an error message. If a person clicks it or types into it, it is body type.
 
 ### Hierarchy
 
-- **Display** (700, responsive up to 5.75rem, 1.02): Public hero only, limited to two balanced lines.
-- **Headline** (700, 2rem, 1.15): Major public sections and exceptional product empty states.
-- **Title** (600, 1.25rem, 1.25): Product page and panel titles.
+- **Display** (700, 2.75rem, 1.0): Public hero and the product page title, limited to two balanced lines.
+- **Headline** (700, 1.75rem, 1.15): Major public sections and exceptional product empty states.
+- **Title** (700, 1.375rem, 1.15): Product panel and card titles.
 - **Body** (400, 1rem, 1.5): Explanations and form content, capped near 70 characters.
 - **Label** (600, 0.875rem, 1.2): Controls, metadata, navigation, and compact status.
 
@@ -130,39 +136,46 @@ The palette pairs a singular fox purple with dark violet ink, clear white canvas
 
 ## Elevation
 
-Lexync uses tonal layering first and soft, tinted elevation only for floating menus, dialogs, and injected surfaces that must separate from an unknown host page. Static product sections do not receive shadows simply to look like cards.
+Lexync has no soft shadows. Elevation is a hard offset in ink with zero blur, and it means one thing: this block can be acted on. A static panel, a divider, or a read-only region takes no shadow at all.
 
 ### Shadow Vocabulary
 
-- **Low ambient:** Quiet separation for menus and compact floating surfaces.
-- **Medium ambient:** Dialogs, capture sheets, and extension overlays.
-- **High ambient:** Rare modal or injected surface over visually complex content.
+- **Low (2px):** Secondary buttons and compact controls.
+- **Medium (4px):** Primary actions, entry cards, the selected navigation block.
+- **High (6px):** Dialogs, capture sheets, and injected extension surfaces.
+- **Quiet (2px lavender):** A block that must separate from its background without claiming to be interactive.
 
-**The Earned Elevation Rule.** A shadow must explain stacking or interaction. If spacing and a background layer communicate the same relationship, remove it.
+**The Earned Elevation Rule.** A shadow must explain interaction. If spacing, an outline, or a background layer communicates the same relationship, remove it.
+
+**The Felt Press Rule.** Pressing an elevated control moves it by its own offset and drops the shadow to none, so the block lands on the page. No opacity fades, no scale.
 
 ## Components
 
 ### Buttons
 
-- **Shape:** Compact rounded rectangle (10px), never a default pill.
-- **Primary:** Fox Purple, clear white text, 44px minimum height, one-line label.
-- **Hover / Focus:** Deepened purple on hover, one-pixel tactile press, and a visible semantic focus ring.
-- **Secondary / Ghost:** Dark ink on canvas or lavender wash with a real border when needed for contrast.
+- **Shape:** Square rectangle, two-pixel ink outline, never a pill and never a radius.
+- **Primary:** Fox Purple fill, clear white text, 44px minimum height, one-line label, medium offset shadow.
+- **Secondary:** Canvas fill, ink text, the same outline, low offset shadow; hover lifts to Lavender Selected.
+- **Hover / Focus / Press:** Deepened purple on hover, the felt press above, and a visible semantic focus ring.
+- **Disabled:** Muted surface, quiet border, muted ink, no shadow. Never a translucent copy of the enabled state.
 
 ### Cards / Containers
 
-- **Corner Style:** Soft surface radius (16px) or feature radius (24px) for major brand compositions.
-- **Background:** Canvas or a single lavender layer chosen by hierarchy.
-- **Shadow Strategy:** Flat by default; use elevation only for overlays.
-- **Border:** One quiet boundary at most. Avoid nested bordered boxes.
-- **Internal Padding:** 16px compact, 24px standard, 32px spacious.
+- **Corner Style:** Square. Radius is not a hierarchy signal in this system.
+- **Background:** Canvas on the lavender wash of the page, or Muted Surface when the card is out of rotation.
+- **Shadow Strategy:** A card the learner acts on takes the medium offset shadow; a read-only panel takes none.
+- **Border:** The two-pixel ink outline. Inside a card, separate regions with a quiet lavender rule, never a second outline.
+- **Nesting:** One outline deep. A bordered box inside a bordered box is always wrong.
+- **Internal Padding:** 16px compact, 20px standard, 32px spacious.
+- **Anatomy:** Title and counter on one row, content, then at most one metadata row. Actions belong to the card being worked on, not to every card in the list.
 
 ### Inputs / Fields
 
-- **Style:** 44px minimum height, 10px radius, explicit border, clear label above, and stable helper/error space.
+- **Style:** 48px minimum height, square, two-pixel ink outline, clear label directly above the field it names, and stable helper/error space.
+- **Label Placement:** A label sits on the line above its own control and shares its width. A label on one edge of the screen and its field on the other is a defect.
 - **Select:** Remove browser appearance, reserve 42px for a dedicated chevron, and preserve native keyboard semantics unless a richer menu is required.
 - **Focus:** Purple outline and focus ring without layout shift.
-- **Error / Disabled:** Semantic text and surface roles; never color alone.
+- **Error / Disabled:** Semantic text and surface roles inside a bordered block; never color alone.
 
 ### Navigation
 
@@ -170,7 +183,7 @@ Desktop product headers remain one aligned row. Brand, active Learning Language,
 
 ### Empty and Loading States
 
-Empty states explain the next useful action in one short sentence and expose that action directly. Loading states preserve the final layout with restrained skeletons; they do not replace the task with generic prose or a centered spinner.
+Empty states are a dashed-outline block, not a line of grey text. They carry a short display-type sentence about what the learner is missing, one sentence of body copy naming what to do, and the action itself. Loading states preserve the final layout with outlined skeleton cards in lavender; they never replace the task with generic prose or a centered spinner.
 
 ## Do's and Don'ts
 
@@ -186,7 +199,9 @@ Empty states explain the next useful action in one short sentence and expose tha
 
 - **Don't** resemble a generic AI-generated editorial landing page.
 - **Don't** ship a default unstyled HTML application or browser-default dropdown.
-- **Don't** build a compressed dashboard from repeated bordered cards.
+- **Don't** nest a bordered box inside a bordered box, or give every card in a list its own row of actions.
+- **Don't** set a button, a navigation item, a form label, or an error message in the display face.
 - **Don't** use numbered sections, repeated uppercase kickers, ruled-column scaffolding, or oversized product headings.
 - **Don't** allow the desktop header to wrap, misalign, or expose the full account email as primary content.
-- **Don't** add decorative gradients, glass panels, status dots, or motion without a state or hierarchy purpose.
+- **Don't** add decorative gradients, glass panels, status dots, blurred shadows, or motion without a state or hierarchy purpose.
+- **Don't** reach for a coloured left edge as an accent. Structure comes from the full outline.

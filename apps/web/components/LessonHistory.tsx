@@ -161,13 +161,12 @@ export function LessonHistory({ learningLanguageId, learningLanguageTag }: { lea
   return <div className="lesson-history" aria-busy={loading}>
     <section className="lesson-history-section" aria-labelledby="completed-lesson-sessions-heading">
       <div className="lesson-history-heading">
-        <p className="eyebrow"><span /> Completed practice</p>
         <h2 id="completed-lesson-sessions-heading">Completed Lessons</h2>
         <p className="lesson-history-context">All completed Lessons across your Learning Languages.</p>
       </div>
       {loading && <div className="lesson-history-loading" role="status"><span aria-hidden="true" />Loading Lesson history…</div>}
       {!loading && error && <p className="form-notice error" role="alert">{error}</p>}
-      {!loading && !error && lessons.length === 0 && <p className="lesson-history-empty">No completed Lessons yet. Start a Lesson from Home to build your history.</p>}
+      {!loading && !error && lessons.length === 0 && <div className="empty-state"><h3>No Lessons behind you yet.</h3><p>No completed Lessons yet. Start a Lesson from Home to build your history.</p></div>}
       {!loading && !error && lessons.length > 0 && <div className="lesson-history-list">{lessons.map((lesson) => <details className="lesson-history-session" key={lesson.id}>
         <summary><span className="lesson-history-session-language">{languageName(lesson.learning_language_tag)} <small>{lesson.learning_language_tag}</small>{lesson.source && <span className="lesson-history-session-source">{lesson.source === 'dynamic' ? 'From your Learning Materials' : 'From your vocabulary'}</span>}</span><time dateTime={lesson.completed_at}>{formatDate(lesson.completed_at)}</time><span className="lesson-history-score">{lesson.correct_count}/{lesson.total_count} · {percentage(lesson)}%</span></summary>
         <ol className="lesson-history-questions">{lesson.questions.map((question) => <QuestionDetail key={`${lesson.id}-${question.ordinal}`} question={question} />)}</ol>
@@ -175,11 +174,10 @@ export function LessonHistory({ learningLanguageId, learningLanguageTag }: { lea
     </section>
     <section className="lesson-history-section lesson-history-statistics" aria-label="Per-Sense practice statistics">
       <div className="lesson-history-heading">
-        <p className="eyebrow"><span /> Practice by Sense</p>
         <h2>Per-Sense practice</h2>
         <p className="lesson-history-context">Selected Learning Language: <strong>{selectedLanguageName} · {learningLanguageTag}</strong></p>
       </div>
-      {!loading && !error && history.senseStatistics.length === 0 && <p className="lesson-history-empty">No Senses are available in this Learning Language yet. Add vocabulary to begin practising.</p>}
+      {!loading && !error && history.senseStatistics.length === 0 && <div className="empty-state"><h3>Nothing to practise yet.</h3><p>No Senses are available in this Learning Language yet. Add vocabulary to begin practising.</p></div>}
       {loading && <div className="lesson-history-statistics-skeleton" aria-hidden="true"><span /><span /><span /></div>}
       {!loading && !error && history.senseStatistics.length > 0 && <ul className="lesson-history-sense-list">{history.senseStatistics.map((statistic) => <li key={statistic.sense_id}>
         <strong>{statistic.expression}</strong>

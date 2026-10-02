@@ -385,6 +385,8 @@ test.describe('web Vocabulary Entry library', () => {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Edit teclado nuevo' })).toBeFocused();
     await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Suspend teclado nuevo' })).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Delete teclado nuevo' })).toBeFocused();
     page.once('dialog', (dialog) => dialog.accept());
     await page.keyboard.press('Enter');
@@ -401,7 +403,7 @@ test.describe('web Vocabulary Entry library', () => {
     await page.locator('summary').filter({ hasText: 'borrar' }).click();
     await page.context().setOffline(true);
     await expect(page.getByRole('button', { name: 'Add vocabulary' })).toBeDisabled();
-    await expect(page.getByLabel('Add vocabulary unavailable offline')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByLabel('Add vocabulary unavailable offline')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Edit borrar' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Delete borrar' })).toBeDisabled();
     await expect(page.getByText('You are offline. Vocabulary changes require a connection.')).toBeVisible();

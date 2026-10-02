@@ -8,14 +8,17 @@ export const shadowTokenCss = `
   --lexync-color-brand-primary-hover: ${semanticTokens.color.brandPrimaryHover};
   --lexync-color-brand-primary-active: ${semanticTokens.color.brandPrimaryActive};
   --lexync-color-ink: ${semanticTokens.color.ink};
+  --lexync-color-ink-soft: ${semanticTokens.color.inkSoft};
   --lexync-color-ink-muted: ${semanticTokens.color.inkMuted};
   --lexync-color-white: ${semanticTokens.color.white};
   --lexync-color-surface: ${semanticTokens.color.surface};
   --lexync-color-surface-subtle: ${semanticTokens.color.surfaceSubtle};
   --lexync-color-surface-strong: ${semanticTokens.color.surfaceStrong};
   --lexync-color-surface-deep: ${semanticTokens.color.surfaceDeep};
+  --lexync-color-surface-muted: ${semanticTokens.color.surfaceMuted};
   --lexync-color-border: ${semanticTokens.color.border};
   --lexync-color-border-strong: ${semanticTokens.color.borderStrong};
+  --lexync-color-border-quiet: ${semanticTokens.color.borderQuiet};
   --lexync-color-success: ${semanticTokens.color.success};
   --lexync-color-success-surface: ${semanticTokens.color.successSurface};
   --lexync-color-warning: ${semanticTokens.color.warning};
@@ -40,6 +43,8 @@ export const shadowTokenCss = `
   --lexync-type-line-tight: ${semanticTokens.typography.lineHeightTight};
   --lexync-type-line-normal: ${semanticTokens.typography.lineHeightNormal};
   --lexync-type-line-relaxed: ${semanticTokens.typography.lineHeightRelaxed};
+  --lexync-type-tracking-tight: ${semanticTokens.typography.trackingTight};
+  --lexync-type-tracking-wide: ${semanticTokens.typography.trackingWide};
   --lexync-space-1: ${semanticTokens.spacing.space1};
   --lexync-space-2: ${semanticTokens.spacing.space2};
   --lexync-space-3: ${semanticTokens.spacing.space3};
@@ -49,6 +54,9 @@ export const shadowTokenCss = `
   --lexync-space-8: ${semanticTokens.spacing.space8};
   --lexync-space-10: ${semanticTokens.spacing.space10};
   --lexync-space-12: ${semanticTokens.spacing.space12};
+  --lexync-border-hairline: ${semanticTokens.border.hairline};
+  --lexync-border-regular: ${semanticTokens.border.regular};
+  --lexync-border-thick: ${semanticTokens.border.thick};
   --lexync-radius-sm: ${semanticTokens.radius.sm};
   --lexync-radius-md: ${semanticTokens.radius.md};
   --lexync-radius-lg: ${semanticTokens.radius.lg};
@@ -57,6 +65,7 @@ export const shadowTokenCss = `
   --lexync-elevation-low: ${semanticTokens.elevation.low};
   --lexync-elevation-medium: ${semanticTokens.elevation.medium};
   --lexync-elevation-high: ${semanticTokens.elevation.high};
+  --lexync-elevation-quiet: ${semanticTokens.elevation.quiet};
   --lexync-motion-duration-fast: ${semanticTokens.motion.durationFast};
   --lexync-motion-duration-normal: ${semanticTokens.motion.durationNormal};
   --lexync-motion-duration-slow: ${semanticTokens.motion.durationSlow};
