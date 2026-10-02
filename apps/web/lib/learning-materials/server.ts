@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 export const safeProcessingError = 'Learning Material could not be prepared right now.';
 export const safeAuthError = 'Please sign in to manage Learning Materials.';
 export const safeUnavailableError = 'Learning Material is no longer available.';
+export const safeDeleteError = 'Learning Material could not be deleted right now. Please try again.';
 export const safeRetryError = 'Learning Material could not be prepared. Please try again.';
 
 export type MaterialStatus = 'processing' | 'ready' | 'failed';
