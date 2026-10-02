@@ -182,8 +182,8 @@ export class GeminiGenerationProvider implements GenerationProvider {
       const structured = this.chatModel.withStructuredOutput(RESPONSE_JSON_SCHEMA, { name: 'dynamic_lesson_questions' });
       const result = await structured.invoke(buildGenerationPrompt(request)) as { questions: DynamicLessonQuestionCandidate[] };
       return result.questions;
-    } catch {
-      throw new Error('The Lesson generation provider could not produce Lesson Questions.');
+    } catch (error) {
+      throw new Error('The Lesson generation provider could not produce Lesson Questions.', { cause: error });
     }
   }
 }
