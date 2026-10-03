@@ -88,6 +88,32 @@ async function expectCustomSelect(field: Locator) {
   await expectFocusIndicator(select);
 }
 
+async function expectCompactSelect(field: Locator) {
+  await expect(field).toBeVisible();
+  const select = field.getByLabel('Active Learning Language');
+  await expect(select).toBeVisible();
+  const style = await select.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return {
+      appearance: computed.getPropertyValue('appearance'),
+      backgroundColor: computed.backgroundColor,
+      borderRadius: Number.parseFloat(computed.borderRadius),
+      borderWidth: Number.parseFloat(computed.borderTopWidth),
+      height: rect.height,
+      width: rect.width,
+    };
+  });
+  expect(style.appearance).toBe('none');
+  expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(style.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(style.borderWidth).toBeGreaterThanOrEqual(1);
+  expect(style.height).toBeGreaterThanOrEqual(40);
+  expect(style.width).toBeGreaterThanOrEqual(32);
+  await expect(field.locator('[data-ui="select-indicator"]')).toBeHidden();
+  await expectFocusIndicator(select);
+}
+
 async function contrastRatio(page: Page, selector: string) {
   return page.locator(selector).first().evaluate((element) => {
     const parse = (value: string) => {
@@ -192,12 +218,14 @@ test.describe('web design system surfaces', () => {
     await page.goto('/library');
     const content = page.locator('.app-content');
     await expect(content).toBeVisible();
-    const edges = await content.evaluate((element) => {
+    await expect(content.getByRole('heading', { level: 1, name: 'Library' })).toBeVisible();
+    const readEdges = () => content.evaluate((element) => {
       const own = element.getBoundingClientRect();
       const blocks = Array.from(element.children).map((child) => child.getBoundingClientRect()).filter((rect) => rect.width > 0);
       return { left: own.left, right: own.right, blocks: blocks.map((rect) => ({ left: rect.left, right: rect.right })) };
     });
-    expect(edges.blocks.length).toBeGreaterThan(0);
+    await expect.poll(async () => (await readEdges()).blocks.length).toBeGreaterThan(0);
+    const edges = await readEdges();
     for (const block of edges.blocks) {
       expect(Math.abs(block.left - edges.left)).toBeLessThanOrEqual(1);
       expect(Math.abs(block.right - edges.right)).toBeLessThanOrEqual(1);
@@ -254,7 +282,7 @@ test.describe('web design system surfaces', () => {
       expect(bounds.left).toBeGreaterThanOrEqual(0);
       expect(bounds.right).toBeLessThanOrEqual(390);
     }
-    await expectCustomSelect(shell.locator('[data-ui="language-switcher"]'));
+    await expectCompactSelect(shell.locator('[data-ui="language-switcher"]'));
     await expectNoHorizontalOverflow(page);
   });
 

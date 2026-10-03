@@ -116,11 +116,11 @@ async function seedMaterial(client: SupabaseClient, userId: string, learningLang
 }
 
 function dynamicLessonRegion(page: Page) {
-  return page.getByRole('region', { name: 'Practise from your Learning Materials' });
+  return page.getByRole('region', { name: 'What do you want to practise?' });
 }
 
 function createLessonButton(page: Page) {
-  return dynamicLessonRegion(page).getByRole('button', { name: /^Create lesson$|^Creating lesson…$/ });
+  return dynamicLessonRegion(page).getByRole('button', { name: /^Create lesson$|^Creating lesson$/ });
 }
 
 async function submitPracticeRequest(page: Page, text: string) {
@@ -321,6 +321,7 @@ test.describe('web Dynamic Lesson', () => {
     await expect(lessonQuestion(page)).toBeVisible();
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/lessons');
+    await openHome(page);
     const region = dynamicLessonRegion(page);
     await expect(region.getByRole('status').filter({ hasText: 'You have a Lesson in progress.' })).toBeVisible();
     await expect(createLessonButton(page)).toBeDisabled();

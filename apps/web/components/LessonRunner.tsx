@@ -43,6 +43,7 @@ export function LessonRunner({ lessonId }: { lessonId: string }) {
     languages={languages}
     lessonId={lessonId}
     onExit={() => router.push('/lessons')}
+    onPractiseSomethingElse={() => router.push('/')}
     onLessonStarted={(startedLessonId) => router.replace(`/lessons/${startedLessonId}`)}
   />;
 }

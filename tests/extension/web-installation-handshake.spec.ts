@@ -7,7 +7,7 @@ async function establishWebSession(page: Page, session: Session) {
     window.localStorage.setItem('lexync.web.auth.session', JSON.stringify(value));
   }, session);
   await page.goto('http://127.0.0.1:3000/');
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What do you want to practise?' })).toBeVisible();
 }
 
 async function sendExternalMessage(page: Page, id: string, message: unknown) {

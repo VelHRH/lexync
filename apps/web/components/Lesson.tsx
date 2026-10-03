@@ -121,7 +121,7 @@ function percentage(lesson: LessonState) {
   return Math.round(((lesson.correct_count ?? 0) / total) * 100);
 }
 
-export function Lesson({ lessonId, languages, onExit, onLessonStarted }: { lessonId: string; languages: { id: string; language_tag: string }[]; onExit: () => void; onLessonStarted: (startedLessonId: string) => void }) {
+export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, onLessonStarted }: { lessonId: string; languages: { id: string; language_tag: string }[]; onExit: () => void; onPractiseSomethingElse: () => void; onLessonStarted: (startedLessonId: string) => void }) {
   const [lesson, setLesson] = useState<LessonState | null>(null);
   const [questionId, setQuestionId] = useState<string | null>(null);
   const [selectedChoice, setSelectedChoice] = useState('');
@@ -315,7 +315,7 @@ export function Lesson({ lessonId, languages, onExit, onLessonStarted }: { lesso
             <p><span>Correct</span><strong>{lessonQuestion.correct_answer}</strong></p>
           </div>)}
         </section>}
-        <div className="lesson-complete-actions">{lesson.source === 'dynamic' ? <button className="primary-button" type="button" onClick={onExit}>Practise something else</button> : <><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Lessons</button></>}</div>
+        <div className="lesson-complete-actions">{lesson.source === 'dynamic' ? <button className="primary-button" type="button" onClick={onPractiseSomethingElse}>Practise something else</button> : <><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Lessons</button></>}</div>
       </section>}
     </div>
   </main>;

@@ -111,7 +111,7 @@ test.describe('web Learning Language settings', () => {
 
     await signIn(page, account);
     await expect(page.getByLabel('Active Learning Language')).toBeVisible();
-    await expect(page.locator('header').getByLabel('Active Learning Language')).toBeVisible();
+    await expect(page.locator('[data-ui="product-sidebar"]').getByLabel('Active Learning Language')).toBeVisible();
     await expect(page.getByLabel(/Active Study Pair|Study Pair/i)).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText('Study Pair');
 
