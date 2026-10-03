@@ -1,14 +1,22 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Atkinson_Hyperlegible, Courier_Prime } from 'next/font/google';
+import { Atkinson_Hyperlegible, Courier_Prime, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 
-const display = Courier_Prime({
+const display = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+  variable: '--web-font-display',
+});
+
+const learnerMaterial = Courier_Prime({
   subsets: ['latin'],
   weight: ['400', '700'],
   style: ['normal', 'italic'],
   display: 'swap',
-  variable: '--web-font-display',
+  variable: '--web-font-material',
 });
 
 const body = Atkinson_Hyperlegible({
@@ -49,7 +57,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
+    <html lang="en" className={`${display.variable} ${body.variable} ${learnerMaterial.variable}`}>
       <body>{children}</body>
     </html>
   );

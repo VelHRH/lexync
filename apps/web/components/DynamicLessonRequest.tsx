@@ -9,6 +9,12 @@ type DynamicLessonResponse = { lesson?: { id: string; source: string; status: st
 
 class DynamicLessonRequestError extends Error {}
 
+const starters = [
+  'Practise the past tense the way it is used in my reading',
+  'Work on the long sentences I keep losing track of',
+  'Drill the words I keep mixing up',
+];
+
 export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMaterialCount, activeLesson, onLessonCreated }: { accessToken: string; learningLanguageId: string; readyMaterialCount: number | null; activeLesson: boolean; onLessonCreated: () => void }) {
   const online = useOnlineStatus();
   const router = useRouter();
@@ -56,7 +62,7 @@ export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMat
       if (!response.ok || typeof payload.error === 'string' && payload.error.trim()) throw new DynamicLessonRequestError(safeApiError(payload, 'A Lesson could not be created right now. Please try again.'));
       if (!payload.lesson) throw new Error('A Lesson could not be created right now. Please try again.');
       onLessonCreated();
-      router.push('/lesson');
+      router.push(`/lessons/${payload.lesson.id}`);
     } catch (requestError) {
       if (currentRequestId !== requestId.current) return;
       setError(requestError instanceof DynamicLessonRequestError ? requestError.message : 'A Lesson could not be created right now. Please try again.');
@@ -65,20 +71,27 @@ export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMat
     }
   }
 
+  const blocked = !online || readyMaterialCount === null || readyMaterialCount === 0 || submitting || activeLesson;
+
   return <section className="dynamic-lesson-request" aria-labelledby="dynamic-lesson-heading">
     <div className="dynamic-lesson-request-heading">
-      <h2 id="dynamic-lesson-heading">Practise from your Learning Materials</h2>
-      <p>Describe what you want to practise and Lexync builds a Lesson from your own reading.</p>
+      <h2 id="dynamic-lesson-heading">What do you want to practise?</h2>
+      <p>Lexync builds a Lesson from everything you have been reading in this Learning Language.</p>
     </div>
     <form className="dynamic-lesson-request-form" onSubmit={submitRequest}>
       <div className="composer">
-        <label className="composer-label" htmlFor="practice-request">What do you want to practise?</label>
-        <textarea id="practice-request" aria-describedby="practice-request-help" placeholder="The past tense in the article I saved yesterday…" rows={3} value={practiceRequest} onChange={(event) => setPracticeRequest(event.target.value)} disabled={!online || submitting || activeLesson} />
-        <div className="composer-footer">
-          <p className="composer-help" id="practice-request-help">Describe it in your own words, for example the ideas or wording you want to work on.</p>
-          <button className="primary-button" type="submit" disabled={!online || readyMaterialCount === null || readyMaterialCount === 0 || submitting || activeLesson}>{submitting ? 'Creating lesson…' : 'Create lesson'}</button>
-        </div>
+        <label className="visually-hidden" htmlFor="practice-request">What do you want to practise?</label>
+        <textarea id="practice-request" aria-describedby="practice-request-help" placeholder="The past tense in the article I saved yesterday…" rows={2} value={practiceRequest} onChange={(event) => setPracticeRequest(event.target.value)} disabled={!online || submitting || activeLesson} />
+        <button className="composer-send" type="submit" aria-label={submitting ? 'Creating lesson' : 'Create lesson'} disabled={blocked}>
+          <span aria-hidden="true">{submitting ? '…' : '↑'}</span>
+        </button>
       </div>
+      <p className="composer-help" id="practice-request-help">Describe it in your own words, for example the ideas or wording you want to work on.</p>
+      <ul className="composer-starters" aria-label="Request ideas">
+        {starters.map((starter) => <li key={starter}>
+          <button className="composer-starter" type="button" disabled={!online || submitting || activeLesson} onClick={() => setPracticeRequest(starter)}>{starter}</button>
+        </li>)}
+      </ul>
       {answerLanguageRequired && <div className="composer-field">
         <label htmlFor="practice-answer-language">Language you want to answer in</label>
         <input id="practice-answer-language" aria-describedby="practice-answer-language-help" value={answerLanguageTag} onChange={(event) => setAnswerLanguageTag(event.target.value)} disabled={!online || submitting || activeLesson} />
@@ -86,7 +99,7 @@ export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMat
       </div>}
     </form>
     {!online ? <p className="form-notice" role="status">You are offline. Creating a Lesson from your Learning Materials requires a connection.</p>
-      : activeLesson ? <p className="form-notice" role="status">You have a Lesson in progress. <Link className="text-link" href="/lesson">Resume it</Link></p>
+      : activeLesson ? <p className="form-notice" role="status">You have a Lesson in progress. <Link className="text-link" href="/lessons">Resume it</Link></p>
       : readyMaterialCount === 0 ? <p className="form-notice" role="status">Add a Learning Material and wait for it to be ready before creating a Lesson from it. <Link className="text-link" href="/materials">Open Learning Materials</Link></p>
       : null}
     {submitting && <><p className="dynamic-lesson-generating" role="status" aria-live="polite">Building your Lesson from your Learning Materials…</p><span className="lesson-skeleton" aria-hidden="true" /></>}

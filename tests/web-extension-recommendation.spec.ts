@@ -30,7 +30,7 @@ async function signIn(page: Page, account: Account) {
   await page.getByLabel('Password').fill(account.password);
   await page.getByRole('button', { name: /sign in/i }).click();
   await expect(page).toHaveURL('/');
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
 }
 
 function recommendationCard(page: Page) {

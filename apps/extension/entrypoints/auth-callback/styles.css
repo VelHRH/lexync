@@ -2,7 +2,8 @@
 
 :root {
   color: var(--lexync-color-ink);
-  background: var(--lexync-color-surface-subtle);
+  background: var(--lexync-gradient-ground-public);
+  background-attachment: fixed;
   font-family: var(--lexync-type-family-body);
   font-synthesis: none;
 }
@@ -80,7 +81,7 @@ input:focus {
 button {
   min-height: 2.75rem;
   border: 1px solid var(--lexync-color-brand-primary);
-  border-radius: var(--lexync-radius-md);
+  border-radius: var(--lexync-radius-pill);
   background: var(--lexync-color-brand-primary);
   color: var(--lexync-color-white);
   cursor: pointer;

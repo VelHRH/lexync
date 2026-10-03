@@ -80,7 +80,7 @@ test.describe('authenticated web learning client', () => {
     await page.getByLabel('Learning Language').fill('es');
     await page.getByRole('button', { name: 'Create Learning Language' }).click();
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await expect(page.getByLabel('Active Learning Language')).toContainText(/Spanish|es/i);
     await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
 
@@ -105,7 +105,7 @@ test.describe('authenticated web learning client', () => {
     await page.getByLabel('Password').press('Enter');
 
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await page.getByRole('link', { name: 'Profile' }).click();
     await expect(page).toHaveURL('/profile');
     await expect(page.getByText(account.email)).toBeVisible();

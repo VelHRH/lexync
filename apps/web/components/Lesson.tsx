@@ -121,7 +121,7 @@ function percentage(lesson: LessonState) {
   return Math.round(((lesson.correct_count ?? 0) / total) * 100);
 }
 
-export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { learningLanguageId: string; learningLanguageTag: string; onExit: () => void }) {
+export function Lesson({ lessonId, languages, onExit, onLessonStarted }: { lessonId: string; languages: { id: string; language_tag: string }[]; onExit: () => void; onLessonStarted: (startedLessonId: string) => void }) {
   const [lesson, setLesson] = useState<LessonState | null>(null);
   const [questionId, setQuestionId] = useState<string | null>(null);
   const [selectedChoice, setSelectedChoice] = useState('');
@@ -152,10 +152,10 @@ export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { le
       setQuestionId(null);
       setSelectedChoice('');
     });
-    if (!learningLanguageId) {
+    if (!lessonId) {
       queueMicrotask(() => {
         if (cancelled || currentRequestId !== lessonRequestId.current) return;
-        setError('A Learning Language is required to open a Lesson.');
+        setError('A Lesson is required to open this page.');
         setLoading(false);
       });
       return () => {
@@ -164,38 +164,27 @@ export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { le
     }
 
     void (async () => {
-      const overview = await supabase.rpc('lesson_overview', { p_learning_language_id: learningLanguageId });
+      const opened = await supabase.rpc('lesson_by_id', { p_lesson_id: lessonId });
       if (cancelled || currentRequestId !== lessonRequestId.current) return;
-      if (overview.error) {
-        setError(overview.error.message);
+      if (opened.error) {
+        setError(opened.error.message);
         setLoading(false);
         return;
       }
-      const existing = parseLesson(overview.data);
-      if (existing) {
-        applyLesson(existing);
-        setLoading(false);
-        return;
-      }
-      const started = await supabase.rpc('start_or_resume_vocabulary_lesson', { p_learning_language_id: learningLanguageId });
-      if (cancelled || currentRequestId !== lessonRequestId.current) return;
-      if (started.error) setError(started.error.message);
-      else {
-        const created = parseLesson(started.data);
-        if (created) applyLesson(created);
-        else setError('The Lesson response was invalid.');
-      }
+      const existing = parseLesson(opened.data);
+      if (existing) applyLesson(existing);
+      else setError('This Lesson is no longer available.');
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [learningLanguageId]);
+  }, [lessonId]);
 
   async function refreshOverview() {
-    const { data, error: overviewError } = await supabase.rpc('lesson_overview', { p_learning_language_id: learningLanguageId });
+    const { data, error: openError } = await supabase.rpc('lesson_by_id', { p_lesson_id: lessonId });
     const refreshed = parseLesson(data);
-    if (!overviewError && refreshed) return refreshed;
+    if (!openError && refreshed) return refreshed;
     return null;
   }
 
@@ -256,18 +245,20 @@ export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { le
   }
 
   async function startAnotherLesson() {
+    if (!lesson) return;
     setStartingAnother(true);
     setError('');
-    const { data, error: startError } = await supabase.rpc('start_or_resume_vocabulary_lesson', { p_learning_language_id: learningLanguageId });
+    const { data, error: startError } = await supabase.rpc('start_or_resume_vocabulary_lesson', { p_learning_language_id: lesson.learning_language_id });
     if (startError) setError(startError.message);
     else {
       const nextLesson = parseLesson(data);
-      if (nextLesson) applyLesson(nextLesson);
+      if (nextLesson) onLessonStarted(nextLesson.id);
       else setError('The Lesson response was invalid.');
     }
     setStartingAnother(false);
   }
 
+  const lessonLanguageTag = lesson ? languages.find((language) => language.id === lesson.learning_language_id)?.language_tag ?? '' : '';
   const question = lesson && questionId ? lesson.questions.find((candidate) => candidate.id === questionId) ?? null : null;
   const pendingQuestion = lesson ? firstPending(lesson) : null;
   const isComplete = Boolean(lesson && !question && lesson.questions.length > 0 && !pendingQuestion);
@@ -280,11 +271,11 @@ export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { le
     <header className="lesson-header">
       <button className="lesson-exit" type="button" onClick={onExit}>Exit</button>
       <Image className="lesson-mark" src="/brand/mark-dark-on-light.png" alt="Lexync" width={44} height={44} priority unoptimized />
-      <p className="lesson-language-name">{languageName(learningLanguageTag)}</p>
+      <p className="lesson-language-name">{lessonLanguageTag ? languageName(lessonLanguageTag) : ''}</p>
     </header>
     <div className="lesson-main">
       {loading && <div className="lesson-state" role="status" aria-live="polite"><span className="lesson-skeleton" aria-hidden="true" />Opening Lesson…</div>}
-      {!loading && error && <div className="lesson-state lesson-error" role="alert"><p>Lesson is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
+      {!loading && error && <div className="lesson-state lesson-error" role="alert"><p>Lesson is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Lessons</button></div>}
       {!loading && !error && lesson && !isComplete && question && <>
         <div className="lesson-progress-row">
           <span>Lesson question {questionPosition} of {total}</span>
@@ -312,7 +303,7 @@ export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { le
         </section>
         <div className="lesson-footer"><button className="primary-button lesson-continue" type="button" disabled={!question.selected_answer && !selectedChoice || submitting || advancing} onClick={() => void continueLesson()}>{advancing ? 'Loading…' : 'Continue'}</button></div>
       </>}
-      {!loading && !error && lesson && !isComplete && !question && <div className="lesson-state" role="status"><p>This Lesson has no available questions.</p><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></div>}
+      {!loading && !error && lesson && !isComplete && !question && <div className="lesson-state" role="status"><p>This Lesson has no available questions.</p><button className="secondary-button" type="button" onClick={onExit}>Back to Lessons</button></div>}
       {!loading && !error && lesson && isComplete && <section className="lesson-complete" aria-labelledby="lesson-complete-heading">
         <h1 id="lesson-complete-heading">Lesson complete</h1>
         <p className="lesson-score">{lesson.correct_count ?? 0}/{total} · {percentage(lesson)}%</p>
@@ -324,7 +315,7 @@ export function Lesson({ learningLanguageId, learningLanguageTag, onExit }: { le
             <p><span>Correct</span><strong>{lessonQuestion.correct_answer}</strong></p>
           </div>)}
         </section>}
-        <div className="lesson-complete-actions">{lesson.source === 'dynamic' ? <button className="primary-button" type="button" onClick={onExit}>Practise something else</button> : <><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Home</button></>}</div>
+        <div className="lesson-complete-actions">{lesson.source === 'dynamic' ? <button className="primary-button" type="button" onClick={onExit}>Practise something else</button> : <><button className="primary-button" type="button" disabled={startingAnother} onClick={() => void startAnotherLesson()}>{startingAnother ? 'Starting…' : 'Start another lesson'}</button><button className="secondary-button" type="button" onClick={onExit}>Back to Lessons</button></>}</div>
       </section>}
     </div>
   </main>;

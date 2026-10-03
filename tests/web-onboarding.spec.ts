@@ -86,7 +86,7 @@ test.describe('web Learning Language onboarding protection', () => {
     await language.fill('pt-BR');
     await page.getByRole('button', { name: 'Create Learning Language' }).click();
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await expect(page.getByLabel('Active Learning Language')).toContainText(/Portuguese|pt-BR/i);
   });
 
@@ -95,12 +95,12 @@ test.describe('web Learning Language onboarding protection', () => {
     await watchOnboarding(page);
     await signIn(page, account);
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
 
     for (const route of ['/onboarding/learning-language', '/onboarding/study-pair']) {
       await page.goto(route);
       await expect(page).toHaveURL('/');
-      await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
       await expectNoOnboarding(page);
     }
   });
@@ -144,7 +144,7 @@ test.describe('web Learning Language onboarding protection', () => {
     await expectSignInDestination(page, '/onboarding/learning-language');
     await signIn(page, account, false);
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await expectNoOnboarding(page);
   });
 
@@ -154,7 +154,7 @@ test.describe('web Learning Language onboarding protection', () => {
     await expectSignInDestination(page, '/onboarding/study-pair');
     await signIn(page, account, false);
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await expectNoOnboarding(page);
   });
 
@@ -166,7 +166,7 @@ test.describe('web Learning Language onboarding protection', () => {
     await page.getByLabel('Learning Language').fill('de');
     await page.getByRole('button', { name: 'Create Learning Language' }).click();
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
 
     await resetOnboardingMarker(page);
     await page.goBack();

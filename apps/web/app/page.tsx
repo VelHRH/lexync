@@ -5,6 +5,7 @@ import readingDesk from '../public/brand/reading-desk.png';
 import { AuthenticatedApp } from '../components/AuthenticatedApp';
 import { BrandArtwork } from '../components/BrandArtwork';
 import { getChromeExtensionId } from '../lib/extensionRecommendation';
+import { readNavigationCollapsed } from '../lib/navigationPreference';
 
 function PublicHome() {
   return (
@@ -97,5 +98,5 @@ function PublicHome() {
 
 export default async function Home() {
   await connection();
-  return <AuthenticatedApp extensionId={getChromeExtensionId(process.env.CHROME_EXTENSION_ID)} publicContent={<PublicHome />} />;
+  return <AuthenticatedApp navigationCollapsed={await readNavigationCollapsed()} extensionId={getChromeExtensionId(process.env.CHROME_EXTENSION_ID)} publicContent={<PublicHome />} section="dynamic" />;
 }

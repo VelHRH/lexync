@@ -129,12 +129,14 @@ async function submitPracticeRequest(page: Page, text: string) {
   await createLessonButton(page).click();
 }
 
-function lessonAvailabilityRegion(page: Page) {
-  return page.getByRole('region', { name: 'Lesson availability' });
+const runnerUrl = /\/lessons\/[0-9a-f-]{36}$/;
+
+function vocabularyTile(page: Page) {
+  return page.locator('[data-ui="lesson-tile-vocabulary"]');
 }
 
 function resumeLessonLink(page: Page) {
-  return lessonAvailabilityRegion(page).getByRole('link', { name: 'Resume lesson' });
+  return vocabularyTile(page).getByText('Resume lesson', { exact: true });
 }
 
 function lessonShell(page: Page) {
@@ -233,7 +235,7 @@ test.describe('web Dynamic Lesson', () => {
     await uploadMaterial(page, 'reading-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'reading-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
-    await expect(page).toHaveURL('/lesson');
+    await expect(page).toHaveURL(runnerUrl);
     await expect(lessonQuestion(page)).toBeVisible();
     const total = await progressValue(page, 'max');
     expect(total).toBeGreaterThanOrEqual(8);
@@ -252,7 +254,7 @@ test.describe('web Dynamic Lesson', () => {
     await uploadMaterial(page, 'reload-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'reload-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
-    await expect(page).toHaveURL('/lesson');
+    await expect(page).toHaveURL(runnerUrl);
     const initial = await questionSnapshot(page);
     await page.reload();
     expect(await questionSnapshot(page)).toEqual(initial);
@@ -314,11 +316,11 @@ test.describe('web Dynamic Lesson', () => {
     await uploadMaterial(page, 'vocabulary-blocks-dynamic.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'vocabulary-blocks-dynamic.txt');
     await openLessons(page);
-    await page.getByRole('link', { name: 'Start lesson' }).click();
-    await expect(page).toHaveURL('/lesson');
+    await vocabularyTile(page).click();
+    await expect(page).toHaveURL(runnerUrl);
     await expect(lessonQuestion(page)).toBeVisible();
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/lessons');
     const region = dynamicLessonRegion(page);
     await expect(region.getByRole('status').filter({ hasText: 'You have a Lesson in progress.' })).toBeVisible();
     await expect(createLessonButton(page)).toBeDisabled();
@@ -333,14 +335,14 @@ test.describe('web Dynamic Lesson', () => {
     await uploadMaterial(page, 'resume-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'resume-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
-    await expect(page).toHaveURL('/lesson');
+    await expect(page).toHaveURL(runnerUrl);
     const initial = await questionSnapshot(page);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/lessons');
     await openLessons(page);
     await expect(resumeLessonLink(page)).toBeVisible();
-    await resumeLessonLink(page).click();
-    await expect(page).toHaveURL('/lesson');
+    await vocabularyTile(page).click();
+    await expect(page).toHaveURL(runnerUrl);
     expect(await questionSnapshot(page)).toEqual(initial);
   });
 
@@ -353,14 +355,14 @@ test.describe('web Dynamic Lesson', () => {
     await uploadMaterial(page, 'resume-via-vocabulary-control-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'resume-via-vocabulary-control-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
-    await expect(page).toHaveURL('/lesson');
+    await expect(page).toHaveURL(runnerUrl);
     const initial = await questionSnapshot(page);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/lessons');
     await openLessons(page);
     await expect(resumeLessonLink(page)).toBeVisible();
-    await resumeLessonLink(page).click();
-    await expect(page).toHaveURL('/lesson');
+    await vocabularyTile(page).click();
+    await expect(page).toHaveURL(runnerUrl);
     expect(await questionSnapshot(page)).toEqual(initial);
     await completeLesson(page);
     await expect(lessonShell(page).getByRole('button', { name: 'Practise something else' })).toBeVisible();
@@ -382,7 +384,7 @@ test.describe('web Dynamic Lesson', () => {
     await expect(page).toHaveURL('/');
     await region.getByLabel('Language you want to answer in').fill('en');
     await createLessonButton(page).click();
-    await expect(page).toHaveURL('/lesson');
+    await expect(page).toHaveURL(runnerUrl);
     await expect(lessonQuestion(page)).toBeVisible();
   });
 
@@ -408,13 +410,13 @@ test.describe('web Dynamic Lesson', () => {
     await uploadMaterial(page, 'history-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
     await expectReadyMaterial(page, 'history-notes.txt');
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
-    await expect(page).toHaveURL('/lesson');
+    await expect(page).toHaveURL(runnerUrl);
     await completeLesson(page);
     await lessonShell(page).getByRole('button', { name: 'Practise something else' }).click();
     await expect(page).toHaveURL('/');
     await openLessons(page);
-    await page.getByRole('link', { name: 'Lesson history', exact: true }).click();
-    await expect(page).toHaveURL(/\/lesson-history$/);
+    await page.locator('[data-ui="lesson-tile-history"]').click();
+    await expect(page).toHaveURL(/\/lessons\/history$/);
     const lessons = page.locator('details').filter({ has: page.locator('summary') });
     await expect(lessons.first()).toContainText('From your Learning Materials');
     await expect(lessons.first()).toContainText(/\d+\/\d+/);
@@ -434,7 +436,7 @@ test.describe('web Dynamic Lesson', () => {
     await createLessonButton(page).click();
     await expect(region.getByRole('status').filter({ hasText: 'Building your Lesson from your Learning Materials…' })).toBeVisible();
     await expectNoLearnerFacingTechnicalTerms(page);
-    await expect(page).toHaveURL('/lesson');
+    await expect(page).toHaveURL(runnerUrl);
     await expectNoLearnerFacingTechnicalTerms(page);
     await completeLesson(page);
     await expectNoLearnerFacingTechnicalTerms(page);
@@ -465,7 +467,7 @@ test.describe('web Dynamic Lesson', () => {
     await expectReadyMaterial(page, 'responsive-notes.txt');
     await assertNoHorizontalOverflow(page);
     await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
-    await expect(page).toHaveURL('/lesson');
+    await expect(page).toHaveURL(runnerUrl);
     await expect(lessonQuestion(page)).toBeVisible();
     await assertNoHorizontalOverflow(page);
     await completeLesson(page);

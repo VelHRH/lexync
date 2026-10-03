@@ -62,7 +62,7 @@ test.describe('web Learning Language settings', () => {
     await language.fill('pt-BR');
     await submitForm(form);
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await expect(page.getByLabel('Active Learning Language')).toContainText(/Portuguese|pt-BR/i);
   });
 
@@ -132,7 +132,7 @@ test.describe('web Learning Language settings', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     expect(focusRefreshRequested).toBeFalsy();
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await expect(page.locator('.auth-loading')).toHaveCount(0);
 
     const { error: externalError } = await setup.client.rpc('set_active_learning_language', { p_learning_language_id: spanish.id });

@@ -74,10 +74,12 @@ async function openLessons(page: Page) {
   if (new URL(page.url()).pathname !== '/lessons') await page.goto('/lessons');
 }
 
+const runnerUrl = /\/lessons\/[0-9a-f-]{36}$/;
+
 async function startLesson(page: Page) {
   await openLessons(page);
-  await page.getByRole('link', { name: /Start lesson|Resume lesson/ }).click();
-  await expect(page).toHaveURL('/lesson');
+  await page.locator('[data-ui="lesson-tile-vocabulary"]').click();
+  await expect(page).toHaveURL(runnerUrl);
   await expect(lessonQuestion(page)).toBeVisible();
 }
 
@@ -105,8 +107,8 @@ async function completeLesson(page: Page, answerFirst = true) {
 
 async function openHistory(page: Page) {
   await openLessons(page);
-  await page.getByRole('link', { name: 'Lesson history', exact: true }).click();
-  await expect(page).toHaveURL(/\/lesson-history$/);
+  await page.locator('[data-ui="lesson-tile-history"]').click();
+  await expect(page).toHaveURL(/\/lessons\/history$/);
   await expect(page.getByRole('heading', { name: 'Lesson history', exact: true })).toBeVisible();
 }
 
@@ -130,7 +132,7 @@ test.describe('web Lesson history', () => {
     await expect(navigation.getByRole('link', { name: 'Lesson', exact: true })).toHaveCount(0);
     await expect(navigation.getByRole('link', { name: /history/i })).toHaveCount(0);
     await openLessons(page);
-    await expect(page.getByRole('link', { name: 'Lesson history', exact: true })).toBeVisible();
+    await expect(page.locator('[data-ui="lesson-tile-history"]')).toBeVisible();
     await openHistory(page);
     await expect(page.getByText(/no completed Lessons yet/i)).toBeVisible();
   });
@@ -143,7 +145,7 @@ test.describe('web Lesson history', () => {
     await lessonShell(page).getByRole('button', { name: 'Start another lesson' }).click();
     await expect(lessonQuestion(page)).toBeVisible();
     await completeLesson(page, false);
-    await lessonShell(page).getByRole('button', { name: 'Back to Home' }).click();
+    await lessonShell(page).getByRole('button', { name: 'Back to Lessons' }).click();
     await openHistory(page);
     const lessons = lessonDetails(page);
     await expect(lessons).toHaveCount(2);
@@ -172,13 +174,13 @@ test.describe('web Lesson history', () => {
     await signIn(page, fixture.account);
     await startLesson(page);
     await completeLesson(page);
-    await lessonShell(page).getByRole('button', { name: 'Back to Home' }).click();
+    await lessonShell(page).getByRole('button', { name: 'Back to Lessons' }).click();
     await selectLearningLanguage(page, secondLanguageId);
     await openLessons(page);
     await expect(page.getByText(/French.*2 Senses ready/)).toBeVisible();
     await startLesson(page);
     await completeLesson(page);
-    await lessonShell(page).getByRole('button', { name: 'Back to Home' }).click();
+    await lessonShell(page).getByRole('button', { name: 'Back to Lessons' }).click();
     await openHistory(page);
     const stats = page.getByRole('region', { name: /Per-Sense/i });
     await expect(stats.getByText('chat', { exact: true })).toBeVisible();
@@ -195,7 +197,7 @@ test.describe('web Lesson history', () => {
     await signIn(page, fixture.account);
     await startLesson(page);
     await completeLesson(page);
-    await lessonShell(page).getByRole('button', { name: 'Back to Home' }).click();
+    await lessonShell(page).getByRole('button', { name: 'Back to Lessons' }).click();
     const suspendedId = await bridgeEntryId(fixture.client, fixture.captured[0].vocabularyEntryId);
     const deletedId = await bridgeEntryId(fixture.client, fixture.captured[1].vocabularyEntryId);
     const { error: suspensionError } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_vocabulary_entry_id: suspendedId, p_suspended: true });
