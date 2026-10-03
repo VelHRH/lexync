@@ -6,6 +6,8 @@ const outputPath = fileURLToPath(new URL('../src/tokens.css', import.meta.url));
 const source = JSON.parse(await readFile(sourcePath, 'utf8'));
 const prefixes = {
   color: 'color',
+  gradient: 'gradient',
+  glass: 'glass',
   typography: 'type',
   spacing: 'space',
   border: 'border',
@@ -57,6 +59,15 @@ lines.push('    animation-duration: 0s !important;');
 lines.push('    animation-iteration-count: 1 !important;');
 lines.push('    scroll-behavior: auto !important;');
 lines.push('    transition-duration: 0s !important;');
+lines.push('  }', '}', '');
+lines.push('', '@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {');
+lines.push('  :root {');
+lines.push('    --lexync-glass-fill: var(--lexync-glass-fill-opaque);');
+lines.push('    --lexync-glass-fill-strong: var(--lexync-glass-fill-opaque);');
+lines.push('    --lexync-glass-fill-quiet: var(--lexync-glass-fill-opaque);');
+lines.push('    --lexync-glass-blur: none;');
+lines.push('    --lexync-glass-blur-strong: none;');
+lines.push('    --lexync-glass-border: var(--lexync-color-border-strong);');
 lines.push('  }', '}', '');
 
 const generated = `${lines.join('\n')}`;

@@ -61,8 +61,8 @@ export default defineUnlistedScript(async () => {
       select:focus { border-color: var(--lexync-color-brand-primary); }
       select:focus-visible, button:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); box-shadow: var(--lexync-focus-ring); }
       .actions { display: flex; flex-wrap: wrap; gap: var(--lexync-space-2); }
-      button { min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-3); border: var(--lexync-border-regular) solid var(--lexync-color-border-strong); border-radius: var(--lexync-radius-md); box-shadow: var(--lexync-elevation-low); cursor: pointer; font: var(--lexync-type-weight-bold) var(--lexync-type-size-sm)/var(--lexync-type-line-normal) var(--lexync-type-family-body); }
-      button:active { transform: translate(2px, 2px); box-shadow: var(--lexync-elevation-none); }
+      button { min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-3); border: var(--lexync-border-regular) solid var(--lexync-color-border-strong); border-radius: var(--lexync-radius-pill); box-shadow: var(--lexync-elevation-low); cursor: pointer; font: var(--lexync-type-weight-bold) var(--lexync-type-size-sm)/var(--lexync-type-line-normal) var(--lexync-type-family-body); }
+      button:active { box-shadow: var(--lexync-elevation-quiet); filter: brightness(0.96); }
       button:disabled { cursor: wait; opacity: .55; }
       .primary { border-color: var(--lexync-color-brand-primary); background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); }
       .secondary { border-color: var(--lexync-color-border-strong); background: var(--lexync-color-surface-subtle); color: var(--lexync-color-ink); }

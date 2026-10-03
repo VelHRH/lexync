@@ -4,39 +4,91 @@
   "title": "Design System: Lexync",
   "extensions": {
     "colorMeta": {
-      "fox-purple": {
+      "spark-violet": {
         "role": "primary",
-        "displayName": "Fox Purple",
-        "canonical": "#6429f4",
-        "tonalRamp": ["#21006b", "#35109a", "#5120d2", "#6429f4", "#865df7", "#aa90fa", "#d3c2ff", "#f3efff"]
+        "displayName": "Spark Violet",
+        "canonical": "#611efc",
+        "tonalRamp": [
+          "#00207c",
+          "#2a0f9a",
+          "#4413b0",
+          "#5218d6",
+          "#611efc",
+          "#8f61fd",
+          "#c2a6fe",
+          "#ece5fe"
+        ]
+      },
+      "ember": {
+        "role": "secondary",
+        "displayName": "Ember",
+        "canonical": "#df8256",
+        "tonalRamp": [
+          "#5d2a10",
+          "#7a371a",
+          "#9d4a22",
+          "#c0623a",
+          "#df8256",
+          "#eca987",
+          "#f6ddcb",
+          "#fdf4ee"
+        ]
       },
       "deep-ink": {
         "role": "neutral",
         "displayName": "Deep Ink",
-        "canonical": "#20153f",
-        "tonalRamp": ["#120a27", "#20153f", "#382b59", "#5f5872", "#827b91", "#aaa5b4", "#d5d1dc", "#f7f5fa"]
+        "canonical": "#15213f",
+        "tonalRamp": [
+          "#0b1227",
+          "#15213f",
+          "#2c3a5c",
+          "#5a6682",
+          "#8089a0",
+          "#aab1c2",
+          "#cfdef5",
+          "#f2f6fd"
+        ]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Brand Display",
-        "purpose": "Public hero and exceptional brand moments only."
+        "purpose": "Page titles, hero lines, counters, and metadata."
       },
       "body": {
         "displayName": "Product Body",
-        "purpose": "Task-focused interface copy and learner material."
+        "purpose": "Task-focused interface copy and running sentences."
+      },
+      "mono": {
+        "displayName": "Learner Material",
+        "purpose": "Captured expressions and quoted source material only."
       }
     },
     "shadows": [
       {
         "name": "ambient-low",
-        "value": "0 0.25rem 1rem rgba(32, 21, 63, 0.08)",
-        "purpose": "Menus and compact floating surfaces."
+        "value": "0 2px 8px rgba(0, 32, 124, 0.06)",
+        "purpose": "Navigation items and compact controls."
       },
       {
         "name": "ambient-medium",
-        "value": "0 0.75rem 2rem rgba(32, 21, 63, 0.14)",
-        "purpose": "Dialogs, capture sheets, and injected controls."
+        "value": "0 8px 24px rgba(0, 32, 124, 0.09)",
+        "purpose": "Primary actions, cards, and the working sheet."
+      },
+      {
+        "name": "ambient-high",
+        "value": "0 16px 40px rgba(0, 32, 124, 0.14)",
+        "purpose": "Dropdowns, popovers, and injected controls."
+      },
+      {
+        "name": "ambient-dialog",
+        "value": "0 24px 64px rgba(0, 32, 124, 0.18)",
+        "purpose": "Modal dialogs and capture sheets."
+      },
+      {
+        "name": "glass-highlight",
+        "value": "inset 0 1px 0 rgba(255, 255, 255, 0.65)",
+        "purpose": "The top edge that gives a glass surface thickness."
       }
     ],
     "motion": [
@@ -52,9 +104,32 @@
       }
     ],
     "breakpoints": [
-      { "name": "phone", "value": "560px" },
-      { "name": "tablet", "value": "768px" },
-      { "name": "desktop", "value": "1024px" }
+      {
+        "name": "phone",
+        "value": "560px"
+      },
+      {
+        "name": "tablet",
+        "value": "768px"
+      },
+      {
+        "name": "desktop",
+        "value": "1024px"
+      }
+    ],
+    "gradients": [
+      {
+        "name": "ground-public",
+        "purpose": "Public and auth page ground."
+      },
+      {
+        "name": "ground-product",
+        "purpose": "Authenticated product ground, half the density."
+      },
+      {
+        "name": "brand-sweep",
+        "purpose": "Brand blocks, avatars, counters, active navigation: navy through violet into ember."
+      }
     ]
   },
   "components": [
@@ -64,7 +139,7 @@
       "refersTo": "button-primary",
       "description": "The single dominant action on a surface.",
       "html": "<button class=\"ds-button-primary\">Save vocabulary</button>",
-      "css": ".ds-button-primary { min-height: 44px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); font: 600 0.875rem/1.2 var(--lexync-type-family-body); transition: background 120ms cubic-bezier(0.2, 0, 0, 1), transform 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-button-primary:hover { background: var(--lexync-color-brand-primary-hover); } .ds-button-primary:active { background: var(--lexync-color-brand-primary-active); transform: translateY(1px); } .ds-button-primary:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); }"
+      "css": ".ds-button-primary { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); font: 600 0.875rem/1.2 var(--lexync-type-family-body); transition: background 120ms cubic-bezier(0.2, 0, 0, 1), transform 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-button-primary:hover { background: var(--lexync-color-brand-primary-hover); } .ds-button-primary:active { background: var(--lexync-color-brand-primary-active); } .ds-button-primary:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); }"
     },
     {
       "name": "Select Field",
@@ -72,14 +147,14 @@
       "refersTo": "select",
       "description": "A native semantic select with deliberate Lexync chrome.",
       "html": "<label class=\"ds-select-label\">Learning Language<select class=\"ds-select\"><option>Spanish</option></select></label>",
-      "css": ".ds-select-label { display: grid; gap: 8px; color: var(--lexync-color-ink); font: 600 0.875rem/1.2 var(--lexync-type-family-body); } .ds-select { min-height: 44px; appearance: none; padding: 0 42px 0 14px; border: 1px solid var(--lexync-color-border-strong); border-radius: 10px; background: var(--lexync-color-surface); color: var(--lexync-color-ink); font: 500 1rem/1.2 var(--lexync-type-family-body); } .ds-select:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); }"
+      "css": ".ds-select-label { display: grid; gap: 8px; color: var(--lexync-color-ink); font: 600 0.875rem/1.2 var(--lexync-type-family-body); } .ds-select { min-height: 44px; appearance: none; padding: 0 42px 0 14px; border: 1px solid var(--lexync-color-border-strong); border-radius: 12px; background: var(--lexync-color-surface); color: var(--lexync-color-ink); font: 500 1rem/1.2 var(--lexync-type-family-body); } .ds-select:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); }"
     },
     {
       "name": "Product Navigation",
       "kind": "nav",
       "description": "Quiet task navigation with a clear current destination.",
       "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-current\" href=\"#\">Library</a><a class=\"ds-nav-item\" href=\"#\">Review</a></nav>",
-      "css": ".ds-nav { display: flex; gap: 8px; padding: 8px; border-radius: 16px; background: var(--lexync-color-surface-subtle); } .ds-nav-item { padding: 10px 12px; border-radius: 10px; color: var(--lexync-color-ink-muted); font: 600 0.875rem/1.2 var(--lexync-type-family-body); text-decoration: none; } .ds-nav-item:hover { color: var(--lexync-color-ink); background: var(--lexync-color-surface); } .ds-nav-current { color: var(--lexync-color-brand-primary-active); background: var(--lexync-color-surface-strong); }"
+      "css": ".ds-nav { display: flex; gap: 8px; padding: 8px; border-radius: 16px; background: var(--lexync-color-surface-subtle); } .ds-nav-item { padding: 10px 12px; border-radius: 12px; color: var(--lexync-color-ink-muted); font: 600 0.875rem/1.2 var(--lexync-type-family-body); text-decoration: none; } .ds-nav-item:hover { color: var(--lexync-color-ink); background: var(--lexync-color-surface); } .ds-nav-current { color: var(--lexync-color-brand-primary-active); background: var(--lexync-color-surface-strong); }"
     }
   ],
   "narrative": {
@@ -90,7 +165,7 @@
       "One dominant task per surface",
       "Fixed, compact product typography",
       "Custom-styled, accessible controls",
-      "Restrained lavender layering with decisive purple actions"
+      "Restrained sky layering with decisive blue actions and a warm ember accent"
     ],
     "rules": [
       {

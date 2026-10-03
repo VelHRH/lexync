@@ -16,7 +16,7 @@ async function expectDocumentToken(page: Page) {
       return '';
     }
   }).join('\n'));
-  expect(source.replace(/\s/g, '').toLowerCase()).toContain('#6429f4');
+  expect(source.replace(/\s/g, '').toLowerCase()).toContain('#00207c');
 }
 
 async function expectShadowSurface(page: Page, hostSelector: string) {
@@ -75,8 +75,8 @@ async function expectStyledSelect(select: ReturnType<Page['locator']>) {
   });
   expect(style.appearance).toBe('none');
   expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(style.borderRadius).toBe(0);
-  expect(style.borderWidth).toBeGreaterThanOrEqual(2);
+  expect(style.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(style.borderWidth).toBeGreaterThanOrEqual(1);
   expect(style.paddingInlineEnd).toBeGreaterThanOrEqual(32);
   await expectVisibleFocusIndicator(select);
 }

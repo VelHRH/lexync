@@ -131,7 +131,7 @@ export default defineUnlistedScript(() => {
       }
       button[type='submit'] { background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); box-shadow: var(--lexync-elevation-medium); }
       button[type='button'] { background: var(--lexync-color-surface); color: var(--lexync-color-ink); }
-      button:active { transform: translate(2px, 2px); box-shadow: var(--lexync-elevation-none); }
+      button:active { box-shadow: var(--lexync-elevation-quiet); filter: brightness(0.96); }
       button:disabled { cursor: wait; opacity: 0.55; }
       [hidden] { display: none !important; }
     </style>

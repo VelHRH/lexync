@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const root = path.resolve('.');
 const productionRoots = ['apps/web', 'apps/extension'];
-const legacyPalette = /#(?:19251e|f3f0e7|fbf8ef|526c48|bdd7ad|e79c6a)\b/i;
+const legacyPalette = /#(?:19251e|f3f0e7|fbf8ef|526c48|bdd7ad|e79c6a|5120d2|4218b5|20153f|f3efff|e7dcff|d3c2ff)\b/i;
 const rawColor = /#(?:[0-9a-f]{3,8})\b|\brgba?\(/i;
 
 async function filesUnder(directory: string, patterns: string[]): Promise<string[]> {
@@ -51,19 +51,42 @@ test.describe('Lexync semantic design contract', () => {
       'docs/*design-system*.md',
       'docs/*design*.md',
     ]);
-    const contractFiles = (await readFiles(candidates)).filter(({ source }) => /#6429f4/i.test(source));
+    const contractFiles = (await readFiles(candidates)).filter(({ source }) => /#00207c/i.test(source));
     const contract = contractFiles.map(({ source }) => source).join('\n');
 
     expect(contractFiles.length).toBeGreaterThan(0);
     expect(contract).toMatch(/primary|brand/i);
     expect(contract).toMatch(/ink/i);
     expect(contract).toMatch(/white|surface/i);
-    expect(contract).toMatch(/lavender/i);
+    expect(contract).toMatch(/sky/i);
+    expect(contract).toMatch(/glass/i);
+    expect(contract).toMatch(/gradient/i);
     expect(contract).toMatch(/web|css/i);
     expect(contract).toMatch(/extension/i);
     expect(contract).toMatch(/compose/i);
     expect(contract).toMatch(/swiftui|swift\s*ui/i);
-    expect(contract).toMatch(/#6429f4/i);
+    expect(contract).toMatch(/#00207c/i);
+  });
+
+  test('ships a soft, rounded shape language instead of square neubrutalist corners', async () => {
+    const tokens = JSON.parse(await readFile(path.join(root, 'packages/design-system/src/tokens.json'), 'utf8'));
+    const radii = ['sm', 'md', 'lg', 'xl'].map((step) => Number.parseFloat(tokens.radius[step]));
+
+    expect(radii).toEqual([...radii].sort((first, second) => first - second));
+    expect(radii.every((value) => value > 0)).toBe(true);
+    expect(tokens.radius.pill).toBe('999px');
+    expect(Object.values(tokens.elevation).some((value) => /\d+px \d+px 0 /.test(String(value)))).toBe(false);
+  });
+
+  test('gives every glass surface an opaque fallback under reduced transparency and increased contrast', async () => {
+    const stylesheet = await readFile(path.join(root, 'packages/design-system/src/tokens.css'), 'utf8');
+    const fallback = stylesheet.slice(stylesheet.indexOf('prefers-reduced-transparency'));
+
+    expect(stylesheet).toContain('@media (prefers-reduced-transparency: reduce), (prefers-contrast: more)');
+    for (const role of ['--lexync-glass-fill', '--lexync-glass-fill-strong', '--lexync-glass-fill-quiet']) {
+      expect(fallback).toContain(`${role}: var(--lexync-glass-fill-opaque);`);
+    }
+    expect(fallback).toContain('--lexync-glass-blur: none;');
   });
 
   test('rejects legacy palette and raw color bypasses in scoped production surfaces', async () => {
@@ -89,7 +112,7 @@ test.describe('Lexync semantic design contract', () => {
       'docs/*design*.md',
     ]);
     const sources = await readFiles(files);
-    const canonical = sources.filter(({ source }) => normalizedColor(source).includes('#6429f4'));
+    const canonical = sources.filter(({ source }) => normalizedColor(source).includes('#00207c'));
 
     expect(canonical.length).toBeGreaterThan(0);
     expect(canonical.some(({ file }) => /(contract|token|theme|design-system)/i.test(file))).toBe(true);

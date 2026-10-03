@@ -45,7 +45,7 @@ async function expectPrimaryToken(page: Page) {
       return [];
     }
   }));
-  expect(values.map((value) => value.replace(/\s/g, '').toLowerCase())).toContain('#6429f4');
+  expect(values.map((value) => value.replace(/\s/g, '').toLowerCase())).toContain('#00207c');
 }
 
 async function expectFocusIndicator(locator: Locator) {
@@ -79,12 +79,38 @@ async function expectCustomSelect(field: Locator) {
   });
   expect(style.appearance).toBe('none');
   expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(style.borderRadius).toBe(0);
-  expect(style.borderWidth).toBeGreaterThanOrEqual(2);
+  expect(style.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(style.borderWidth).toBeGreaterThanOrEqual(1);
   expect(style.paddingInlineEnd).toBeGreaterThanOrEqual(32);
   const indicator = field.locator('[data-ui="select-indicator"]');
   if (await indicator.count()) await expect(indicator).toBeVisible();
   else expect(style.backgroundImage).not.toBe('none');
+  await expectFocusIndicator(select);
+}
+
+async function expectCompactSelect(field: Locator) {
+  await expect(field).toBeVisible();
+  const select = field.getByLabel('Active Learning Language');
+  await expect(select).toBeVisible();
+  const style = await select.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return {
+      appearance: computed.getPropertyValue('appearance'),
+      backgroundColor: computed.backgroundColor,
+      borderRadius: Number.parseFloat(computed.borderRadius),
+      borderWidth: Number.parseFloat(computed.borderTopWidth),
+      height: rect.height,
+      width: rect.width,
+    };
+  });
+  expect(style.appearance).toBe('none');
+  expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(style.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(style.borderWidth).toBeGreaterThanOrEqual(1);
+  expect(style.height).toBeGreaterThanOrEqual(40);
+  expect(style.width).toBeGreaterThanOrEqual(32);
+  await expect(field.locator('[data-ui="select-indicator"]')).toBeHidden();
   await expectFocusIndicator(select);
 }
 
@@ -149,38 +175,61 @@ test.describe('web design system surfaces', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('keeps the authenticated product header in one aligned desktop row', async ({ page }) => {
+  test('carries brand, language, and account in one collapsible sidebar with no separate header', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 900 });
-    const account = credentials('web-design-system-header');
+    const account = credentials('web-design-system-sidebar');
     await register(account, ['es', 'fr']);
     await signIn(page, account);
     const shell = page.locator('[data-ui="product-shell"]');
-    const header = shell.locator('[data-ui="product-header"]');
+    const sidebar = shell.locator('[data-ui="product-sidebar"]');
     await expect(shell).toBeVisible();
-    await expect(header).toBeVisible();
-    const language = header.locator('[data-ui="language-switcher"]');
-    const profile = header.locator('[data-ui="profile-account"]');
+    await expect(sidebar).toBeVisible();
+    await expect(shell.locator('[data-ui="product-header"]')).toHaveCount(0);
+
+    const language = sidebar.locator('[data-ui="language-switcher"]');
+    const profile = sidebar.locator('[data-ui="profile-account"]');
+    await expect(sidebar.locator('[data-ui="header-brand"]')).toBeVisible();
     await expect(language).toBeVisible();
     await expect(profile).toBeVisible();
-    await expect(header.getByRole('link', { name: /profile/i })).toBeVisible();
-    await expect(header.getByRole('button', { name: /sign out/i })).toHaveCount(0);
-    await expect(header.getByText(/Active Learning Language/)).toHaveCount(0);
-    const layout = await header.evaluate((element) => {
-      const style = getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      const items = Array.from(element.querySelectorAll<HTMLElement>('[data-ui="header-brand"], [data-ui="language-switcher"], [data-ui="profile-account"]')).map((item) => {
-        const itemRect = item.getBoundingClientRect();
-        return { center: itemRect.top + itemRect.height / 2, right: itemRect.right, bottom: itemRect.bottom };
-      });
-      return { display: style.display, flexWrap: style.flexWrap, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, top: rect.top, bottom: rect.bottom, items };
-    });
-    expect(['flex', 'grid']).toContain(layout.display);
-    expect(layout.flexWrap).toBe('nowrap');
-    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
-    expect(Math.max(...layout.items.map((item) => item.center)) - Math.min(...layout.items.map((item) => item.center))).toBeLessThanOrEqual(8);
-    expect(layout.items.every((item) => item.right <= layout.clientWidth + 1 && item.bottom <= layout.bottom - layout.top + 1)).toBe(true);
+    await expect(sidebar.getByRole('link', { name: /profile/i })).toBeVisible();
+    await expect(sidebar.getByRole('button', { name: /sign out/i })).toHaveCount(0);
+    await expect(sidebar.getByText(/Active Learning Language/)).toHaveCount(0);
+
+    const expanded = await sidebar.evaluate((element) => ({ width: element.getBoundingClientRect().width, height: Math.round(element.getBoundingClientRect().height) }));
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
+    expect(expanded.height).toBeGreaterThanOrEqual(viewportHeight - 1);
+
+    await sidebar.getByRole('button', { name: 'Collapse navigation' }).click();
+    await expect.poll(async () => sidebar.evaluate((element) => element.getBoundingClientRect().width)).toBeLessThan(expanded.width);
+    await expect(sidebar.getByRole('link', { name: 'Library', exact: true })).toBeVisible();
+    await sidebar.locator('.app-sidebar-top').hover();
+    await sidebar.getByRole('button', { name: 'Expand navigation' }).click();
+    await expect.poll(async () => sidebar.evaluate((element) => element.getBoundingClientRect().width)).toBe(expanded.width);
+
     await expectCustomSelect(language);
     await expectNoHorizontalOverflow(page);
+  });
+
+  test('keeps one content measure so every block on a surface shares an edge', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    const account = credentials('web-design-system-measure');
+    await register(account, ['es']);
+    await signIn(page, account);
+    await page.goto('/library');
+    const content = page.locator('.app-content');
+    await expect(content).toBeVisible();
+    await expect(content.getByRole('heading', { level: 1, name: 'Library' })).toBeVisible();
+    const readEdges = () => content.evaluate((element) => {
+      const own = element.getBoundingClientRect();
+      const blocks = Array.from(element.children).map((child) => child.getBoundingClientRect()).filter((rect) => rect.width > 0);
+      return { left: own.left, right: own.right, blocks: blocks.map((rect) => ({ left: rect.left, right: rect.right })) };
+    });
+    await expect.poll(async () => (await readEdges()).blocks.length).toBeGreaterThan(0);
+    const edges = await readEdges();
+    for (const block of edges.blocks) {
+      expect(Math.abs(block.left - edges.left)).toBeLessThanOrEqual(1);
+      expect(Math.abs(block.right - edges.right)).toBeLessThanOrEqual(1);
+    }
   });
 
   test('exposes task-first navigation, account grouping, and useful empty states', async ({ page }) => {
@@ -223,7 +272,7 @@ test.describe('web design system surfaces', () => {
     await signIn(page, account);
     const shell = page.locator('[data-ui="product-shell"]');
     const navigation = shell.locator('[data-ui="task-navigation"]');
-    for (const name of ['Home', 'Lessons', 'Materials', 'Library', 'Collections']) {
+    for (const name of ['Lessons', 'Materials', 'Library', 'Collections']) {
       const link = navigation.getByRole('link', { name, exact: true });
       await expect(link).toBeVisible();
       const bounds = await link.evaluate((element) => {
@@ -233,7 +282,7 @@ test.describe('web design system surfaces', () => {
       expect(bounds.left).toBeGreaterThanOrEqual(0);
       expect(bounds.right).toBeLessThanOrEqual(390);
     }
-    await expectCustomSelect(shell.locator('[data-ui="language-switcher"]'));
+    await expectCompactSelect(shell.locator('[data-ui="language-switcher"]'));
     await expectNoHorizontalOverflow(page);
   });
 

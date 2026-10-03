@@ -118,7 +118,7 @@ test.describe('web Learning Materials', () => {
     if (!spanish) throw new Error('The Spanish Learning Language fixture is missing.');
 
     await signIn(page, account);
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await selectLearningLanguage(page, spanish.id);
     const filename = 'morning-notes.TXT';
     await uploadMaterial(page, filename, Buffer.from('Buenos días. Esta es una lectura breve para estudiar.', 'utf8'));

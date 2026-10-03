@@ -3,14 +3,15 @@
 import { canonicalLanguageTag, languageName, type StudyPair } from '@lexync/domain';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { Suspense, type ReactNode } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { LearningLanguageOnboarding, type LearningLanguage } from './LearningLanguageOnboarding';
 import { BrandArtwork } from './BrandArtwork';
-import { Lesson } from './Lesson';
+import { NavigationIcon } from './NavigationIcon';
 import { VocabularyLibrary } from './VocabularyLibrary';
 import { Collections } from './Collections';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
@@ -20,7 +21,6 @@ import { DynamicLessonRequest } from './DynamicLessonRequest';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 const destinations = [
-  ['Home', '/'],
   ['Lessons', '/lessons'],
   ['Learning Materials', '/materials'],
   ['Library', '/library'],
@@ -28,6 +28,25 @@ const destinations = [
 ] as const;
 
 const navigationShortLabels: Record<string, string> = { 'Learning Materials': 'Materials' };
+
+const navigationCollapsedCookie = 'lexync_nav_collapsed';
+const navigationCollapsedListeners = new Set<() => void>();
+
+function subscribeNavigationCollapsed(listener: () => void) {
+  navigationCollapsedListeners.add(listener);
+  return () => {
+    navigationCollapsedListeners.delete(listener);
+  };
+}
+
+function navigationCollapsedSnapshot() {
+  return document.cookie.split('; ').includes(`${navigationCollapsedCookie}=true`);
+}
+
+function storeNavigationCollapsed(collapsed: boolean) {
+  document.cookie = `${navigationCollapsedCookie}=${collapsed ? 'true' : 'false'}; path=/; max-age=31536000; samesite=lax`;
+  for (const listener of navigationCollapsedListeners) listener();
+}
 
 type LearningLanguageRow = { id: string; language_tag: string };
 type CompatibilityPair = StudyPair & { learningLanguageId: string };
@@ -37,10 +56,17 @@ function toLearningLanguage(row: LearningLanguageRow): LearningLanguage {
   return { id: row.id, languageTag: row.language_tag };
 }
 
+const lessonsSurfaces = new Set(['Lessons', 'Dynamic Lesson', 'Lesson history']);
+
+function railSection(activeSection: string) {
+  return lessonsSurfaces.has(activeSection) ? 'Lessons' : activeSection;
+}
+
 function sectionLabel(section: string) {
   const normalized = section.toLowerCase();
-  if (normalized === 'lesson') return 'Lesson';
-  if (normalized === 'lesson-history') return 'Lesson history';
+  if (normalized === 'lessons') return 'Lessons';
+  if (normalized === 'dynamic') return 'Dynamic Lesson';
+  if (normalized === 'history') return 'Lesson history';
   if (normalized === 'materials') return 'Learning Materials';
   if (normalized === 'profile') return 'Profile';
   if (normalized === 'settings') return 'Settings';
@@ -48,25 +74,40 @@ function sectionLabel(section: string) {
 }
 
 function AppNavigation({ activeSection }: { activeSection: string }) {
+  const current = railSection(activeSection);
+
   return <nav className="app-navigation app-navigation-rail" data-ui="task-navigation" aria-label="Main navigation">
-    {destinations.map(([label, href]) => <Link aria-current={activeSection === label ? 'page' : undefined} className={activeSection === label ? 'active' : ''} href={href} key={href}>
+    {destinations.map(([label, href]) => <Link aria-current={current === label ? 'page' : undefined} className={current === label ? 'active' : ''} href={href} key={href} title={label}>
+      <NavigationIcon name={label} />
       <span className="app-navigation-label">{label}</span>
       <span className="app-navigation-label-short">{navigationShortLabels[label] ?? label}</span>
     </Link>)}
   </nav>;
 }
 
-function AppLoadingShell({ section, message, alert = false }: { section: string; message: string; alert?: boolean }) {
+function AppSidebar({ activeSection, collapsed, onToggle, children }: { activeSection: string; collapsed: boolean; onToggle?: () => void; children?: ReactNode }) {
+  return <div className="app-sidebar" data-ui="product-sidebar" data-collapsed={collapsed ? 'true' : undefined}>
+    <div className="app-sidebar-top">
+      <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home">
+        {collapsed
+          ? <Image alt="" className="app-sidebar-mark" height={1254} src="/brand/mark-dark-on-light.png" width={1254} unoptimized />
+          : <BrandArtwork background="light" />}
+      </Link>
+      {onToggle && <button aria-expanded={!collapsed} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} className="app-sidebar-toggle" type="button" onClick={onToggle}>
+        <NavigationIcon name="panel" />
+      </button>}
+    </div>
+    <AppNavigation activeSection={activeSection} />
+    {children && <div className="app-sidebar-bottom">{children}</div>}
+  </div>;
+}
+
+function AppLoadingShell({ section, message, alert = false, collapsed = false }: { section: string; message: string; alert?: boolean; collapsed?: boolean }) {
   const activeSection = sectionLabel(section);
 
   return <main className="app-shell" data-design="app-shell" data-ui="product-shell" aria-busy={!alert}>
-    <header className="app-header" data-ui="product-header">
-      <div className="app-header-inner">
-        <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home"><BrandArtwork background="dark" /></Link>
-      </div>
-    </header>
-    <div className="app-body">
-      <AppNavigation activeSection={activeSection} />
+    <AppSidebar activeSection={activeSection} collapsed={collapsed} />
+    <div className="app-main">
       <section className="app-content app-content-canvas" aria-labelledby="app-heading">
         <div className="page-heading"><div className="page-heading-text"><h1 id="app-heading">{activeSection}</h1></div></div>
         <p className={`form-notice${alert ? ' error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
@@ -93,7 +134,7 @@ export type OnboardingPath = '/onboarding/learning-language' | '/onboarding/stud
 
 const canonicalOnboardingPath: OnboardingPath = '/onboarding/learning-language';
 
-export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPath, extensionId }: { section?: string; publicContent?: ReactNode; onboardingPath?: OnboardingPath; extensionId?: string }) {
+export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardingPath, extensionId, navigationCollapsed: navigationCollapsedDefault = false }: { section?: string; publicContent?: ReactNode; onboardingPath?: OnboardingPath; extensionId?: string; navigationCollapsed?: boolean }) {
   const activeSection = sectionLabel(section);
   const router = useRouter();
   const [session, setSession] = useState<SupabaseSession | null>(null);
@@ -112,8 +153,12 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
   const [languageSaving, setLanguageSaving] = useState(false);
   const [removingLanguageId, setRemovingLanguageId] = useState('');
   const [readyMaterialCount, setReadyMaterialCount] = useState<number | null>(null);
+
   const lessonRequestId = useRef(0);
   const materialRequestId = useRef(0);
+  const navigationCollapsed = useSyncExternalStore(subscribeNavigationCollapsed, navigationCollapsedSnapshot, () => navigationCollapsedDefault);
+  const toggleNavigation = useCallback(() => storeNavigationCollapsed(!navigationCollapsedSnapshot()), []);
+
   const online = useOnlineStatus();
   const learnerId = session?.user.id;
   const loadLanguages = useCallback(async (): Promise<string | null> => {
@@ -249,22 +294,33 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
     if (!loading && !session && !publicContent && !signingOut) router.replace(`/auth/sign-in?next=${encodeURIComponent(window.location.pathname)}`);
   }, [loading, publicContent, router, session, signingOut]);
 
-  if (loading) return <>{publicContent ?? (onboardingPath ? <OnboardingLoadingShell message="Opening your private learning space…" /> : <AppLoadingShell section={section} message="Opening your private library…" />)}</>;
-  if (!session) return <>{publicContent ?? (onboardingPath ? <OnboardingLoadingShell message="Opening sign in…" /> : <AppLoadingShell section={section} message="Opening sign in…" />)}</>;
-  if (languagesLoading) return onboardingPath ? <OnboardingLoadingShell message="Loading your Learning Languages…" /> : <AppLoadingShell section={section} message="Loading your Learning Languages..." />;
+  if (loading) return <>{publicContent ?? (onboardingPath ? <OnboardingLoadingShell message="Opening your private learning space…" /> : <AppLoadingShell collapsed={navigationCollapsed} section={section} message="Opening your private library…" />)}</>;
+  if (!session) return <>{publicContent ?? (onboardingPath ? <OnboardingLoadingShell message="Opening sign in…" /> : <AppLoadingShell collapsed={navigationCollapsed} section={section} message="Opening sign in…" />)}</>;
+  if (languagesLoading) return onboardingPath ? <OnboardingLoadingShell message="Loading your Learning Languages…" /> : <AppLoadingShell collapsed={navigationCollapsed} section={section} message="Loading your Learning Languages..." />;
   if (languageError && languages.length === 0) return onboardingPath
     ? <OnboardingLoadingShell message={`Unable to load your Learning Languages: ${languageError}`} alert />
-    : <AppLoadingShell section={section} message={`Unable to load your Learning Languages: ${languageError}`} alert />;
+    : <AppLoadingShell collapsed={navigationCollapsed} section={section} message={`Unable to load your Learning Languages: ${languageError}`} alert />;
   if (onboardingPath === canonicalOnboardingPath && languages.length === 0) return <LearningLanguageOnboarding onCreated={() => router.replace('/')} />;
   if (onboardingPath && ((languages.length > 0) || onboardingPath !== canonicalOnboardingPath)) return <OnboardingLoadingShell message="Opening your private library…" />;
-  if (languages.length === 0) return <AppLoadingShell section={section} message="Opening onboarding…" />;
+  if (languages.length === 0) return <AppLoadingShell collapsed={navigationCollapsed} section={section} message="Opening onboarding…" />;
 
   const activeLanguage = languages.find((language) => language.id === activeLanguageId) ?? languages[0];
   const displayedLanguage = activeLanguage;
   const languageLabel = `${languageName(displayedLanguage.languageTag)} · ${displayedLanguage.languageTag}`;
   const lessonAvailable = eligibleSenseCount >= 2;
   const canLaunchLesson = lessonStatus === 'active' || lessonAvailable;
-  const lessonLaunchLabel = lessonStatus === 'active' ? 'Resume lesson' : 'Start lesson';
+  const vocabularyTileBlocked = !lessonLoading && !canLaunchLesson;
+  const dynamicTileBlocked = readyMaterialCount === 0 || lessonStatus === 'active';
+  const vocabularyTileState = lessonLoading
+    ? 'Checking availability…'
+    : lessonStatus === 'active' ? 'Resume lesson'
+    : lessonAvailable ? `${eligibleSenseCount} Senses ready`
+    : 'Needs at least two eligible Senses';
+  const dynamicTileState = readyMaterialCount === null
+    ? 'Checking your Learning Materials…'
+    : lessonStatus === 'active' ? 'Finish the Lesson in progress first'
+    : readyMaterialCount === 0 ? 'Add a Learning Material first'
+    : `${readyMaterialCount} Learning Materials ready`;
   const activePairs = pairs.filter((pair) => pair.learningLanguageId === activeLanguage.id);
 
   async function signOut() {
@@ -318,54 +374,48 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
     await loadPairs();
   }
 
-  if (activeSection === 'Lesson') return <Lesson learningLanguageId={displayedLanguage.id} learningLanguageTag={displayedLanguage.languageTag} onExit={() => router.push('/')} />;
-
   return (
     <main className="app-shell" data-design="app-shell" data-ui="product-shell">
-      <header className="app-header" data-ui="product-header">
-        <div className="app-header-inner">
-          <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home"><BrandArtwork background="dark" /></Link>
-          <div className="app-header-controls">
-            <LanguageSwitcher languages={languages} value={displayedLanguage.id} onChange={(languageId) => void setActiveLanguage(languageId)} />
-            <div className="profile-region" data-ui="profile-account" aria-label="Profile and account controls">
-              <Link aria-current={activeSection === 'Profile' ? 'page' : undefined} aria-label="Profile" className="profile-button" href="/profile">
-                <span aria-hidden="true" className="profile-initial">{(session.user.email ?? '?').trim().charAt(0).toUpperCase()}</span>
-                <span className="profile-button-label">Profile</span>
-              </Link>
-            </div>
-          </div>
+      <AppSidebar activeSection={activeSection} collapsed={navigationCollapsed} onToggle={toggleNavigation}>
+        <LanguageSwitcher languages={languages} value={displayedLanguage.id} onChange={(languageId) => void setActiveLanguage(languageId)} />
+        <div className="profile-region" data-ui="profile-account" aria-label="Profile and account controls">
+          <Link aria-current={activeSection === 'Profile' ? 'page' : undefined} aria-label="Profile" className="profile-button" href="/profile">
+            <span aria-hidden="true" className="profile-initial">{(session.user.email ?? '?').trim().charAt(0).toUpperCase()}</span>
+            <span className="profile-button-label">Profile</span>
+          </Link>
         </div>
-      </header>
-      <div className="app-body">
-        <AppNavigation activeSection={activeSection} />
-        <section className="app-content app-content-canvas" aria-labelledby="app-heading">
-          <div className="page-heading">
+      </AppSidebar>
+      <div className="app-main">
+        <section className={`app-content app-content-canvas${activeSection === 'Dynamic Lesson' ? ' app-content-focused' : ''}`} aria-labelledby="app-heading">
+          {activeSection === 'Dynamic Lesson' ? <h1 className="visually-hidden" id="app-heading">{activeSection}</h1> : <div className="page-heading">
             <div className="page-heading-text">
               <h1 id="app-heading">{activeSection}</h1>
               <p className="eyebrow">{languageLabel}</p>
             </div>
-          </div>
-          {activeSection === 'Home' && <>
+          </div>}
+          {activeSection === 'Dynamic Lesson' && <>
             <DynamicLessonRequest key={`dynamic-lesson-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} readyMaterialCount={readyMaterialCount} activeLesson={lessonStatus === 'active'} onLessonCreated={() => void refreshLessonState(activeLanguage.id)} />
             <ExtensionRecommendation extensionId={extensionId} />
           </>}
-          {activeSection === 'Lessons' && <section className="panel lesson-availability" data-ui="visual-primitive" aria-label="Lesson availability">
-            <div className="panel-header"><h2>Scheduled practice</h2></div>
-            <div className="panel-body">
-              <div className="lesson-availability-row">
-                <span>{lessonLoading ? 'Loading Lesson availability…' : <>{languageName(activeLanguage.languageTag)} <strong>{eligibleSenseCount} Senses ready</strong></>}</span>
-                <span className="lesson-availability-actions">
-                  {!lessonLoading && (canLaunchLesson ? <Link className="primary-button" href="/lesson">{lessonLaunchLabel}</Link> : <button className="primary-button" type="button" disabled>{lessonLaunchLabel}</button>)}
-                  <Link className="text-link" href="/lesson-history">Lesson history</Link>
-                </span>
-              </div>
-              {!lessonLoading && !lessonAvailable && lessonStatus !== 'active' && <p className="lesson-unavailable">A Lesson requires at least two eligible Senses.</p>}
-              {lessonStatus === 'active' && <p className="form-notice" role="status">A Lesson is in progress. Resume it here, or finish it before asking for a new Dynamic Lesson on Home.</p>}
-              <p className="panel-footnote">Want a Lesson built from your own reading instead? Ask for one on <Link className="text-link" href="/">Home</Link>.</p>
-            </div>
-          </section>}
+          {activeSection === 'Lessons' && <div className="lesson-tiles" data-ui="visual-primitive">
+            <Link className="lesson-tile" data-ui="lesson-tile-dynamic" href="/lessons/dynamic" aria-disabled={dynamicTileBlocked || undefined} tabIndex={dynamicTileBlocked ? -1 : undefined}>
+              <h2>Dynamic Lesson</h2>
+              <p>Describe what you want to practise and Lexync builds a Lesson from your own reading.</p>
+              <p className="lesson-tile-state">{dynamicTileState}</p>
+            </Link>
+            <Link className="lesson-tile" data-ui="lesson-tile-vocabulary" href="/lessons/vocabulary" aria-disabled={vocabularyTileBlocked || undefined} tabIndex={vocabularyTileBlocked ? -1 : undefined}>
+              <h2>Vocabulary Lesson</h2>
+              <p>Practise the Senses you have already captured in this Learning Language.</p>
+              <p className="lesson-tile-state">{vocabularyTileState}</p>
+            </Link>
+            <Link className="lesson-tile" data-ui="lesson-tile-history" href="/lessons/history">
+              <h2>History</h2>
+              <p>Everything you have practised in this Learning Language, and how it went.</p>
+              <p className="lesson-tile-state">Open history</p>
+            </Link>
+          </div>}
           {activeSection === 'Learning Materials' && <>
-            <p className="page-lede">Learning Materials are the private reading texts your Dynamic Lessons are built from. Add one here, then ask for practice on <Link className="text-link" href="/">Home</Link>.</p>
+            <p className="page-lede">Learning Materials are the private reading texts your Dynamic Lessons are built from. Add one here, then ask for practice on <Link className="text-link" href="/lessons/dynamic">Dynamic Lesson</Link>.</p>
             <LearningMaterials key={`learning-materials-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} onMaterialsChanged={setReadyMaterialCount} />
           </>}
           {activeSection === 'Profile' && <section className="panel" aria-labelledby="profile-heading">
@@ -402,7 +452,7 @@ export function AuthenticatedApp({ section = 'Home', publicContent, onboardingPa
               </ul>
             </div>
           </section>}
-          {!['Home', 'Lesson', 'Lesson history', 'Lessons', 'Learning Materials', 'Library', 'Collections', 'Profile', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
+          {!['Dynamic Lesson', 'Lesson history', 'Lessons', 'Learning Materials', 'Library', 'Collections', 'Profile', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
         </section>
       </div>
     </main>

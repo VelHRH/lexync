@@ -14,7 +14,7 @@ Translations declare their Answer Language inside a Sense. A Sense may contain m
 
 Capture adapters save available pronunciation and sentence audio into learner-private object storage on explicit Save. Audio is optional, never autoplays, and never blocks capture or practice. Existing material and PR #78 review history are migrated without deletion.
 
-Web, extension, Android, and future iOS clients consume one semantic design contract based on the canonical `#6429f4` purple logo color, dark ink, white, and lavender neutrals. Web and extension are redesigned first in light mode using the project-pinned Impeccable and design-taste skills. Native clients use platform-appropriate adapters to the same semantics.
+Web, extension, Android, and future iOS clients consume one semantic design contract based on the canonical `#00207c` navy of the brand wordmark, its `#611efc` action step, a warm `#df8256` accent, dark ink, white, and sky neutrals. Web and extension are redesigned first in light mode using the project-pinned Impeccable and design-taste skills. Native clients use platform-appropriate adapters to the same semantics.
 
 ## User Stories
 
@@ -92,7 +92,7 @@ Web, extension, Android, and future iOS clients consume one semantic design cont
 - PR #78 is merged historical work. Its legacy recognition timestamps and participation relationships are migration inputs, not work to revert or discard.
 - Onboarding asks only for the first Learning Language. Add/remove management lives in Settings; the synchronized selector lives beside the profile in full clients and in a compact extension header.
 - Page-level Study Pair controls are removed as clients adopt the new model.
-- The canonical visual palette starts with logo purple `#6429f4`, dark ink, white, and lavender neutrals. Initial redesign is light mode. Dark mode is deferred.
+- The canonical visual palette starts with brand navy `#00207c`, its action step `#611efc`, a warm `#df8256` accent reserved for atmosphere, dark ink, white, and sky neutrals. Surfaces sit on a blue gradient ground; glass is chrome only and always has an opaque fallback. Initial redesign is light mode. Dark mode is deferred.
 - The project-pinned Impeccable skill guides audit, interaction, accessibility, and platform adaptation. The project-pinned design-taste-frontend skill applies only to web-appropriate visual work. A semantic contract maps into CSS and Jetpack Compose now and SwiftUI later.
 - Supabase remains authoritative. Web and extension use the existing browser synchronization seams; Android uses its native local store and synchronization path; future iOS follows the documented contracts.
 - Portable JSON export describes Learning Languages, Translations with Answer Languages, Collections, audio manifests, Cards, and review history. Import remains separate work.

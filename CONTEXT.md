@@ -80,6 +80,10 @@ A Lesson whose source is `vocabulary`, using the Learner's vocabulary material a
 
 A Lesson whose source is `dynamic`, using generated or contextual material for practice. Its questions may have no Vocabulary Entry or Sense.
 
+## Practice Request
+
+The Learner's own description of what they want to practise, written in free text. It scopes the generation of a Dynamic Lesson across every ready Learning Material in the Learning Language; it never names a particular Learning Material. A Practice Request that no material covers well enough produces no Lesson.
+
 ## Lesson Question
 
 A persisted question in a Lesson whose content, choices, answer, direction, and relevant language metadata are part of the Lesson snapshot. Translation questions retain their Sense and translation metadata; cloze questions retain their Vocabulary Entry and cloze metadata. Dynamic questions may have null Vocabulary Entry and Sense references.

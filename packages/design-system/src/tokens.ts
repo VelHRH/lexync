@@ -6,6 +6,8 @@ export type SemanticTokens = typeof semanticTokens;
 
 export type TokenPath =
   | `--lexync-color-${string}`
+  | `--lexync-gradient-${string}`
+  | `--lexync-glass-${string}`
   | `--lexync-type-${string}`
   | `--lexync-space-${string}`
   | `--lexync-radius-${string}`

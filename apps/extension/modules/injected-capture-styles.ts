@@ -31,13 +31,13 @@ ${shadowTokenCss}
 .context { margin: 0; overflow: hidden; color: var(--lexync-color-ink-muted); font-size: var(--lexync-type-size-xs); line-height: var(--lexync-type-line-normal); text-overflow: ellipsis; white-space: nowrap; }
 .mark { flex: 0 0 auto; color: var(--lexync-color-ink-muted); font: var(--lexync-type-weight-bold) var(--lexync-type-size-xs)/var(--lexync-type-line-normal) var(--lexync-type-family-mono); }
 .action-region { display: grid; justify-items: end; gap: var(--lexync-space-1); min-width: max-content; }
-button { min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-4); border: var(--lexync-border-regular) solid var(--lexync-color-border-strong); border-radius: var(--lexync-radius-md); background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); box-shadow: var(--lexync-elevation-medium); cursor: pointer; font: inherit; }
+button { min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-4); border: var(--lexync-border-regular) solid var(--lexync-color-border-strong); border-radius: var(--lexync-radius-pill); background: var(--lexync-color-brand-primary); color: var(--lexync-color-white); box-shadow: var(--lexync-elevation-medium); cursor: pointer; font: inherit; }
 button span { display: inline-flex; align-items: center; gap: var(--lexync-space-2); }
 .button-arrow { font-size: var(--lexync-type-size-lg); line-height: 1; }
 button:hover { background: var(--lexync-color-brand-primary-hover); }
 button:focus-visible { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); box-shadow: var(--lexync-focus-ring); }
 button:disabled { cursor: wait; opacity: 0.55; }
-button:active { transform: translate(2px, 2px); box-shadow: var(--lexync-elevation-none); }
+button:active { box-shadow: var(--lexync-elevation-quiet); filter: brightness(0.96); }
 .sense-choice { display: grid; grid-column: 1 / -1; gap: var(--lexync-space-2); margin: 0; padding: var(--lexync-space-3) 0 0; border: 0; border-top: 1px solid var(--lexync-color-border); font: inherit; }
 .sense-choice legend { padding: 0; font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); }
 .sense-options { display: grid; gap: var(--lexync-space-2); }

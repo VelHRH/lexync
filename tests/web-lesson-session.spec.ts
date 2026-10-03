@@ -114,14 +114,16 @@ async function openLessons(page: Page) {
   if (new URL(page.url()).pathname !== '/lessons') await page.goto('/lessons');
 }
 
-function lessonLaunch(page: Page, name: RegExp | string) {
-  return page.getByRole('button', { name }).or(page.getByRole('link', { name }));
+const runnerUrl = /\/lessons\/[0-9a-f-]{36}$/;
+
+function vocabularyTile(page: Page) {
+  return page.locator('[data-ui="lesson-tile-vocabulary"]');
 }
 
 async function startFromHome(page: Page) {
   await openLessons(page);
-  await lessonLaunch(page, /Start lesson|Resume lesson/).click();
-  await expect(page).toHaveURL('/lesson');
+  await vocabularyTile(page).click();
+  await expect(page).toHaveURL(runnerUrl);
   await expect(lessonQuestion(page)).toBeVisible();
 }
 
@@ -221,9 +223,9 @@ test.describe('web Lesson', () => {
     await startFromHome(page);
     const initial = await questionSnapshot(page);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/lessons');
     await openLessons(page);
-    await expect(lessonLaunch(page, 'Resume lesson')).toBeVisible();
+    await expect(vocabularyTile(page).getByText('Resume lesson', { exact: true })).toBeVisible();
     await startFromHome(page);
     expect(await questionSnapshot(page)).toEqual(initial);
   });
@@ -232,12 +234,11 @@ test.describe('web Lesson', () => {
     const fixture = await seedEntries('lesson-unavailable', vocabulary.slice(0, 1));
     await signIn(page, fixture.account);
     await openLessons(page);
-    const unavailableLaunch = lessonLaunch(page, 'Start lesson');
-    await expect.poll(async () => await unavailableLaunch.count() === 0 || await unavailableLaunch.isDisabled()).toBe(true);
+    await expect(vocabularyTile(page)).toHaveAttribute('aria-disabled', 'true');
     await expect(page.getByText(/at least two eligible Senses/i)).toBeVisible();
     await captureEntry(fixture.client, fixture.learningLanguageId, 'perro', 'dog');
     await page.reload();
-    await expect(lessonLaunch(page, 'Start lesson')).toBeEnabled();
+    await expect(vocabularyTile(page)).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   test('does not enable Lesson for sibling Senses with duplicate normalized translations', async ({ page }) => {
@@ -246,9 +247,7 @@ test.describe('web Lesson', () => {
     await captureEntry(fixture.client, fixture.learningLanguageId, 'banco', ' BANK ', 'en', { createNewSense: true });
     await signIn(page, fixture.account);
     await openLessons(page);
-    await expect(page.getByText('0 Senses ready', { exact: true })).toBeVisible();
-    const launch = lessonLaunch(page, 'Start lesson');
-    await expect(launch).toBeDisabled();
+    await expect(vocabularyTile(page)).toHaveAttribute('aria-disabled', 'true');
     await expect(page.getByText(/at least two eligible Senses/i)).toBeVisible();
   });
 
@@ -428,7 +427,8 @@ test.describe('web Lesson', () => {
     const restartedContext = await newSignedInContext(browser, page);
     const restartedPage = await restartedContext.newPage();
     try {
-      await Promise.all([concurrentPage.goto('/lesson'), restartedPage.goto('/lesson')]);
+      const openLessonUrl = page.url();
+      await Promise.all([concurrentPage.goto(openLessonUrl), restartedPage.goto(openLessonUrl)]);
       expect(await questionSnapshot(concurrentPage)).toEqual(initial);
       expect(await questionSnapshot(restartedPage)).toEqual(initial);
       const firstChoice = answerChoices(page).first();
@@ -438,9 +438,9 @@ test.describe('web Lesson', () => {
       await expect(continueButton(page)).toBeEnabled();
       await continueToNextQuestion(page);
       await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-      await expect(page).toHaveURL('/');
+      await expect(page).toHaveURL('/lessons');
       await openLessons(page);
-      await lessonLaunch(page, 'Resume lesson').click();
+      await vocabularyTile(page).click();
       await expect(lessonQuestion(page)).toBeVisible();
       await expect(lessonShell(page).getByRole('button', { name: 'Exit' })).toBeVisible();
     } finally {
@@ -482,7 +482,8 @@ test.describe('web Lesson', () => {
     const restartedContext = await newSignedInContext(browser, page);
     const restartedPage = await restartedContext.newPage();
     try {
-      await Promise.all([concurrentPage.goto('/lesson'), restartedPage.goto('/lesson')]);
+      const openLessonUrl = page.url();
+      await Promise.all([concurrentPage.goto(openLessonUrl), restartedPage.goto(openLessonUrl)]);
       expect(await questionSnapshot(concurrentPage)).toEqual(initial);
       expect(await questionSnapshot(restartedPage)).toEqual(initial);
       await Promise.all([answerChoices(page).first().check(), answerChoices(concurrentPage).first().check()]);
@@ -499,9 +500,9 @@ test.describe('web Lesson', () => {
       await page.reload();
       await expect(continueButton(page)).toBeEnabled();
       await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-      await expect(page).toHaveURL('/');
+      await expect(page).toHaveURL('/lessons');
       await openLessons(page);
-      await expect(lessonLaunch(page, 'Resume lesson')).toBeVisible();
+      await expect(vocabularyTile(page).getByText('Resume lesson', { exact: true })).toBeVisible();
     } finally {
       await concurrentPage.close();
       await restartedContext.close();
@@ -574,7 +575,7 @@ test.describe('web Lesson', () => {
     await expect(missed.getByText(wrong, { exact: true }).first()).toBeVisible();
     await expect(missed.getByText(correct, { exact: true }).first()).toBeVisible();
     await expect(result.getByText(/\b(?:due|schedule|rating|again|hard|good|easy)\b/i)).toHaveCount(0);
-    await expect(lessonLaunch(page, 'Back to Home')).toBeVisible();
+    await expect(lessonShell(page).getByRole('button', { name: 'Back to Lessons' })).toBeVisible();
     const completedEntry = fixture.captured.find((entry) => entry.expression === completedPrompt || entry.translation === completedPrompt);
     if (!completedEntry) throw new Error('The completed Lesson fixture prompt is unknown.');
     const completedBridgeId = await bridgeEntryId(fixture.client, completedEntry.vocabularyEntryId);
@@ -588,11 +589,11 @@ test.describe('web Lesson', () => {
     expect((await questionSnapshot(page)).prompt).not.toBe(completedPrompt);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await openLessons(page);
-    await lessonLaunch(page, 'Resume lesson').click();
+    await vocabularyTile(page).click();
     await expect(lessonQuestion(page)).toBeVisible();
     await expect(lessonShell(page).getByText(/\bReview Sessions?\b/i)).toHaveCount(0);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/lessons');
   });
 
   test('remains reachable on mobile, at 200 percent zoom, and with reduced motion', async ({ page }) => {
