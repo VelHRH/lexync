@@ -1,19 +1,28 @@
 import { type SupabaseClient } from '@supabase/supabase-js';
 import { createEmbeddingProvider } from './embeddings';
+import { createLanguageDetectionProvider } from './language-detection';
 import {
   PASSAGE_SCHEMA_VERSION,
   normalizeLearningMaterialText,
   splitLearningMaterial,
 } from './processing';
-import { learningMaterialMessages, LearningMaterialValidationError } from './validation';
+import {
+  learningMaterialLanguageMessage,
+  learningMaterialMessages,
+  LearningMaterialLanguageError,
+  LearningMaterialValidationError,
+} from './validation';
 
 export async function processLearningMaterial(
   client: SupabaseClient,
   materialId: string,
   processingVersion: number,
   sourceText: string,
+  learningLanguageTag: string,
 ) {
   const normalizedText = normalizeLearningMaterialText(sourceText);
+  const verdict = await createLanguageDetectionProvider().detect(normalizedText, learningLanguageTag);
+  if (!verdict.matches) throw new LearningMaterialLanguageError(learningMaterialLanguageMessage(learningLanguageTag, verdict.detectedLanguage));
   const passages = await splitLearningMaterial(normalizedText);
   const provider = createEmbeddingProvider();
   const embeddings = await provider.embedDocuments(passages.map((passage) => passage.text));

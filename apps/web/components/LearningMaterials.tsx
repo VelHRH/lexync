@@ -5,17 +5,17 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 
 type MaterialStatus = 'processing' | 'failed' | 'ready';
-type LearningMaterial = { id: string; fileName: string; status: MaterialStatus; createdAt: string };
-type LearningMaterialRow = { id: string; file_name: string; status: string; created_at: string };
-type UploadResponse = { material?: { id: string; fileName: string; status: string; createdAt: string }; error?: unknown };
-type RetryResponse = { material?: { id: string; fileName: string; status: string; createdAt: string }; error?: unknown };
+type LearningMaterial = { id: string; fileName: string; status: MaterialStatus; createdAt: string; failureReason: string | null };
+type LearningMaterialRow = { id: string; file_name: string; status: string; created_at: string; failure_reason?: string | null };
+type UploadResponse = { material?: { id: string; fileName: string; status: string; createdAt: string; failureReason?: string | null }; error?: unknown };
+type RetryResponse = { material?: { id: string; fileName: string; status: string; createdAt: string; failureReason?: string | null }; error?: unknown };
 type DeleteResponse = { deleted?: boolean; error?: unknown };
 
 class ProductUploadError extends Error {}
 
 function toLearningMaterial(row: LearningMaterialRow): LearningMaterial | null {
   if (row.status !== 'processing' && row.status !== 'failed' && row.status !== 'ready') return null;
-  return { id: row.id, fileName: row.file_name, status: row.status, createdAt: row.created_at };
+  return { id: row.id, fileName: row.file_name, status: row.status, createdAt: row.created_at, failureReason: row.failure_reason ?? null };
 }
 
 export function LearningMaterials({ accessToken, learningLanguageId, onMaterialsChanged }: { accessToken: string; learningLanguageId: string; onMaterialsChanged?: (readyCount: number) => void }) {
@@ -49,7 +49,7 @@ export function LearningMaterials({ accessToken, learningLanguageId, onMaterials
     if (showLoading) setLoading(true);
     const { data, error } = await supabase
       .from('learning_materials')
-      .select('id,file_name,status,created_at')
+      .select('id,file_name,status,created_at,failure_reason')
       .eq('learning_language_id', learningLanguageId)
       .in('status', ['processing', 'failed', 'ready'])
       .order('created_at', { ascending: false });
@@ -117,7 +117,7 @@ export function LearningMaterials({ accessToken, learningLanguageId, onMaterials
     const pendingId = `pending-${crypto.randomUUID()}`;
     const uploadLanguageId = learningLanguageId;
     loadRequestId.current += 1;
-    const pendingMaterial: LearningMaterial = { id: pendingId, fileName: selectedFile.name, status: 'processing', createdAt: new Date().toISOString() };
+    const pendingMaterial: LearningMaterial = { id: pendingId, fileName: selectedFile.name, status: 'processing', createdAt: new Date().toISOString(), failureReason: null };
     setMaterials((current) => [pendingMaterial, ...current]);
     setAnnouncement(`${selectedFile.name} is processing.`);
     setNotice('');
@@ -140,7 +140,7 @@ export function LearningMaterials({ accessToken, learningLanguageId, onMaterials
       const apiError = typeof payload?.error === 'string' ? payload.error : null;
       if (!response.ok || apiError) throw new ProductUploadError(apiError ?? 'Learning Material could not be uploaded.');
       if (!payload.material) throw new Error('Learning Material could not be uploaded.');
-      const material = toLearningMaterial({ id: payload.material.id, file_name: payload.material.fileName, status: payload.material.status, created_at: payload.material.createdAt });
+      const material = toLearningMaterial({ id: payload.material.id, file_name: payload.material.fileName, status: payload.material.status, created_at: payload.material.createdAt, failure_reason: payload.material.failureReason ?? null });
       if (!material) throw new Error('Learning Material could not be uploaded.');
       if (activeLanguageRef.current !== uploadLanguageId) return;
       setMaterials((current) => [material, ...current.filter((entry) => entry.id !== pendingId)]);
@@ -187,14 +187,15 @@ export function LearningMaterials({ accessToken, learningLanguageId, onMaterials
       }
       if (!response.ok || typeof payload.error === 'string' && payload.error.trim()) throw new ProductUploadError(safeApiError(payload, 'Learning Material could not be retried.'));
       if (!payload.material) throw new Error('Learning Material could not be retried.');
-      const nextMaterial = toLearningMaterial({ id: payload.material.id, file_name: payload.material.fileName, status: payload.material.status, created_at: payload.material.createdAt });
+      const nextMaterial = toLearningMaterial({ id: payload.material.id, file_name: payload.material.fileName, status: payload.material.status, created_at: payload.material.createdAt, failure_reason: payload.material.failureReason ?? null });
       if (!nextMaterial || activeLanguageRef.current !== retryLanguageId) return;
       setMaterials((current) => current.map((entry) => entry.id === material.id ? nextMaterial : entry));
       setAnnouncement(`${nextMaterial.fileName} is ${nextMaterial.status}.`);
     } catch (error) {
       if (activeLanguageRef.current !== retryLanguageId) return;
-      setMaterials((current) => current.map((entry) => entry.id === material.id ? { ...entry, status: 'failed' } : entry));
-      setNotice(error instanceof ProductUploadError ? error.message : 'Learning Material could not be retried.');
+      const retryError = error instanceof ProductUploadError ? error.message : 'Learning Material could not be retried.';
+      setMaterials((current) => current.map((entry) => entry.id === material.id ? { ...entry, status: 'failed', failureReason: error instanceof ProductUploadError ? error.message : entry.failureReason } : entry));
+      setNotice(retryError);
       setAnnouncement('');
     } finally {
       if (activeLanguageRef.current === retryLanguageId) setRetryingId('');
@@ -265,6 +266,7 @@ export function LearningMaterials({ accessToken, learningLanguageId, onMaterials
         <span className="learning-material-name">{material.fileName}</span>
         <span className="learning-material-row-details">
           <span className={`learning-material-status ${material.status}`}>Status: {material.status}.</span>
+          {material.status === 'failed' && material.failureReason && <span className="learning-material-failure-reason">{material.failureReason}</span>}
           <span className="learning-material-actions">
             {material.status === 'failed' && <button className="secondary-button" type="button" aria-label={`Retry ${material.fileName}`} disabled={!online || retryingId === material.id || Boolean(deletingId)} onClick={() => void retry(material)}>{retryingId === material.id ? 'Retrying…' : 'Retry'}</button>}
             <button className="secondary-button danger" type="button" aria-label={`Delete ${material.fileName}`} disabled={!online || material.id.startsWith('pending-') || retryingId === material.id || deletingId === material.id} onClick={() => openDeleteDialog(material)} onKeyDown={(event) => { if (event.key !== 'Enter' && event.key !== ' ') return; event.preventDefault(); openDeleteDialog(material); }}>Delete</button>

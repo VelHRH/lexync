@@ -1,3 +1,5 @@
+import { languageName } from '@lexync/domain';
+
 export const MAX_LEARNING_MATERIAL_BYTES = 1_048_576;
 
 export const learningMaterialMessages = {
@@ -18,6 +20,20 @@ export class LearningMaterialValidationError extends Error {
   constructor(public readonly message: string) {
     super(message);
   }
+}
+
+export class LearningMaterialLanguageError extends Error {
+  constructor(public readonly message: string) {
+    super(message);
+  }
+}
+
+export function learningMaterialLanguageMessage(learningLanguageTag: string, detectedLanguage: string | null): string {
+  const expected = languageName(learningLanguageTag);
+  const opening = detectedLanguage
+    ? `This Learning Material is written in ${languageName(detectedLanguage)}, not ${expected}.`
+    : `This Learning Material does not look like it is written in ${expected}.`;
+  return `${opening} Add it to the matching Learning Language, or delete it.`;
 }
 function readableFileName(fileName: string): string {
   const baseName = fileName.split(/[\\/]/).pop() ?? 'learning-material.txt';

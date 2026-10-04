@@ -20,6 +20,7 @@ jobs:
     timeout-minutes: 30
     env:
       LEXYNC_EMBEDDING_PROVIDER: deterministic
+      LEXYNC_LANGUAGE_DETECTION_PROVIDER: script
       LEXYNC_GENERATION_PROVIDER: deterministic
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

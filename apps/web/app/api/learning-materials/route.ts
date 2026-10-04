@@ -9,6 +9,7 @@ import {
 } from '../../../lib/learning-materials/server';
 import {
   MAX_LEARNING_MATERIAL_BYTES,
+  LearningMaterialLanguageError,
   LearningMaterialValidationError,
   learningMaterialMessages,
   validateLearningMaterial,
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await authenticated.client
       .from('learning_materials')
-      .select('id,file_name,status,created_at')
+      .select('id,file_name,status,created_at,failure_reason')
       .eq('learner_id', authenticated.user.id)
       .eq('learning_language_id', learningLanguageId)
       .in('status', ['processing', 'ready', 'failed'])
@@ -78,11 +79,12 @@ export async function POST(request: Request) {
     const { client, user } = authenticated;
     const { data: language, error: languageError } = await client
       .from('learning_languages')
-      .select('id')
+      .select('id,language_tag')
       .eq('id', learningLanguageId)
       .eq('learner_id', user.id)
       .maybeSingle();
     if (languageError || !language) return Response.json({ error: safeProcessingError }, { status: 400 });
+    const languageTag = (language as { language_tag: string }).language_tag;
 
     materialId = crypto.randomUUID();
     const storagePath = `${user.id}/${learningLanguageId}/${materialId}/${validated.fileName}`;
@@ -110,19 +112,21 @@ export async function POST(request: Request) {
       });
     if (uploadError) throw uploadError;
 
-    const completed = await processLearningMaterial(authenticated.client, materialId, processingVersion, validated.sourceText);
+    const completed = await processLearningMaterial(authenticated.client, materialId, processingVersion, validated.sourceText, languageTag);
     return Response.json({ material: materialResponse(completed as MaterialRow) }, { status: 201 });
   } catch (error) {
     if (error instanceof LearningMaterialValidationError) {
       return Response.json({ error: error.message }, { status: 400 });
     }
+    const languageMismatch = error instanceof LearningMaterialLanguageError;
     if (materialId && processingVersion !== null) {
       try {
-        await failLearningMaterial(authenticated.client, materialId, learningLanguageId, processingVersion);
+        await failLearningMaterial(authenticated.client, materialId, learningLanguageId, processingVersion, languageMismatch ? error.message : null);
       } catch {
         return Response.json({ error: safeProcessingError }, { status: 500 });
       }
     }
+    if (languageMismatch) return Response.json({ error: error.message }, { status: 422 });
     return Response.json({ error: safeProcessingError }, { status: 500 });
   }
 }

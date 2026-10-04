@@ -1,7 +1,7 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { buildClozePrompt } from '@lexync/domain';
+import { buildClozePrompt, languageName } from '@lexync/domain';
 
-export const GEMINI_GENERATION_MODEL = 'gemini-3.8-flash';
+export const GEMINI_GENERATION_MODEL = 'gemini-3.5-flash-lite';
 
 export type DynamicLessonQuestionCandidate = {
   questionType: 'translation' | 'cloze';
@@ -160,11 +160,27 @@ function buildGenerationPrompt(request: DynamicLessonGenerationRequest): string 
   const passagesBlock = request.passages
     .map((passage) => `Passage ${passage.id}:\n${passage.text}`)
     .join('\n\n');
+  const learningLanguage = `${languageName(request.learningLanguageTag)} (${request.learningLanguageTag})`;
+  const answerLanguage = `${languageName(request.answerLanguageTag)} (${request.answerLanguageTag})`;
   return [
-    `Learning Language: ${request.learningLanguageTag}`,
-    `Answer Language: ${request.answerLanguageTag}`,
+    `Learning Language: ${learningLanguage}`,
+    `Answer Language: ${answerLanguage}`,
     `Practice Request: ${request.practiceRequest}`,
-    `Produce between ${request.minQuestions} and ${request.maxQuestions} distinct Lesson Questions of type "translation" or "cloze", grounded only in the supplied passages below. Do not use any outside knowledge. Every question must cite the supporting passage ids it was drawn from in supportingPassageIds.`,
+    `Produce between ${request.minQuestions} and ${request.maxQuestions} distinct Lesson Questions of type "translation" or "cloze", grounded only in the supplied passages below. Do not use any outside knowledge.`,
+    [
+      'Rules every question must satisfy:',
+      '- It practises what the Practice Request asks for. Ignore anything in the passages that falls outside that request, however well attested it is.',
+      `- A "recognition" question writes prompt in ${learningLanguage} and every choice in ${answerLanguage}.`,
+      `- A "recall" question writes prompt in ${answerLanguage} and every choice in ${learningLanguage}.`,
+      `- A "cloze" question writes prompt and every choice in ${learningLanguage}.`,
+      `- questionType is exactly "translation" or "cloze".`,
+      `- A "translation" question sets direction to "recognition" or "recall" and answerLanguageTag to exactly "${request.answerLanguageTag}".`,
+      '- A "cloze" question sets direction to null and answerLanguageTag to null.',
+      '- choices holds between 2 and 4 non-empty, distinct options.',
+      '- correctAnswer repeats exactly one entry of choices, character for character.',
+      '- prompt is unique across the questions you return.',
+      '- supportingPassageIds is non-empty and holds only labels of the passages below, such as P1, copied exactly.',
+    ].join('\n'),
     passagesBlock,
   ].join('\n\n');
 }
@@ -178,10 +194,22 @@ export class GeminiGenerationProvider implements GenerationProvider {
   }
 
   async generateLessonQuestions(request: DynamicLessonGenerationRequest): Promise<DynamicLessonQuestionCandidate[]> {
+    const passageIdByLabel = new Map<string, string>();
+    const labelledPassages = request.passages.map((passage, index) => {
+      const label = `P${index + 1}`;
+      passageIdByLabel.set(label, passage.id);
+      return { id: label, text: passage.text };
+    });
     try {
       const structured = this.chatModel.withStructuredOutput(RESPONSE_JSON_SCHEMA, { name: 'dynamic_lesson_questions' });
-      const result = await structured.invoke(buildGenerationPrompt(request)) as { questions: DynamicLessonQuestionCandidate[] };
-      return result.questions;
+      const result = await structured.invoke(buildGenerationPrompt({ ...request, passages: labelledPassages })) as { questions?: DynamicLessonQuestionCandidate[] };
+      if (!Array.isArray(result?.questions)) return result?.questions as unknown as DynamicLessonQuestionCandidate[];
+      return result.questions.map((question) => ({
+        ...question,
+        supportingPassageIds: Array.isArray(question?.supportingPassageIds)
+          ? question.supportingPassageIds.map((label) => passageIdByLabel.get(String(label).trim().toUpperCase()) ?? label)
+          : question?.supportingPassageIds,
+      }));
     } catch (error) {
       throw new Error('The Lesson generation provider could not produce Lesson Questions.', { cause: error });
     }
