@@ -116,7 +116,7 @@ async function seedMaterial(client: SupabaseClient, userId: string, learningLang
 }
 
 function dynamicLessonRegion(page: Page) {
-  return page.getByRole('region', { name: 'What do you want to practise?' });
+  return page.locator('[data-ui="dynamic-lesson-request"]');
 }
 
 function createLessonButton(page: Page) {

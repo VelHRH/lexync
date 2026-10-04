@@ -471,9 +471,7 @@ test.describe('web Lesson', () => {
       await continueToNextQuestion(page);
       await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
       await expect(page).toHaveURL('/lessons');
-      await openLessons(page);
-      await vocabularyTile(page).click();
-      await expect(lessonQuestion(page)).toBeVisible();
+      await resumeFromHome(page);
       await expect(lessonShell(page).getByRole('button', { name: 'Exit' })).toBeVisible();
     } finally {
       await concurrentPage.close();
@@ -621,9 +619,7 @@ test.describe('web Lesson', () => {
     await expect(lessonQuestion(page)).toBeVisible();
     expect((await questionSnapshot(page)).prompt).not.toBe(completedPrompt);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-    await openLessons(page);
-    await vocabularyTile(page).click();
-    await expect(lessonQuestion(page)).toBeVisible();
+    await resumeFromHome(page);
     await expect(lessonShell(page).getByText(/\bReview Sessions?\b/i)).toHaveCount(0);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/lessons');

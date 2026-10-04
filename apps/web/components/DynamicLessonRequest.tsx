@@ -74,7 +74,7 @@ export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMat
 
   const blocked = !online || readyMaterialCount === null || readyMaterialCount === 0 || submitting;
 
-  return <section className="dynamic-lesson-request" aria-labelledby="dynamic-lesson-heading" aria-busy={submitting || undefined}>
+  return <section className="dynamic-lesson-request" data-ui="dynamic-lesson-request" aria-labelledby="dynamic-lesson-heading" aria-busy={submitting || undefined}>
     <div className="dynamic-lesson-request-heading">
       <h2 id="dynamic-lesson-heading">{activeLessonId ? 'Finish your Lesson first' : 'What do you want to practise?'}</h2>
       <p>{activeLessonId
