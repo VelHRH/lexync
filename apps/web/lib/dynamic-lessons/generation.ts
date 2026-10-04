@@ -1,7 +1,7 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { buildClozePrompt } from '@lexync/domain';
 
-export const GEMINI_GENERATION_MODEL = 'gemini-2.5-flash';
+export const GEMINI_GENERATION_MODEL = 'gemini-3.8-flash';
 
 export type DynamicLessonQuestionCandidate = {
   questionType: 'translation' | 'cloze';
@@ -174,7 +174,7 @@ export class GeminiGenerationProvider implements GenerationProvider {
   private readonly chatModel: ChatGoogleGenerativeAI;
 
   constructor(apiKey: string) {
-    this.chatModel = new ChatGoogleGenerativeAI({ apiKey, model: GEMINI_GENERATION_MODEL, temperature: 0, maxRetries: 2 });
+    this.chatModel = new ChatGoogleGenerativeAI({ apiKey, model: GEMINI_GENERATION_MODEL, maxRetries: 2 });
   }
 
   async generateLessonQuestions(request: DynamicLessonGenerationRequest): Promise<DynamicLessonQuestionCandidate[]> {
