@@ -116,7 +116,7 @@ async function seedMaterial(client: SupabaseClient, userId: string, learningLang
 }
 
 function dynamicLessonRegion(page: Page) {
-  return page.getByRole('region', { name: 'What do you want to practise?' });
+  return page.locator('[data-ui="dynamic-lesson-request"]');
 }
 
 function createLessonButton(page: Page) {
@@ -135,8 +135,12 @@ function vocabularyTile(page: Page) {
   return page.locator('[data-ui="lesson-tile-vocabulary"]');
 }
 
+function lessonProgressBanner(page: Page) {
+  return page.locator('[data-ui="lesson-in-progress"]');
+}
+
 function resumeLessonLink(page: Page) {
-  return vocabularyTile(page).getByText('Resume lesson', { exact: true });
+  return lessonProgressBanner(page).getByRole('link', { name: 'Resume Lesson' });
 }
 
 function lessonShell(page: Page) {
@@ -324,8 +328,11 @@ test.describe('web Dynamic Lesson', () => {
     await openHome(page);
     const region = dynamicLessonRegion(page);
     await expect(region.getByRole('status').filter({ hasText: 'You have a Lesson in progress.' })).toBeVisible();
-    await expect(createLessonButton(page)).toBeDisabled();
-    await expect(region.getByLabel('What do you want to practise?')).toBeDisabled();
+    await expect(createLessonButton(page)).toHaveCount(0);
+    await expect(region.getByLabel('What do you want to practise?')).toHaveCount(0);
+    await expect(region.getByRole('list', { name: 'Request ideas' })).toHaveCount(0);
+    await region.getByRole('link', { name: 'Resume Lesson' }).click();
+    await expect(page).toHaveURL(runnerUrl);
   });
 
   test('resumes the active Dynamic Lesson from Home instead of starting a new one', async ({ page }) => {
@@ -341,13 +348,14 @@ test.describe('web Dynamic Lesson', () => {
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/lessons');
     await openLessons(page);
-    await expect(resumeLessonLink(page)).toBeVisible();
-    await vocabularyTile(page).click();
+    await expect(vocabularyTile(page)).toHaveAttribute('aria-disabled', 'true');
+    await expect(lessonProgressBanner(page).getByText('Dynamic Lesson · finish it before starting another one.')).toBeVisible();
+    await resumeLessonLink(page).click();
     await expect(page).toHaveURL(runnerUrl);
     expect(await questionSnapshot(page)).toEqual(initial);
   });
 
-  test('resumes the active Dynamic Lesson when the ordinary Vocabulary Lesson launch control is used', async ({ page }) => {
+  test('blocks the Vocabulary Lesson control while a Dynamic Lesson is active and resumes it from the Lesson in progress banner', async ({ page }) => {
     const setup = await registerWithLanguage('dynamic-lesson-resume-vocabulary-control');
     await captureEntry(setup.client, setup.learningLanguageId, 'casa', 'house');
     await captureEntry(setup.client, setup.learningLanguageId, 'perro', 'dog');
@@ -361,8 +369,9 @@ test.describe('web Dynamic Lesson', () => {
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/lessons');
     await openLessons(page);
-    await expect(resumeLessonLink(page)).toBeVisible();
-    await vocabularyTile(page).click();
+    await expect(vocabularyTile(page)).toHaveAttribute('aria-disabled', 'true');
+    await expect(vocabularyTile(page).getByText('Finish the Lesson in progress first')).toBeVisible();
+    await resumeLessonLink(page).click();
     await expect(page).toHaveURL(runnerUrl);
     expect(await questionSnapshot(page)).toEqual(initial);
     await completeLesson(page);

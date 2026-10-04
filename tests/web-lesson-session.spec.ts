@@ -120,6 +120,17 @@ function vocabularyTile(page: Page) {
   return page.locator('[data-ui="lesson-tile-vocabulary"]');
 }
 
+function lessonProgressBanner(page: Page) {
+  return page.locator('[data-ui="lesson-in-progress"]');
+}
+
+async function resumeFromHome(page: Page) {
+  await openLessons(page);
+  await lessonProgressBanner(page).getByRole('link', { name: 'Resume Lesson' }).click();
+  await expect(page).toHaveURL(runnerUrl);
+  await expect(lessonQuestion(page)).toBeVisible();
+}
+
 async function startFromHome(page: Page) {
   await openLessons(page);
   await vocabularyTile(page).click();
@@ -225,9 +236,30 @@ test.describe('web Lesson', () => {
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/lessons');
     await openLessons(page);
-    await expect(vocabularyTile(page).getByText('Resume lesson', { exact: true })).toBeVisible();
-    await startFromHome(page);
+    await expect(vocabularyTile(page)).toHaveAttribute('aria-disabled', 'true');
+    await expect(lessonProgressBanner(page).getByText('Vocabulary Lesson · finish it before starting another one.')).toBeVisible();
+    await resumeFromHome(page);
     expect(await questionSnapshot(page)).toEqual(initial);
+  });
+
+  test('discards the Lesson in progress and frees both Lesson surfaces', async ({ page }) => {
+    const fixture = await seedEntries('lesson-discard', vocabulary.slice(0, 3));
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
+    await expect(page).toHaveURL('/lessons');
+    await openLessons(page);
+    const banner = lessonProgressBanner(page);
+    await expect(banner).toBeVisible();
+    await banner.getByRole('button', { name: 'Discard Lesson' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Discard this Lesson?' });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Discard Lesson' }).click();
+    await expect(banner).toHaveCount(0);
+    await expect(vocabularyTile(page)).not.toHaveAttribute('aria-disabled', 'true');
+    const { data: overview, error } = await fixture.client.rpc('lesson_overview', { p_learning_language_id: fixture.learningLanguageId });
+    if (error) throw error;
+    expect(overview).toBeNull();
   });
 
   test('keeps Lesson unavailable until the Active Learning Language has two eligible Senses', async ({ page }) => {
@@ -439,9 +471,7 @@ test.describe('web Lesson', () => {
       await continueToNextQuestion(page);
       await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
       await expect(page).toHaveURL('/lessons');
-      await openLessons(page);
-      await vocabularyTile(page).click();
-      await expect(lessonQuestion(page)).toBeVisible();
+      await resumeFromHome(page);
       await expect(lessonShell(page).getByRole('button', { name: 'Exit' })).toBeVisible();
     } finally {
       await concurrentPage.close();
@@ -502,7 +532,8 @@ test.describe('web Lesson', () => {
       await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
       await expect(page).toHaveURL('/lessons');
       await openLessons(page);
-      await expect(vocabularyTile(page).getByText('Resume lesson', { exact: true })).toBeVisible();
+      await expect(vocabularyTile(page)).toHaveAttribute('aria-disabled', 'true');
+      await expect(lessonProgressBanner(page).getByRole('link', { name: 'Resume Lesson' })).toBeVisible();
     } finally {
       await concurrentPage.close();
       await restartedContext.close();
@@ -588,9 +619,7 @@ test.describe('web Lesson', () => {
     await expect(lessonQuestion(page)).toBeVisible();
     expect((await questionSnapshot(page)).prompt).not.toBe(completedPrompt);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
-    await openLessons(page);
-    await vocabularyTile(page).click();
-    await expect(lessonQuestion(page)).toBeVisible();
+    await resumeFromHome(page);
     await expect(lessonShell(page).getByText(/\bReview Sessions?\b/i)).toHaveCount(0);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await expect(page).toHaveURL('/lessons');

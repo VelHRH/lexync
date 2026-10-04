@@ -169,7 +169,7 @@ export async function POST(request: Request) {
       correct_answer: question.correctAnswer,
       passages: question.supportingPassageIds.map((passageId) => {
         const passage = passagesById.get(passageId);
-        if (!passage) throw new DynamicLessonGenerationError('Generated Lesson Questions are invalid.');
+        if (!passage) throw new DynamicLessonGenerationError(`a validated question cites passage ${passageId}, which was not retrieved`);
         return {
           passage_id: passage.id,
           material_id: passage.material_id,

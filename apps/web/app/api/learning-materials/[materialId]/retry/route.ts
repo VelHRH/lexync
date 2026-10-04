@@ -1,6 +1,7 @@
 import {
   authenticatedClient,
   failLearningMaterial,
+  learningLanguageTag,
   materialResponse,
   retryMaterialResponse,
   safeAuthError,
@@ -10,6 +11,7 @@ import {
   type RetryMaterial,
 } from '../../../../../lib/learning-materials/server';
 import { decodeLearningMaterialSource, processLearningMaterial } from '../../../../../lib/learning-materials/process';
+import { LearningMaterialLanguageError } from '../../../../../lib/learning-materials/validation';
 
 type RouteContext = { params: Promise<{ materialId: string }> };
 
@@ -69,25 +71,32 @@ export async function POST(request: Request, context: RouteContext) {
       .download(material.storagePath);
     if (sourceError || !source) throw sourceError ?? new Error('Learning Material source is unavailable.');
 
+    const languageTag = await learningLanguageTag(authenticated.client, authenticated.user.id, learningLanguageId);
+    if (!languageTag) throw new Error('Learning Language is unavailable.');
+
     const sourceText = await decodeLearningMaterialSource(source);
     const completed = await processLearningMaterial(
       authenticated.client,
       material.id,
       material.processingVersion,
       sourceText,
+      languageTag,
     );
     return Response.json({ material: materialResponse(completed as Parameters<typeof materialResponse>[0]) });
-  } catch {
+  } catch (error) {
+    const languageMismatch = error instanceof LearningMaterialLanguageError;
     try {
       await failLearningMaterial(
         authenticated.client,
         material.id,
         learningLanguageId,
         material.processingVersion,
+        languageMismatch ? error.message : null,
       );
     } catch {
       return Response.json({ error: safeUnavailableError }, { status: 409 });
     }
+    if (languageMismatch) return Response.json({ error: error.message }, { status: 422 });
     return Response.json({ error: safeRetryError }, { status: 500 });
   }
 }

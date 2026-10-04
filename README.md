@@ -50,6 +50,17 @@ Configure a production SMTP provider before sending confirmation and password re
 
 For the hosted web app, configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the deployment environment, using the same browser-safe Supabase values.
 
+Learning Material preparation and Dynamic Lesson creation need three more server-side variables in that same environment, or both fail at request time:
+
+```text
+LEXYNC_EMBEDDING_PROVIDER=gemini
+LEXYNC_GENERATION_PROVIDER=gemini
+LEXYNC_LANGUAGE_DETECTION_PROVIDER=gemini
+GEMINI_API_KEY=your-key
+```
+
+Each provider variable also accepts a keyless value for tests — `deterministic` for embeddings and generation, `script` for language detection.
+
 ## Android
 
 The native Kotlin and Jetpack Compose application is in `apps/android`. Configure its browser-safe Supabase connection in `~/.gradle/gradle.properties`:

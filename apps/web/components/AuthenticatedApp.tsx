@@ -18,6 +18,7 @@ import { ExtensionRecommendation } from './ExtensionRecommendation';
 import { LessonHistory } from './LessonHistory';
 import { LearningMaterials } from './LearningMaterials';
 import { DynamicLessonRequest } from './DynamicLessonRequest';
+import { LessonInProgressActions } from './LessonInProgressActions';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 const destinations = [
@@ -50,7 +51,7 @@ function storeNavigationCollapsed(collapsed: boolean) {
 
 type LearningLanguageRow = { id: string; language_tag: string };
 type CompatibilityPair = StudyPair & { learningLanguageId: string };
-type LessonStatus = 'active' | 'completed';
+type ActiveLesson = { id: string; source: string };
 
 function toLearningLanguage(row: LearningLanguageRow): LearningLanguage {
   return { id: row.id, languageTag: row.language_tag };
@@ -60,6 +61,12 @@ const lessonsSurfaces = new Set(['Lessons', 'Dynamic Lesson', 'Lesson history'])
 
 function railSection(activeSection: string) {
   return lessonsSurfaces.has(activeSection) ? 'Lessons' : activeSection;
+}
+
+function lessonSourceLabel(source: string) {
+  if (source === 'dynamic') return 'Dynamic Lesson';
+  if (source === 'vocabulary') return 'Vocabulary Lesson';
+  return 'Lesson';
 }
 
 function sectionLabel(section: string) {
@@ -146,7 +153,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
   const [languageError, setLanguageError] = useState('');
   const [pairs, setPairs] = useState<CompatibilityPair[]>([]);
   const [eligibleSenseCount, setEligibleSenseCount] = useState(0);
-  const [lessonStatus, setLessonStatus] = useState<LessonStatus | null>(null);
+  const [activeLesson, setActiveLesson] = useState<ActiveLesson | null>(null);
   const [lessonLoading, setLessonLoading] = useState(true);
   const [lessonError, setLessonError] = useState('');
   const [languageDraft, setLanguageDraft] = useState('');
@@ -216,7 +223,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
     if (!learningLanguageId) {
       if (requestId !== lessonRequestId.current) return;
       setEligibleSenseCount(0);
-      setLessonStatus(null);
+      setActiveLesson(null);
       setLessonLoading(false);
       return;
     }
@@ -229,15 +236,17 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
     if (eligibleError || lessonError) {
       setLessonError(eligibleError?.message ?? lessonError?.message ?? 'Lesson could not be loaded.');
       setEligibleSenseCount(0);
-      setLessonStatus(null);
+      setActiveLesson(null);
       setLessonLoading(false);
       return;
     }
     setLessonError('');
     const parsedEligibleSenseCount = typeof eligibleData === 'number' ? eligibleData : Number(eligibleData);
     setEligibleSenseCount(Number.isFinite(parsedEligibleSenseCount) ? parsedEligibleSenseCount : 0);
-    const lessonPayload = lessonData && typeof lessonData === 'object' && !Array.isArray(lessonData) ? lessonData as { status?: unknown } : null;
-    setLessonStatus(lessonPayload?.status === 'active' || lessonPayload?.status === 'completed' ? lessonPayload.status : null);
+    const lessonPayload = lessonData && typeof lessonData === 'object' && !Array.isArray(lessonData) ? lessonData as { id?: unknown; source?: unknown; status?: unknown } : null;
+    setActiveLesson(lessonPayload?.status === 'active' && typeof lessonPayload.id === 'string'
+      ? { id: lessonPayload.id, source: typeof lessonPayload.source === 'string' ? lessonPayload.source : '' }
+      : null);
     setLessonLoading(false);
   }, []);
 
@@ -308,17 +317,17 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
   const displayedLanguage = activeLanguage;
   const languageLabel = `${languageName(displayedLanguage.languageTag)} · ${displayedLanguage.languageTag}`;
   const lessonAvailable = eligibleSenseCount >= 2;
-  const canLaunchLesson = lessonStatus === 'active' || lessonAvailable;
-  const vocabularyTileBlocked = !lessonLoading && !canLaunchLesson;
-  const dynamicTileBlocked = readyMaterialCount === 0 || lessonStatus === 'active';
+  const lessonInProgress = activeLesson !== null;
+  const vocabularyTileBlocked = lessonInProgress || (!lessonLoading && !lessonAvailable);
+  const dynamicTileBlocked = lessonInProgress || readyMaterialCount === 0;
   const vocabularyTileState = lessonLoading
     ? 'Checking availability…'
-    : lessonStatus === 'active' ? 'Resume lesson'
+    : lessonInProgress ? 'Finish the Lesson in progress first'
     : lessonAvailable ? `${eligibleSenseCount} Senses ready`
     : 'Needs at least two eligible Senses';
   const dynamicTileState = readyMaterialCount === null
     ? 'Checking your Learning Materials…'
-    : lessonStatus === 'active' ? 'Finish the Lesson in progress first'
+    : lessonInProgress ? 'Finish the Lesson in progress first'
     : readyMaterialCount === 0 ? 'Add a Learning Material first'
     : `${readyMaterialCount} Learning Materials ready`;
   const activePairs = pairs.filter((pair) => pair.learningLanguageId === activeLanguage.id);
@@ -394,9 +403,16 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
             </div>
           </div>}
           {activeSection === 'Dynamic Lesson' && <>
-            <DynamicLessonRequest key={`dynamic-lesson-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} readyMaterialCount={readyMaterialCount} activeLesson={lessonStatus === 'active'} onLessonCreated={() => void refreshLessonState(activeLanguage.id)} />
+            <DynamicLessonRequest key={`dynamic-lesson-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} readyMaterialCount={readyMaterialCount} activeLessonId={activeLesson?.id ?? null} onLessonCreated={() => void refreshLessonState(activeLanguage.id)} onLessonDiscarded={() => void refreshLessonState(activeLanguage.id)} />
             <ExtensionRecommendation extensionId={extensionId} />
           </>}
+          {activeSection === 'Lessons' && activeLesson && <section className="lesson-progress-banner" data-ui="lesson-in-progress" aria-labelledby="lesson-in-progress-heading">
+            <div className="lesson-progress-banner-text">
+              <h2 id="lesson-in-progress-heading">Lesson in progress</h2>
+              <p>{lessonSourceLabel(activeLesson.source)} · finish it before starting another one.</p>
+            </div>
+            <LessonInProgressActions lessonId={activeLesson.id} onDiscarded={() => void refreshLessonState(activeLanguage.id)} />
+          </section>}
           {activeSection === 'Lessons' && <div className="lesson-tiles" data-ui="visual-primitive">
             <Link className="lesson-tile" data-ui="lesson-tile-dynamic" href="/lessons/dynamic" aria-disabled={dynamicTileBlocked || undefined} tabIndex={dynamicTileBlocked ? -1 : undefined}>
               <h2>Dynamic Lesson</h2>

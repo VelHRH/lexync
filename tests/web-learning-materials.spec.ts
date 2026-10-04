@@ -198,6 +198,24 @@ test.describe('web Learning Materials', () => {
     });
   }
 
+  test('fails a Learning Material that is not written in its Learning Language and says why', async ({ page }) => {
+    const account = credentials('web-learning-material-wrong-language');
+    const setup = await register(account, ['es']);
+    const spanish = setup.languages.find((language) => language.language_tag === 'es');
+    if (!spanish) throw new Error('The Spanish Learning Language fixture is missing.');
+
+    await signIn(page, account);
+    await selectLearningLanguage(page, spanish.id);
+    const filename = 'ukrainian-notes.txt';
+    await uploadMaterial(page, filename, Buffer.from('Це український текст про щоденні справи та звички.', 'utf8'));
+
+    const region = materialsRegion(page);
+    await expect(region.getByRole('alert')).toContainText('does not look like it is written in Spanish');
+    const material = await expectMaterialStatus(page, filename, 'failed');
+    await expect(material).toContainText('does not look like it is written in Spanish');
+    await expectNoLearnerFacingTechnicalTerms(page);
+  });
+
   test('scopes the Learning Material list to the active language and the owning Learner', async ({ page, browser }) => {
     const owner = credentials('web-learning-material-owner');
     const ownerSetup = await register(owner, ['es', 'fr']);

@@ -13,6 +13,7 @@ export type MaterialRow = {
   file_name: string;
   status: MaterialStatus;
   created_at: string;
+  failure_reason?: string | null;
   storage_path?: string;
   processing_version?: number;
   learning_language_id?: string;
@@ -64,6 +65,7 @@ export function materialResponse(row: MaterialRow) {
     fileName: row.file_name,
     status: row.status,
     createdAt: row.created_at,
+    failureReason: row.failure_reason ?? null,
   };
 }
 
@@ -84,11 +86,28 @@ export async function failLearningMaterial(
   materialId: string,
   learningLanguageId: string,
   processingVersion: number,
+  failureReason: string | null = null,
 ) {
   const { error } = await client.rpc('fail_learning_material', {
     p_material_id: materialId,
     p_learning_language_id: learningLanguageId,
     p_processing_version: processingVersion,
+    p_failure_reason: failureReason,
   });
   if (error) throw error;
+}
+
+export async function learningLanguageTag(
+  client: SupabaseClient,
+  learnerId: string,
+  learningLanguageId: string,
+): Promise<string | null> {
+  const { data, error } = await client
+    .from('learning_languages')
+    .select('language_tag')
+    .eq('id', learningLanguageId)
+    .eq('learner_id', learnerId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data as { language_tag: string }).language_tag;
 }
