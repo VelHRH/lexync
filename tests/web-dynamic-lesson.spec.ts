@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
+import { expectNoLearnerFacingTechnicalTerms } from './support/lesson-copy';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -220,10 +221,6 @@ async function completeLesson(page: Page) {
     await continueToNextQuestion(page);
   }
   throw new Error('The Lesson did not reach Lesson complete within the expected number of questions.');
-}
-
-async function expectNoLearnerFacingTechnicalTerms(page: Page) {
-  await expect(page.locator('body')).not.toContainText(/\b(?:RAG|embedding|vector|chunk|passage|similarity|threshold|model|provider|Gemini)\b/i);
 }
 
 async function assertNoHorizontalOverflow(page: Page) {

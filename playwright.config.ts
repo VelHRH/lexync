@@ -130,6 +130,11 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-dynamic-lesson-recovery',
+      testMatch: /web-dynamic-lesson-recovery\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'web-design-system',
       testMatch: /web-design-system\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
@@ -175,6 +180,6 @@ export default defineConfig({
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { CHROME_EXTENSION_ID: unpackedExtensionId(path.resolve('apps/extension/.output/chrome-mv3')) },
+    env: { CHROME_EXTENSION_ID: unpackedExtensionId(path.resolve('apps/extension/.output/chrome-mv3')), LEXYNC_GENERATION_FAULT_FILE: path.resolve('test-results/generation-fault.json') },
   },
 });

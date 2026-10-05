@@ -17,6 +17,14 @@ const relevantRequest = 'I would like to practise how conservationists and polic
 
 const irrelevantRequest = 'Describe your favorite recipe for baking sourdough bread at home.';
 
+const RELEVANCE_CUTOFF = 0.65;
+
+const justAboveCutoffPassage = 'We saw a current, a lagoon, a plankton, a driftwood.';
+const justAboveCutoffRequest = 'We saw a current, a lagoon, a plankton, a harbor, a coral.';
+
+const justBelowCutoffPassage = 'We saw a shoal, a kelp, a barnacle, an anchor, a tide, a surf, a dune, a marsh.';
+const justBelowCutoffRequest = 'We saw a shoal, a kelp, a barnacle, an anchor, a tide, an island, a channel, an inlet.';
+
 test.describe('Deterministic embedding provider (lexical signature)', () => {
   test('embeds the same text identically into a unit-length 768-dimensional vector', async () => {
     const provider = new DeterministicEmbeddingProvider();
@@ -45,6 +53,54 @@ test.describe('Deterministic embedding provider (lexical signature)', () => {
     const irrelevantVector = await provider.embedQuery(irrelevantRequest);
 
     expect(cosineSimilarity(passageVector, irrelevantVector)).toBeLessThan(0.3);
+  });
+
+  test('accepts a boundary pair scoring just above the configured 0.65 cutoff', async () => {
+    const provider = new DeterministicEmbeddingProvider();
+
+    const passageVector = await provider.embedQuery(justAboveCutoffPassage);
+    const requestVector = await provider.embedQuery(justAboveCutoffRequest);
+    const score = cosineSimilarity(passageVector, requestVector);
+
+    expect(score).toBeGreaterThanOrEqual(RELEVANCE_CUTOFF);
+    expect(score).toBeGreaterThan(0.55);
+    expect(score).toBeLessThan(0.75);
+  });
+
+  test('rejects a boundary pair scoring just below the configured 0.65 cutoff', async () => {
+    const provider = new DeterministicEmbeddingProvider();
+
+    const passageVector = await provider.embedQuery(justBelowCutoffPassage);
+    const requestVector = await provider.embedQuery(justBelowCutoffRequest);
+    const score = cosineSimilarity(passageVector, requestVector);
+
+    expect(score).toBeLessThan(RELEVANCE_CUTOFF);
+    expect(score).toBeGreaterThan(0.55);
+    expect(score).toBeLessThan(0.75);
+  });
+
+  test('scores boundary fixtures identically across repeated embedding calls', async () => {
+    const provider = new DeterministicEmbeddingProvider();
+
+    const aboveScoreFirst = cosineSimilarity(
+      await provider.embedQuery(justAboveCutoffPassage),
+      await provider.embedQuery(justAboveCutoffRequest),
+    );
+    const aboveScoreSecond = cosineSimilarity(
+      await provider.embedQuery(justAboveCutoffPassage),
+      await provider.embedQuery(justAboveCutoffRequest),
+    );
+    const belowScoreFirst = cosineSimilarity(
+      await provider.embedQuery(justBelowCutoffPassage),
+      await provider.embedQuery(justBelowCutoffRequest),
+    );
+    const belowScoreSecond = cosineSimilarity(
+      await provider.embedQuery(justBelowCutoffPassage),
+      await provider.embedQuery(justBelowCutoffRequest),
+    );
+
+    expect(aboveScoreFirst).toBe(aboveScoreSecond);
+    expect(belowScoreFirst).toBe(belowScoreSecond);
   });
 
   test('falls back to a whole-text unit vector when no token reaches the minimum signature length', async () => {

@@ -6,9 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { LessonInProgressActions } from './LessonInProgressActions';
 
-type DynamicLessonResponse = { lesson?: { id: string; source: string; status: string }; insufficientMaterial?: boolean; answerLanguageRequired?: boolean; error?: unknown };
+type DynamicLessonResponse = { lesson?: { id: string; source: string; status: string }; insufficientMaterial?: boolean; answerLanguageRequired?: boolean; error?: unknown; retryable?: boolean };
 
-class DynamicLessonRequestError extends Error {}
+class DynamicLessonRequestError extends Error {
+  constructor(message: string, readonly retryable: boolean) {
+    super(message);
+  }
+}
 
 const starters = [
   'Practise the past tense the way it is used in my reading',
@@ -25,18 +29,24 @@ export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMat
   const [submitting, setSubmitting] = useState(false);
   const [insufficientMaterial, setInsufficientMaterial] = useState('');
   const [error, setError] = useState('');
+  const [retryable, setRetryable] = useState(false);
   const requestId = useRef(0);
 
   function safeApiError(payload: { error?: unknown }, fallback: string) {
     return typeof payload.error === 'string' && payload.error.trim() ? payload.error : fallback;
   }
 
-  async function submitRequest(event: FormEvent<HTMLFormElement>) {
+  function submitRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    void createLesson();
+  }
+
+  async function createLesson() {
     if (!online || readyMaterialCount === null || readyMaterialCount === 0 || submitting || activeLessonId) return;
     const currentRequestId = ++requestId.current;
     setSubmitting(true);
     setError('');
+    setRetryable(false);
     setInsufficientMaterial('');
     try {
       const response = await fetch('/api/dynamic-lessons', {
@@ -60,13 +70,14 @@ export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMat
         setInsufficientMaterial(safeApiError(payload, 'Your Learning Materials do not contain enough about that yet. Try describing what you want to practise differently, or add another Learning Material.'));
         return;
       }
-      if (!response.ok || typeof payload.error === 'string' && payload.error.trim()) throw new DynamicLessonRequestError(safeApiError(payload, 'A Lesson could not be created right now. Please try again.'));
+      if (!response.ok || typeof payload.error === 'string' && payload.error.trim()) throw new DynamicLessonRequestError(safeApiError(payload, 'A Lesson could not be created right now. Please try again.'), payload.retryable === true);
       if (!payload.lesson) throw new Error('A Lesson could not be created right now. Please try again.');
       onLessonCreated();
       router.push(`/lessons/${payload.lesson.id}`);
     } catch (requestError) {
       if (currentRequestId !== requestId.current) return;
       setError(requestError instanceof DynamicLessonRequestError ? requestError.message : 'A Lesson could not be created right now. Please try again.');
+      setRetryable(requestError instanceof DynamicLessonRequestError ? requestError.retryable : true);
     } finally {
       if (currentRequestId === requestId.current) setSubmitting(false);
     }
@@ -115,6 +126,9 @@ export function DynamicLessonRequest({ accessToken, learningLanguageId, readyMat
       : readyMaterialCount === 0 ? <p className="form-notice" role="status">Add a Learning Material and wait for it to be ready before creating a Lesson from it. <Link className="text-link" href="/materials">Open Learning Materials</Link></p>
       : null)}
     {insufficientMaterial && <p className="form-notice" role="status">{insufficientMaterial}</p>}
-    {error && <p className="form-notice error" role="alert">{error}</p>}
+    {error && !submitting && !activeLessonId && <div className="dynamic-lesson-failure form-notice error" data-ui="dynamic-lesson-failure">
+      <p role="alert">{error}</p>
+      {retryable && <button className="secondary-button" type="button" data-ui="dynamic-lesson-retry" onClick={() => { void createLesson(); }} disabled={blocked || Boolean(activeLessonId)}>Try again</button>}
+    </div>}
   </section>;
 }

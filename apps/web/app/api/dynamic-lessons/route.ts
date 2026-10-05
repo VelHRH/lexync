@@ -1,11 +1,14 @@
 import { canonicalLanguageTag, preferredAnswerLanguage, type TranslationLanguageUsage } from '@lexync/domain';
-import { createGenerationProvider } from '../../../lib/dynamic-lessons/generation';
+import { createGenerationProvider, GenerationProviderError } from '../../../lib/dynamic-lessons/generation';
 import {
   insufficientMaterialMessage,
   MAX_PRACTICE_REQUEST_LENGTH,
   safeAnswerLanguageError,
   safeAuthError,
+  safeGenerationBusyError,
   safeGenerationError,
+  safeGenerationMaterialError,
+  safeGenerationRetryError,
   safeRequestError,
 } from '../../../lib/dynamic-lessons/server';
 import { DynamicLessonGenerationError, validateDynamicLessonQuestions } from '../../../lib/dynamic-lessons/validation';
@@ -33,9 +36,25 @@ type TranslationUsageRow = {
   last_used_at: string | null;
 };
 
-function generationFailed(step: string, cause: unknown, status = 500) {
+const POST_GENERATION_STEPS = new Set(['generation provider', 'Lesson Question generation', 'Lesson Question validation', 'Lesson Question assembly', 'create_dynamic_lesson']);
+const RETRYABLE_SERVER_STEPS = new Set(['embedding provider', 'practice request embedding', 'retrieve_dynamic_lesson_context']);
+
+function generationFailed(step: string, cause: unknown, status = 500, retryable = false) {
   console.error(`dynamic-lesson creation failed at ${step}`, cause instanceof Error ? { message: cause.message, cause: cause.cause, stack: cause.stack } : cause);
-  return Response.json({ error: safeGenerationError }, { status });
+  const body: Record<string, unknown> = { error: safeGenerationError };
+  if (retryable) body.retryable = true;
+  return Response.json(body, { status });
+}
+
+function generationProviderFailed(step: string, error: unknown) {
+  console.error(`dynamic-lesson creation failed at ${step}`, error instanceof Error ? { message: error.message, cause: error.cause, stack: error.stack } : error);
+  if (error instanceof GenerationProviderError) {
+    if (error.kind === 'quota') return Response.json({ error: safeGenerationBusyError, retryable: true }, { status: 429 });
+    if (error.kind === 'invalid_output') return Response.json({ error: safeGenerationMaterialError, retryable: true }, { status: 502 });
+    return Response.json({ error: safeGenerationRetryError, retryable: true }, { status: 503 });
+  }
+  if (error instanceof DynamicLessonGenerationError) return Response.json({ error: safeGenerationMaterialError, retryable: true }, { status: 502 });
+  return Response.json({ error: safeGenerationRetryError, retryable: true }, { status: 500 });
 }
 
 export async function POST(request: Request) {
@@ -43,7 +62,7 @@ export async function POST(request: Request) {
   try {
     authenticated = await authenticatedClient(request);
   } catch (error) {
-    return generationFailed('authentication', error);
+    return generationFailed('authentication', error, 500, true);
   }
   if (!authenticated) return Response.json({ error: safeAuthError }, { status: 401 });
 
@@ -73,7 +92,8 @@ export async function POST(request: Request) {
       .eq('id', learningLanguageId)
       .eq('learner_id', user.id)
       .maybeSingle();
-    if (learningLanguageError || !learningLanguage) return generationFailed(step, learningLanguageError ?? 'the Learning Language was not found', 400);
+    if (learningLanguageError) return generationFailed(step, learningLanguageError, 500, true);
+    if (!learningLanguage) return generationFailed(step, 'the Learning Language was not found', 400);
     const learningLanguageTag = (learningLanguage as { language_tag: string }).language_tag;
 
     let answerLanguageTag: string | null = null;
@@ -191,6 +211,7 @@ export async function POST(request: Request) {
 
     return Response.json({ lesson: lessonSummary });
   } catch (error) {
-    return generationFailed(step, error);
+    if (POST_GENERATION_STEPS.has(step)) return generationProviderFailed(step, error);
+    return generationFailed(step, error, 500, RETRYABLE_SERVER_STEPS.has(step));
   }
 }
