@@ -5,7 +5,7 @@ export type GenerationFailureKind = 'timeout' | 'quota' | 'transport' | 'provide
 
 export type GenerationFault = {
   kind?: GenerationFailureKind;
-  invalid?: 'duplicate-prompts' | 'too-few-questions' | 'empty-choices' | 'no-correct-answer' | 'unknown-passage';
+  invalid?: 'duplicate-prompts' | 'too-few-questions' | 'empty-choices' | 'no-correct-answer' | 'unknown-passage' | 'unsupported-type';
 };
 
 export const generationFaultFile = path.resolve('test-results/generation-fault.json');

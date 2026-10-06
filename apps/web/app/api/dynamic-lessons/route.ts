@@ -36,8 +36,20 @@ type TranslationUsageRow = {
   last_used_at: string | null;
 };
 
-const POST_GENERATION_STEPS = new Set(['generation provider', 'Lesson Question generation', 'Lesson Question validation', 'Lesson Question assembly', 'create_dynamic_lesson']);
-const RETRYABLE_SERVER_STEPS = new Set(['embedding provider', 'practice request embedding', 'retrieve_dynamic_lesson_context']);
+type FailureClass = 'provider' | 'retryable' | 'plain';
+const stepFailureClasses = {
+  'Learning Language lookup': 'plain',
+  'answer language inference': 'retryable',
+  'embedding provider': 'retryable',
+  'practice request embedding': 'retryable',
+  'retrieve_dynamic_lesson_context': 'retryable',
+  'generation provider': 'provider',
+  'Lesson Question generation': 'provider',
+  'Lesson Question validation': 'provider',
+  'Lesson Question assembly': 'provider',
+  'create_dynamic_lesson': 'provider',
+} as const satisfies Record<string, FailureClass>;
+type GenerationStep = keyof typeof stepFailureClasses;
 
 function generationFailed(step: string, cause: unknown, status = 500, retryable = false) {
   console.error(`dynamic-lesson creation failed at ${step}`, cause instanceof Error ? { message: cause.message, cause: cause.cause, stack: cause.stack } : cause);
@@ -83,7 +95,7 @@ export async function POST(request: Request) {
   }
 
   const { client, user } = authenticated;
-  let step = 'Learning Language lookup';
+  let step: GenerationStep = 'Learning Language lookup';
 
   try {
     const { data: learningLanguage, error: learningLanguageError } = await client
@@ -211,7 +223,8 @@ export async function POST(request: Request) {
 
     return Response.json({ lesson: lessonSummary });
   } catch (error) {
-    if (POST_GENERATION_STEPS.has(step)) return generationProviderFailed(step, error);
-    return generationFailed(step, error, 500, RETRYABLE_SERVER_STEPS.has(step));
+    const failureClass = stepFailureClasses[step];
+    if (failureClass === 'provider') return generationProviderFailed(step, error);
+    return generationFailed(step, error, 500, failureClass === 'retryable');
   }
 }

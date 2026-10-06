@@ -255,7 +255,7 @@ export class GeminiGenerationProvider implements GenerationProvider {
 
 export type GenerationFault = {
   kind?: GenerationFailureKind;
-  invalid?: 'duplicate-prompts' | 'too-few-questions' | 'empty-choices' | 'no-correct-answer' | 'unknown-passage';
+  invalid?: 'duplicate-prompts' | 'too-few-questions' | 'empty-choices' | 'no-correct-answer' | 'unknown-passage' | 'unsupported-type';
 };
 
 function applyInvalidFault(candidates: DynamicLessonQuestionCandidate[], invalid: NonNullable<GenerationFault['invalid']>): DynamicLessonQuestionCandidate[] {
@@ -274,6 +274,9 @@ function applyInvalidFault(candidates: DynamicLessonQuestionCandidate[], invalid
       return copies;
     case 'unknown-passage':
       if (copies.length >= 1) copies[0] = { ...copies[0], supportingPassageIds: ['00000000-0000-0000-0000-000000000000'] };
+      return copies;
+    case 'unsupported-type':
+      if (copies.length >= 1) copies[0] = { ...copies[0], questionType: 'listening' as unknown as DynamicLessonQuestionCandidate['questionType'] };
       return copies;
   }
 }

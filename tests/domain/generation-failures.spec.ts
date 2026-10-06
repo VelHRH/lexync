@@ -296,6 +296,17 @@ test.describe('FaultInjectingGenerationProvider', () => {
     expect(() => validateDynamicLessonQuestions(candidates, validationContext(request))).toThrow(DynamicLessonGenerationError);
   });
 
+  test('unsupported-type fault returns a candidate whose questionType is outside translation/cloze, rejected by the validator', async () => {
+    writeFileSync(faultFilePath, JSON.stringify({ invalid: 'unsupported-type' }), 'utf8');
+    const wrapper = new FaultInjectingGenerationProvider(new DeterministicGenerationProvider(), faultFilePath);
+    const request = buildRequest();
+
+    const candidates = await wrapper.generateLessonQuestions(request);
+
+    expect(['translation', 'cloze']).not.toContain(candidates[0].questionType);
+    expect(() => validateDynamicLessonQuestions(candidates, validationContext(request))).toThrow(DynamicLessonGenerationError);
+  });
+
   test('ignores an unparsable fault file and delegates normally', async () => {
     writeFileSync(faultFilePath, 'not json', 'utf8');
     const inner = new DeterministicGenerationProvider();
