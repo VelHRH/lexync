@@ -323,6 +323,8 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .dynamic-lesson-building { display: grid; justify-items: center; gap: .85rem; padding: 2.5rem 1.5rem; border: var(--lexync-border-hairline) solid var(--web-glass-border); border-radius: var(--lexync-radius-xl); background: var(--web-surface); box-shadow: var(--web-lift), var(--web-glass-highlight); text-align: center; }
 .dynamic-lesson-building .composer-help { margin: 0; }
 .dynamic-lesson-building-request { max-width: 46ch; margin: 0; padding-top: .85rem; border-top: var(--lexync-border-regular) solid var(--web-quiet); color: var(--web-muted); font-size: var(--lexync-type-size-sm); font-style: italic; line-height: var(--lexync-type-line-relaxed); }
+.dynamic-lesson-failure { display: flex; flex-direction: column; gap: .6rem; }
+.dynamic-lesson-failure button { align-self: flex-start; }
 .dynamic-lesson-spinner { width: 2.5rem; height: 2.5rem; border: .25rem solid var(--web-quiet); border-top-color: var(--web-primary); border-radius: var(--lexync-radius-pill); animation: dynamic-lesson-spin 900ms linear infinite; }
 
 @keyframes dynamic-lesson-spin { to { transform: rotate(360deg); } }

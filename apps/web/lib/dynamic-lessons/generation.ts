@@ -1,5 +1,6 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { buildClozePrompt, languageName } from '@lexync/domain';
+import { readFileSync, rmSync } from 'node:fs';
 
 export const GEMINI_GENERATION_MODEL = 'gemini-3.5-flash-lite';
 
@@ -26,6 +27,42 @@ export type GenerationProvider = {
   readonly model: string;
   generateLessonQuestions(request: DynamicLessonGenerationRequest): Promise<DynamicLessonQuestionCandidate[]>;
 };
+
+export type GenerationFailureKind = 'timeout' | 'quota' | 'transport' | 'provider' | 'invalid_output';
+
+export class GenerationProviderError extends Error {
+  readonly kind: GenerationFailureKind;
+
+  constructor(kind: GenerationFailureKind, message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.kind = kind;
+  }
+}
+
+function matchFailureSignals(error: unknown): GenerationFailureKind | null {
+  if (!error || typeof error !== 'object') return null;
+  const err = error as { name?: unknown; message?: unknown; code?: unknown; status?: unknown; statusCode?: unknown };
+  const name = typeof err.name === 'string' ? err.name : '';
+  const message = typeof err.message === 'string' ? err.message : '';
+  const code = typeof err.code === 'string' ? err.code : '';
+  const status = typeof err.status === 'number' ? err.status : (typeof err.statusCode === 'number' ? err.statusCode : null);
+
+  if (name === 'AbortError' || name === 'TimeoutError' || code === 'ETIMEDOUT' || code === 'ESOCKETTIMEDOUT' || status === 504 || /timed?\s?out|deadline exceeded/i.test(message)) return 'timeout';
+  if (status === 429 || /quota|rate ?limit|resource[_ ]exhausted|too many requests/i.test(message)) return 'quota';
+  if (['ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EPIPE'].includes(code) || /fetch failed|socket hang up|network|unavailable|connection/i.test(message) || (typeof status === 'number' && status >= 500)) return 'transport';
+  return null;
+}
+
+export function classifyGenerationFailure(error: unknown): GenerationFailureKind {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current; depth += 1) {
+    if (current instanceof GenerationProviderError) return current.kind;
+    const matched = matchFailureSignals(current);
+    if (matched) return matched;
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return 'provider';
+}
 
 type TokenCandidate = {
   token: string;
@@ -211,14 +248,87 @@ export class GeminiGenerationProvider implements GenerationProvider {
           : question?.supportingPassageIds,
       }));
     } catch (error) {
-      throw new Error('The Lesson generation provider could not produce Lesson Questions.', { cause: error });
+      throw new GenerationProviderError(classifyGenerationFailure(error), 'The Lesson generation provider could not produce Lesson Questions.', { cause: error });
     }
+  }
+}
+
+export type GenerationFault = {
+  kind?: GenerationFailureKind;
+  invalid?: 'duplicate-prompts' | 'too-few-questions' | 'empty-choices' | 'no-correct-answer' | 'unknown-passage' | 'unsupported-type';
+};
+
+function applyInvalidFault(candidates: DynamicLessonQuestionCandidate[], invalid: NonNullable<GenerationFault['invalid']>): DynamicLessonQuestionCandidate[] {
+  const copies = candidates.map((candidate) => ({ ...candidate }));
+  switch (invalid) {
+    case 'duplicate-prompts':
+      if (copies.length >= 2) copies[1] = { ...copies[1], prompt: copies[0].prompt };
+      return copies;
+    case 'too-few-questions':
+      return copies.slice(0, 1);
+    case 'empty-choices':
+      if (copies.length >= 1) copies[0] = { ...copies[0], choices: [] };
+      return copies;
+    case 'no-correct-answer':
+      if (copies.length >= 1) copies[0] = { ...copies[0], correctAnswer: '—' };
+      return copies;
+    case 'unknown-passage':
+      if (copies.length >= 1) copies[0] = { ...copies[0], supportingPassageIds: ['00000000-0000-0000-0000-000000000000'] };
+      return copies;
+    case 'unsupported-type':
+      if (copies.length >= 1) copies[0] = { ...copies[0], questionType: 'listening' as unknown as DynamicLessonQuestionCandidate['questionType'] };
+      return copies;
+  }
+}
+
+export class FaultInjectingGenerationProvider implements GenerationProvider {
+  private readonly inner: GenerationProvider;
+  private readonly faultFilePath: string;
+
+  constructor(inner: GenerationProvider, faultFilePath: string) {
+    this.inner = inner;
+    this.faultFilePath = faultFilePath;
+  }
+
+  get model(): string {
+    return this.inner.model;
+  }
+
+  async generateLessonQuestions(request: DynamicLessonGenerationRequest): Promise<DynamicLessonQuestionCandidate[]> {
+    const fault = this.readFault();
+    if (!fault) return this.inner.generateLessonQuestions(request);
+    if (fault.kind) throw new GenerationProviderError(fault.kind, 'The Lesson generation provider could not produce Lesson Questions.');
+    if (fault.invalid) {
+      const candidates = await this.inner.generateLessonQuestions(request);
+      return applyInvalidFault(candidates, fault.invalid);
+    }
+    return this.inner.generateLessonQuestions(request);
+  }
+
+  private readFault(): GenerationFault | null {
+    let parsed: GenerationFault;
+    try {
+      const contents = readFileSync(this.faultFilePath, 'utf8');
+      parsed = JSON.parse(contents) as GenerationFault;
+    } catch {
+      return null;
+    }
+    try {
+      rmSync(this.faultFilePath, { force: true });
+    } catch {
+    }
+    return parsed;
   }
 }
 
 export function createGenerationProvider(): GenerationProvider {
   const provider = process.env.LEXYNC_GENERATION_PROVIDER;
-  if (provider === 'deterministic') return new DeterministicGenerationProvider();
+  if (provider === 'deterministic') {
+    const base = new DeterministicGenerationProvider();
+    const faultFilePath = process.env.LEXYNC_GENERATION_FAULT_FILE;
+    if (faultFilePath) return new FaultInjectingGenerationProvider(base, faultFilePath);
+    return base;
+  }
   if (provider === 'gemini') {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY is required for the Gemini generation provider.');

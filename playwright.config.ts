@@ -130,6 +130,11 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-dynamic-lesson-recovery',
+      testMatch: /web-dynamic-lesson-recovery\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:3001' },
+    },
+    {
       name: 'web-design-system',
       testMatch: /web-design-system\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
@@ -151,7 +156,13 @@ export default defineConfig({
     },
     {
       name: 'bundle-security',
-      testMatch: /security\/.*\.spec\.ts/,
+      testMatch: /security\/client-bundle\.spec\.ts/,
+    },
+    {
+      name: 'api-response-security',
+      testMatch: /security\/api-responses\.spec\.ts/,
+      use: { baseURL: 'http://127.0.0.1:3001' },
+      dependencies: ['web-dynamic-lesson-recovery'],
     },
     {
       name: 'design-system-contract',
@@ -170,11 +181,24 @@ export default defineConfig({
       testMatch: /extension-release(?:-command)?\.spec\.ts/,
     },
   ],
-  webServer: {
-    command: 'pnpm --filter @lexync/web start',
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: { CHROME_EXTENSION_ID: unpackedExtensionId(path.resolve('apps/extension/.output/chrome-mv3')) },
-  },
+  webServer: [
+    {
+      command: 'pnpm --filter @lexync/web start',
+      url: 'http://127.0.0.1:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: { CHROME_EXTENSION_ID: unpackedExtensionId(path.resolve('apps/extension/.output/chrome-mv3')) },
+    },
+    {
+      command: 'pnpm --filter @lexync/web start',
+      url: 'http://127.0.0.1:3001',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        CHROME_EXTENSION_ID: unpackedExtensionId(path.resolve('apps/extension/.output/chrome-mv3')),
+        LEXYNC_GENERATION_FAULT_FILE: path.resolve('test-results/generation-fault.json'),
+        PORT: '3001',
+      },
+    },
+  ],
 });
