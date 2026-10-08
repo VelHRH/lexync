@@ -175,11 +175,6 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page).toHaveURL('/library');
     await expect(page.locator('summary').filter({ hasText: 'descubrir' })).toBeVisible();
-    await expect(page.getByLabel('Expression')).toBeVisible();
-    await expect(page.getByLabel('Expression')).toHaveValue('');
-    await expect(page.getByLabel('Answer Language')).toHaveValue('');
-    await expect(page.getByLabel('Translation')).toHaveValue('');
-    await expect(page.getByLabel('Example')).toHaveValue('');
     expect(await page.evaluate((key) => window.sessionStorage.getItem(key), unloadMarker)).toBeNull();
     await expect(page).toHaveURL('/library');
 
@@ -189,6 +184,12 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(entry.getByText(/^to discover en$/)).toBeVisible();
     await expect(page.getByText('Quiero descubrir la ciudad.')).toBeVisible();
 
+    await page.getByRole('button', { name: 'Add vocabulary' }).click();
+    await expect(page.getByLabel('Expression')).toBeVisible();
+    await expect(page.getByLabel('Expression')).toHaveValue('');
+    await expect(page.getByLabel('Answer Language')).toHaveValue('');
+    await expect(page.getByLabel('Translation')).toHaveValue('');
+    await expect(page.getByLabel('Example')).toHaveValue('');
     await page.getByLabel('Expression').fill('fallo');
     await page.getByLabel('Answer Language').fill('en');
     await page.getByLabel('Translation').fill('failure');
@@ -196,13 +197,14 @@ test.describe('web Vocabulary Entry library', () => {
     await page.evaluate((key) => window.sessionStorage.removeItem(key), unloadMarker);
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.locator('summary').filter({ hasText: 'fallo' })).toBeVisible();
+    expect(await page.evaluate((key) => window.sessionStorage.getItem(key), unloadMarker)).toBeNull();
+    await expect(page).toHaveURL('/library');
+
+    await page.getByRole('button', { name: 'Add vocabulary' }).click();
     await expect(page.getByLabel('Expression')).toHaveValue('');
     await expect(page.getByLabel('Answer Language')).toHaveValue('');
     await expect(page.getByLabel('Translation')).toHaveValue('');
     await expect(page.getByLabel('Example')).toHaveValue('');
-    expect(await page.evaluate((key) => window.sessionStorage.getItem(key), unloadMarker)).toBeNull();
-    await expect(page).toHaveURL('/library');
-
     await page.route('**/rest/v1/rpc/capture_learning_language_entry', (route) => route.abort());
     await page.getByLabel('Expression').fill('error');
     await page.getByLabel('Answer Language').fill('en');
@@ -234,6 +236,7 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Translation').fill('house');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.locator('summary').filter({ hasText: 'Casa' })).toBeVisible();
+    await page.getByRole('button', { name: 'Add vocabulary' }).click();
     await expect(page.getByLabel('Expression')).toBeVisible();
     await page.getByLabel('Expression').fill(' casa ');
     await page.getByLabel('Answer Language').fill('en');

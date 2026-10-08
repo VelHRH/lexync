@@ -3,7 +3,9 @@
 import { languageName } from '@lexync/domain';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
+import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 
 type LessonQuestionType = 'translation' | 'cloze';
 type LessonDirection = 'recognition' | 'recall';
@@ -121,6 +123,21 @@ function percentage(lesson: LessonState) {
   return Math.round(((lesson.correct_count ?? 0) / total) * 100);
 }
 
+function normalizeCapturedText(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function captureBlockFor(node: Node) {
+  const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+  return element ? element.closest('#lesson-question-heading, .lesson-choice, .lesson-feedback, .lesson-missed-item') : null;
+}
+
+function captureBlockText(block: Element) {
+  const clone = block.cloneNode(true) as Element;
+  clone.querySelectorAll('[aria-hidden="true"]').forEach((decorative) => decorative.remove());
+  return clone.textContent ?? '';
+}
+
 export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, onLessonStarted }: { lessonId: string; languages: { id: string; language_tag: string }[]; onExit: () => void; onPractiseSomethingElse: () => void; onLessonStarted: (startedLessonId: string) => void }) {
   const [lesson, setLesson] = useState<LessonState | null>(null);
   const [questionId, setQuestionId] = useState<string | null>(null);
@@ -130,7 +147,49 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
   const [advancing, setAdvancing] = useState(false);
   const [startingAnother, setStartingAnother] = useState(false);
   const [error, setError] = useState('');
+  const [capturedSelection, setCapturedSelection] = useState<{ expression: string; example: string } | null>(null);
+  const [captureDialogOpen, setCaptureDialogOpen] = useState(false);
+  const [captureStatusMessage, setCaptureStatusMessage] = useState('');
   const lessonRequestId = useRef(0);
+  const captureContainerRef = useRef<HTMLElement | null>(null);
+  const captureSaveButtonRef = useRef<HTMLButtonElement | null>(null);
+  const online = useOnlineStatus();
+
+  useEffect(() => {
+    function handleSelectionChange() {
+      const container = captureContainerRef.current;
+      const activeSelection = document.getSelection();
+      if (!container || !activeSelection || activeSelection.isCollapsed) return;
+      const anchorNode = activeSelection.anchorNode;
+      const focusNode = activeSelection.focusNode;
+      if (!anchorNode || !focusNode || !container.contains(anchorNode) || !container.contains(focusNode)) return;
+      const expression = normalizeCapturedText(activeSelection.toString());
+      if (!expression) return;
+      const block = captureBlockFor(anchorNode);
+      if (!block) return;
+      const example = normalizeCapturedText(captureBlockText(block));
+      setCapturedSelection({ expression, example });
+      setCaptureStatusMessage('');
+    }
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
+
+  function openCaptureDialog() {
+    setCaptureStatusMessage('');
+    setCaptureDialogOpen(true);
+  }
+
+  function handleCaptured(expression: string) {
+    setCaptureStatusMessage(expression);
+    setCapturedSelection(null);
+  }
+
+  function closeCaptureDialog() {
+    setCaptureDialogOpen(false);
+    setCapturedSelection(null);
+    captureSaveButtonRef.current?.focus();
+  }
 
   function applyLesson(nextLesson: LessonState, preferredQuestionId?: string | null) {
     const nextQuestion = preferredQuestionId
@@ -234,6 +293,8 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
     }
     const nextQuestion = firstPending(continued);
     setLesson(continued);
+    setCaptureStatusMessage('');
+    setCapturedSelection(null);
     if (nextQuestion) {
       setQuestionId(nextQuestion.id);
       setSelectedChoice(nextQuestion.selected_answer ?? '');
@@ -281,7 +342,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
           <span>Lesson question {questionPosition} of {total}</span>
           <progress aria-label="Lesson progress" max={total} value={progress} />
         </div>
-        <section className="lesson-question" role="region" aria-label="Lesson question">
+        <section className="lesson-question" role="region" aria-label="Lesson question" ref={captureContainerRef}>
           <p className="lesson-direction">{question.question_type === 'cloze' ? 'Cloze' : question.direction === 'recall' ? 'Recall' : 'Recognition'}{question.question_type === 'translation' && question.answer_language_tag ? ` · ${question.answer_language_tag}` : ''}</p>
           <h1 id="lesson-question-heading">{question.prompt}</h1>
           <fieldset className="lesson-choices">
@@ -301,13 +362,21 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
             {feedback && <><span className="lesson-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'Correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span><span>{feedback}</span>{feedback === 'Incorrect' && question.correct_answer && <><span className="lesson-correction-label">Correct answer</span><span>{question.correct_answer}</span></>}</>}
           </div>
         </section>
+        {lesson.source === 'dynamic' && <section className="lesson-capture" role="region" aria-label="Save to vocabulary" data-ui="lesson-capture">
+          {capturedSelection ? <>
+            <p className="lesson-capture-expression" id="lesson-capture-expression">{capturedSelection.expression}</p>
+            <button className="secondary-button lesson-capture-save" type="button" aria-describedby="lesson-capture-expression" disabled={!online} onClick={openCaptureDialog} ref={captureSaveButtonRef}>Save to vocabulary</button>
+          </> : <p className="lesson-capture-hint">Select a word or phrase to save it to your vocabulary.</p>}
+          {captureStatusMessage && <p className="lesson-capture-status" role="status" aria-live="polite">Saved “{captureStatusMessage}” to your vocabulary.</p>}
+        </section>}
+        {lesson.source === 'dynamic' && <VocabularyCaptureDialog draft={capturedSelection ? { expression: capturedSelection.expression, example: capturedSelection.example, answerLanguage: question.answer_language_tag ?? '' } : undefined} language={{ id: lesson.learning_language_id, languageTag: lessonLanguageTag }} onCaptured={handleCaptured} onClose={closeCaptureDialog} open={captureDialogOpen} />}
         <div className="lesson-footer"><button className="primary-button lesson-continue" type="button" disabled={!question.selected_answer && !selectedChoice || submitting || advancing} onClick={() => void continueLesson()}>{advancing ? 'Loading…' : 'Continue'}</button></div>
       </>}
       {!loading && !error && lesson && !isComplete && !question && <div className="lesson-state" role="status"><p>This Lesson has no available questions.</p><button className="secondary-button" type="button" onClick={onExit}>Back to Lessons</button></div>}
       {!loading && !error && lesson && isComplete && <section className="lesson-complete" aria-labelledby="lesson-complete-heading">
         <h1 id="lesson-complete-heading">Lesson complete</h1>
         <p className="lesson-score">{lesson.correct_count ?? 0}/{total} · {percentage(lesson)}%</p>
-        {lesson.questions.some((lessonQuestion) => lessonQuestion.is_correct === false) && <section className="lesson-missed" aria-label="Missed answers">
+        {lesson.questions.some((lessonQuestion) => lessonQuestion.is_correct === false) && <section className="lesson-missed" aria-label="Missed answers" ref={captureContainerRef}>
           <h2>Missed answers</h2>
           {lesson.questions.filter((lessonQuestion) => lessonQuestion.is_correct === false).map((lessonQuestion) => <div className="lesson-missed-item" key={lessonQuestion.id}>
             <p>{lessonQuestion.prompt}</p>
