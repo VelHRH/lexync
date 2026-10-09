@@ -6,9 +6,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
-import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
+import { VocabularyCaptureDialog, type Translation } from './VocabularyCaptureDialog';
 
-type Translation = { answer_language_tag: string; id: string; text: string };
 type Example = { id: string; text: string };
 type Sense = { id: string; translations: Translation[]; examples: Example[] };
 type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean };

@@ -506,7 +506,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .lesson-correction-label { margin-left: .5rem; }
 .lesson-footer { min-height: 6rem; display: flex; align-items: center; justify-content: flex-end; border-top: var(--web-outline); }
 .lesson-continue { min-width: 8rem; }
-.lesson-capture { min-height: 3.5rem; display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; padding: .75rem 0; border-top: var(--web-outline); }
+.lesson-capture { min-height: calc(2.75rem + 1.5rem + 1px); display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; padding: .75rem 0; border-top: var(--web-outline); }
 .lesson-capture-hint { margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
 .lesson-capture-expression { font-family: var(--lexync-type-family-mono); color: var(--web-ink); font-weight: var(--lexync-type-weight-bold); }
 .lesson-capture-status { margin-left: auto; color: var(--lexync-color-success); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); }

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 
-type Translation = { answer_language_tag: string; id: string; text: string };
+export type Translation = { answer_language_tag: string; id: string; text: string };
 type PendingSense = { id: string; translations: Translation[] };
 
 export type VocabularyCaptureDraft = { answerLanguage: string; example: string; expression: string };
