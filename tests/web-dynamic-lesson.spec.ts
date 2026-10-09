@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
 import { expectNoLearnerFacingTechnicalTerms } from './support/lesson-copy';
+import { selectWord } from './support/text-selection';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -192,7 +193,7 @@ async function selectAnswer(page: Page, choice: Locator) {
   await choice.check();
   await expect(lessonQuestion(page).getByRole('radio', { name: selectedValue, exact: true })).toBeChecked();
   await expect(answerChoices(page).first()).toBeDisabled();
-  await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+  await expect(lessonQuestion(page).getByRole('status')).toContainText(/Correct|Incorrect/);
   await expect(continueButton(page)).toBeEnabled();
 }
 
@@ -227,6 +228,68 @@ async function assertNoHorizontalOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
 }
 
+function lessonCaptureBar(page: Page) {
+  return page.getByRole('region', { name: 'Save to vocabulary' });
+}
+
+function vocabularyCaptureDialog(page: Page) {
+  return page.getByRole('dialog', { name: 'Add vocabulary' });
+}
+
+function saveToVocabularyButton(page: Page) {
+  return lessonCaptureBar(page).getByRole('button', { name: 'Save to vocabulary', exact: true });
+}
+
+function libraryEntrySummary(page: Page, expression: string) {
+  return page.locator('summary').filter({ hasText: expression });
+}
+
+function pickSelectableWord(text: string): string {
+  const match = text.match(/[A-Za-z]{3,}/u);
+  if (!match) throw new Error(`No selectable word was found in "${text}".`);
+  return match[0];
+}
+
+function expectedAnswerLanguageFromDirectionText(directionText: string): string {
+  const match = directionText.match(/ · (.+)$/);
+  return match ? match[1] : '';
+}
+
+async function fillCaptureForm(dialog: Locator, translation: string, answerLanguage: string) {
+  await dialog.getByLabel('Translation', { exact: true }).fill(translation);
+  await dialog.getByLabel('Answer Language', { exact: true }).fill(answerLanguage);
+}
+
+async function submitCaptureForm(dialog: Locator) {
+  await dialog.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+}
+
+async function findLessonQuestionContaining(page: Page, text: string, maxAttempts = 10) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (await lessonShell(page).getByRole('heading', { name: 'Lesson complete', exact: true }).count()) {
+      throw new Error(`The Lesson reached completion before any question contained "${text}".`);
+    }
+    const headingText = (await lessonQuestion(page).getByRole('heading', { level: 1 }).innerText()).trim();
+    if (headingText.includes(text)) return headingText;
+    await answerCurrentQuestion(page);
+    await continueToNextQuestion(page);
+  }
+  throw new Error(`No Lesson question contained "${text}" within ${maxAttempts} questions.`);
+}
+
+async function answerQuestionIncorrectly(page: Page, maxAttempts = 20) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (await lessonShell(page).getByRole('heading', { name: 'Lesson complete', exact: true }).count()) {
+      throw new Error('The Lesson reached completion before any question was answered incorrectly.');
+    }
+    await selectAnswer(page, answerChoices(page).nth(1));
+    const status = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim();
+    if (status.includes('Incorrect')) return;
+    await continueToNextQuestion(page);
+  }
+  throw new Error(`No Lesson question was answered incorrectly within ${maxAttempts} attempts.`);
+}
+
 test.describe('web Dynamic Lesson', () => {
   test('creates a Dynamic Lesson from a relevant Practice Request and completes it in the canonical runner', async ({ page }) => {
     const setup = await registerWithLanguage('dynamic-lesson-relevant');
@@ -241,10 +304,50 @@ test.describe('web Dynamic Lesson', () => {
     const total = await progressValue(page, 'max');
     expect(total).toBeGreaterThanOrEqual(8);
     expect(total).toBeLessThanOrEqual(12);
+
+    await answerCurrentQuestion(page);
+    const positionTextBefore = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
+    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim();
+    const directionText = (await lessonQuestion(page).locator('.lesson-direction').innerText()).trim();
+    const promptHeading = lessonQuestion(page).getByRole('heading', { level: 1 });
+    const promptText = (await promptHeading.innerText()).trim();
+    const capturedWord = pickSelectableWord(promptText);
+    await selectWord(page, promptHeading, capturedWord);
+    const captureBar = lessonCaptureBar(page);
+    await expect(captureBar.locator('.lesson-capture-expression')).toHaveText(capturedWord);
+    await saveToVocabularyButton(page).click();
+    const dialog = vocabularyCaptureDialog(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue(capturedWord);
+    await expect(dialog.getByLabel('Example')).toHaveValue(promptText);
+    await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
+    await expect(dialog.getByLabel('Answer Language', { exact: true })).toHaveValue(expectedAnswerLanguageFromDirectionText(directionText));
+    const capturedTranslation = 'a passing shower';
+    await fillCaptureForm(dialog, capturedTranslation, 'en');
+    await submitCaptureForm(dialog);
+    await expect(dialog).toHaveCount(0);
+    await expect(captureBar.getByRole('status')).toContainText(`Saved “${capturedWord}” to your vocabulary.`);
+    await expect(promptHeading).toHaveText(promptText);
+    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ })).toHaveText(feedbackTextBefore);
+    await expect(answerChoices(page).first()).toBeChecked();
+    await expect(answerChoices(page).first()).toBeDisabled();
+    const positionTextAfter = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
+    expect(positionTextAfter).toBe(positionTextBefore);
+
+    await continueToNextQuestion(page);
     await completeLesson(page);
     await expect(lessonShell(page).getByText(new RegExp(`\\d+/${total}`))).toBeVisible();
     await expect(lessonShell(page).getByRole('button', { name: 'Practise something else' })).toBeVisible();
     await expect(lessonShell(page).getByRole('button', { name: 'Start another lesson' })).toHaveCount(0);
+
+    const vocabularyLesson = await setup.client.rpc('start_or_resume_vocabulary_lesson', { p_learning_language_id: setup.learningLanguageId });
+    if (vocabularyLesson.error) throw vocabularyLesson.error;
+    const vocabularyLessonPayload = vocabularyLesson.data as { questions: Array<{ prompt: string; choices: string[]; correct_answer: string | null }> };
+    const presentsCapturedEntry = vocabularyLessonPayload.questions.some((vocabularyQuestion) =>
+      vocabularyQuestion.prompt.includes(capturedWord) || vocabularyQuestion.prompt.includes(capturedTranslation)
+      || vocabularyQuestion.choices.includes(capturedWord) || vocabularyQuestion.choices.includes(capturedTranslation)
+      || vocabularyQuestion.correct_answer === capturedWord || vocabularyQuestion.correct_answer === capturedTranslation);
+    expect(presentsCapturedEntry).toBe(true);
   });
 
   test('keeps the same Dynamic Lesson question stable across a reload', async ({ page }) => {
@@ -479,5 +582,184 @@ test.describe('web Dynamic Lesson', () => {
     await assertNoHorizontalOverflow(page);
     await completeLesson(page);
     await assertNoHorizontalOverflow(page);
+  });
+
+  test('leaves the Dynamic Lesson untouched when a vocabulary capture is cancelled or dismissed', async ({ page }) => {
+    const setup = await registerWithLanguage('dynamic-lesson-capture-cancel');
+    await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
+    await signIn(page, setup.account);
+    await selectLearningLanguage(page, setup.learningLanguageId);
+    await uploadMaterial(page, 'capture-cancel-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
+    await expectReadyMaterial(page, 'capture-cancel-notes.txt');
+    await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
+    await expect(page).toHaveURL(runnerUrl);
+    await expect(lessonQuestion(page)).toBeVisible();
+    await answerCurrentQuestion(page);
+    const positionTextBefore = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
+    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim();
+    const choice = answerChoices(page).nth(1);
+    const choiceValue = await choice.inputValue();
+    const choiceLabel = choice.locator('..');
+    const captureBar = lessonCaptureBar(page);
+
+    await selectWord(page, choiceLabel, choiceValue);
+    await expect(captureBar.locator('.lesson-capture-expression')).toHaveText(choiceValue);
+    await saveToVocabularyButton(page).click();
+    const dialog = vocabularyCaptureDialog(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue(choiceValue);
+    await expect(dialog.getByLabel('Example')).toHaveValue(choiceValue);
+    await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(answerChoices(page).first()).toBeChecked();
+    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ })).toHaveText(feedbackTextBefore);
+    let positionTextAfter = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
+    expect(positionTextAfter).toBe(positionTextBefore);
+
+    await selectWord(page, choiceLabel, choiceValue);
+    await expect(captureBar.locator('.lesson-capture-expression')).toHaveText(choiceValue);
+    await saveToVocabularyButton(page).click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(answerChoices(page).first()).toBeChecked();
+    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ })).toHaveText(feedbackTextBefore);
+    positionTextAfter = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
+    expect(positionTextAfter).toBe(positionTextBefore);
+
+    await page.goto('/library');
+    await expect(libraryEntrySummary(page, choiceValue)).toHaveCount(0);
+  });
+
+  test('captures a word from the revealed correct answer in Dynamic Lesson feedback', async ({ page }) => {
+    const setup = await registerWithLanguage('dynamic-lesson-capture-feedback');
+    await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
+    await signIn(page, setup.account);
+    await selectLearningLanguage(page, setup.learningLanguageId);
+    await uploadMaterial(page, 'capture-feedback-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
+    await expectReadyMaterial(page, 'capture-feedback-notes.txt');
+    await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
+    await expect(page).toHaveURL(runnerUrl);
+    await expect(lessonQuestion(page)).toBeVisible();
+    await answerQuestionIncorrectly(page);
+    const positionTextBefore = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
+    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim();
+    const correctAnswer = lessonQuestion(page).locator('.lesson-correction-answer');
+    await expect(correctAnswer).toBeVisible();
+    const correctAnswerText = (await correctAnswer.innerText()).trim();
+    const capturedWord = pickSelectableWord(correctAnswerText);
+    await selectWord(page, correctAnswer, capturedWord);
+    const captureBar = lessonCaptureBar(page);
+    await expect(captureBar.locator('.lesson-capture-expression')).toHaveText(capturedWord);
+    await saveToVocabularyButton(page).click();
+    const dialog = vocabularyCaptureDialog(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue(capturedWord);
+    await expect(dialog.getByLabel('Example')).toHaveValue(correctAnswerText);
+    expect(correctAnswerText).not.toContain('Incorrect');
+    expect(correctAnswerText).not.toContain('Correct answer');
+    await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
+    const capturedTranslation = 'a short burst of rain';
+    await fillCaptureForm(dialog, capturedTranslation, 'en');
+    await submitCaptureForm(dialog);
+    await expect(dialog).toHaveCount(0);
+    await expect(captureBar.getByRole('status')).toContainText(`Saved “${capturedWord}” to your vocabulary.`);
+    await expect.poll(async () => (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim()).toBe(feedbackTextBefore);
+    await expect(answerChoices(page).nth(1)).toBeChecked();
+    await expect(answerChoices(page).nth(1)).toBeDisabled();
+    const positionTextAfter = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
+    expect(positionTextAfter).toBe(positionTextBefore);
+
+    await page.goto('/library');
+    await expect(libraryEntrySummary(page, capturedWord)).toHaveCount(1);
+  });
+
+  test('keeps existing Sense rules authoritative when a Dynamic Lesson capture matches an Expression with multiple Senses', async ({ page }) => {
+    const setup = await registerWithLanguage('dynamic-lesson-capture-existing-sense');
+    await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
+    await captureEntry(setup.client, setup.learningLanguageId, 'banco', 'bank');
+    const { error: secondSenseError } = await setup.client.rpc('capture_learning_language_entry', {
+      p_answer_language_tag: 'en',
+      p_create_new_sense: true,
+      p_example: null,
+      p_expression: 'banco',
+      p_learning_language_id: setup.learningLanguageId,
+      p_sense_id: null,
+      p_translation: 'bench',
+    });
+    if (secondSenseError) throw secondSenseError;
+    await signIn(page, setup.account);
+    await selectLearningLanguage(page, setup.learningLanguageId);
+    const existingSenseLeadIn = 'Zebra banco banco rested peacefully.';
+    const fixtureContent = `${existingSenseLeadIn} ${STUDY_PARAGRAPH_ONE}\n\n${existingSenseLeadIn} ${STUDY_PARAGRAPH_TWO}\n`;
+    await uploadMaterial(page, 'existing-sense-notes.txt', Buffer.from(fixtureContent, 'utf8'));
+    await expectReadyMaterial(page, 'existing-sense-notes.txt');
+    await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
+    await expect(page).toHaveURL(runnerUrl);
+    await expect(lessonQuestion(page)).toBeVisible();
+    await findLessonQuestionContaining(page, 'banco');
+    await answerCurrentQuestion(page);
+    const promptHeading = lessonQuestion(page).getByRole('heading', { level: 1 });
+    const promptText = (await promptHeading.innerText()).trim();
+    await selectWord(page, promptHeading, 'banco');
+    const captureBar = lessonCaptureBar(page);
+    await expect(captureBar.locator('.lesson-capture-expression')).toHaveText('banco');
+    await saveToVocabularyButton(page).click();
+    const dialog = vocabularyCaptureDialog(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue('banco');
+    await expect(dialog.getByLabel('Example')).toHaveValue(promptText);
+    await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
+    await fillCaptureForm(dialog, 'bank note', 'en');
+    await submitCaptureForm(dialog);
+    const senseGroup = dialog.getByRole('group', { name: 'Choose an existing Sense or create a new Sense' });
+    await expect(senseGroup).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^Choose existing Sense 1: / })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^Choose existing Sense 2: / })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Create a new Sense' })).toBeVisible();
+    await dialog.getByRole('button', { name: /^Choose existing Sense 1: / }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(captureBar.getByRole('status')).toContainText('Saved “banco” to your vocabulary.');
+
+    await page.goto('/library');
+    const bancoSummary = libraryEntrySummary(page, 'banco');
+    await expect(bancoSummary).toHaveCount(1);
+    await expect(bancoSummary.locator('.surface-tally')).toHaveText('2');
+  });
+
+  test('keeps a Dynamic Lesson capture scoped to the Learning Language it was captured in', async ({ page }) => {
+    const setup = await registerWithLanguage('dynamic-lesson-capture-cross-language');
+    await seedPreferredAnswerLanguage(setup.client, setup.learningLanguageId);
+    const { data: otherLanguage, error: otherLanguageError } = await setup.client.rpc('create_learning_language', { p_language_tag: 'fr' });
+    if (otherLanguageError) throw otherLanguageError;
+    const otherLearningLanguageId = (otherLanguage as { id: string }).id;
+    await signIn(page, setup.account);
+    await selectLearningLanguage(page, setup.learningLanguageId);
+    await uploadMaterial(page, 'cross-language-notes.txt', Buffer.from(RELEVANT_FIXTURE_CONTENT, 'utf8'));
+    await expectReadyMaterial(page, 'cross-language-notes.txt');
+    await submitPracticeRequest(page, RELEVANT_PRACTICE_REQUEST);
+    await expect(page).toHaveURL(runnerUrl);
+    await expect(lessonQuestion(page)).toBeVisible();
+    await answerCurrentQuestion(page);
+    const promptHeading = lessonQuestion(page).getByRole('heading', { level: 1 });
+    const promptText = (await promptHeading.innerText()).trim();
+    const capturedWord = pickSelectableWord(promptText);
+    await selectWord(page, promptHeading, capturedWord);
+    const captureBar = lessonCaptureBar(page);
+    await expect(captureBar.locator('.lesson-capture-expression')).toHaveText(capturedWord);
+    await saveToVocabularyButton(page).click();
+    const dialog = vocabularyCaptureDialog(page);
+    await expect(dialog).toBeVisible();
+    await fillCaptureForm(dialog, 'a short burst of rain', 'en');
+    await submitCaptureForm(dialog);
+    await expect(dialog).toHaveCount(0);
+    await expect(captureBar.getByRole('status')).toContainText(`Saved “${capturedWord}” to your vocabulary.`);
+
+    await page.goto('/library');
+    await selectLearningLanguage(page, otherLearningLanguageId);
+    await expect(libraryEntrySummary(page, capturedWord)).toHaveCount(0);
+    await selectLearningLanguage(page, setup.learningLanguageId);
+    await expect(libraryEntrySummary(page, capturedWord)).toHaveCount(1);
   });
 });

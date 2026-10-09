@@ -1,20 +1,19 @@
 'use client';
 
-import { canonicalLanguageTag, type StudyPair } from '@lexync/domain';
+import type { StudyPair } from '@lexync/domain';
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
+import { VocabularyCaptureDialog, type Translation } from './VocabularyCaptureDialog';
 
-type Translation = { answer_language_tag: string; id: string; text: string };
 type Example = { id: string; text: string };
 type Sense = { id: string; translations: Translation[]; examples: Example[] };
 type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean };
 type Collection = { id: string; name: string };
 type Membership = { collection_id: string; learning_vocabulary_entry_id: string };
 type LearningLanguage = { id: string; languageTag: string };
-type PendingSense = { id: string; translations: Translation[] };
 type VocabularyStatus = 'active' | 'all' | 'suspended';
 type DraftItem = { id: string | null; key: string; text: string };
 type DraftSense = { id: string | null; key: string; translations: DraftItem[]; examples: DraftItem[] };
@@ -44,18 +43,14 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   const [collections, setCollections] = useState<Collection[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [expression, setExpression] = useState('');
-  const [translation, setTranslation] = useState('');
-  const [answerLanguage, setAnswerLanguage] = useState('');
-  const [example, setExample] = useState('');
   const [notice, setNotice] = useState('');
+  const [capturedNotice, setCapturedNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EntryDraft | null>(null);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<VocabularyStatus>('all');
   const [suspensionNotice, setSuspensionNotice] = useState('');
-  const [pendingSenses, setPendingSenses] = useState<PendingSense[]>([]);
   const [changingMembership, setChangingMembership] = useState('');
   const online = useOnlineStatus();
 
@@ -138,62 +133,12 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
     queueMicrotask(() => void loadCollections());
     queueMicrotask(() => {
       if (searchParams.get('add') === '1') {
+        setCapturedNotice('');
         setShowForm(true);
         window.history.replaceState(null, '', '/library');
       }
     });
   }, [loadCollections, loadEntries, searchParams]);
-
-  function resetCaptureDraft() {
-    setExpression('');
-    setAnswerLanguage('');
-    setTranslation('');
-    setExample('');
-    setPendingSenses([]);
-  }
-
-  async function capture(senseId: string | null = null, createNewSense = false) {
-    setNotice('');
-    const answerTag = canonicalLanguageTag(answerLanguage);
-    const missing = [!expression.trim() ? 'Expression is required.' : '', !answerTag ? 'Enter a valid BCP 47 Answer Language tag.' : '', !translation.trim() ? 'Translation is required.' : ''].filter(Boolean);
-    if (missing.length) {
-      setNotice(missing.join(' '));
-      return;
-    }
-    setSaving(true);
-    const { data, error } = await supabase.rpc('capture_learning_language_entry', {
-      p_example: example,
-      p_expression: expression,
-      p_translation: translation,
-      p_answer_language_tag: answerTag,
-      p_learning_language_id: language.id,
-      p_sense_id: senseId,
-      p_create_new_sense: createNewSense,
-    });
-    setSaving(false);
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-    if (data?.kind === 'needs_sense') {
-      setPendingSenses(data.senses ?? []);
-      return;
-    }
-    resetCaptureDraft();
-    await loadEntries();
-    await onEntriesChanged();
-  }
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await capture();
-  }
-
-  function cancelCapture() {
-    resetCaptureDraft();
-    setNotice('');
-    setShowForm(false);
-  }
 
   function updateSense(index: number, update: (sense: DraftSense) => DraftSense) {
     setDraft((current) => current && ({ ...current, senses: current.senses.map((sense, senseIndex) => senseIndex === index ? update(sense) : sense) }));
@@ -373,7 +318,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
     <section className="vocabulary-library" aria-labelledby="app-heading">
       <div className="library-toolbar">
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
-        <button className="primary-button" type="button" disabled={!online} onClick={() => { setNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
+        <button className="primary-button" type="button" disabled={!online} onClick={() => { setNotice(''); setCapturedNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
       </div>
       {!online && <p className="form-notice" role="status">You are offline. Vocabulary changes require a connection.</p>}
       {selectedCollection && <div className="library-collection-filter" role="status"><span>Filtered by {selectedCollection.name}</span><button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button></div>}
@@ -391,28 +336,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
           </select>
         </div>
       </div>
-      {showForm && <form className="web-auth-form vocabulary-form" onSubmit={save}>
-        <label htmlFor="expression">Expression</label>
-        <input id="expression" value={expression} disabled={!online} onChange={(event) => setExpression(event.target.value)} />
-        <label htmlFor="answer-language">Answer Language</label>
-        <input id="answer-language" value={answerLanguage} disabled={!online} onChange={(event) => setAnswerLanguage(event.target.value)} placeholder="en or pt-BR" />
-        <label htmlFor="translation">Translation</label>
-        <input id="translation" value={translation} disabled={!online} onChange={(event) => setTranslation(event.target.value)} />
-        <label htmlFor="example">Example <span>(optional)</span></label>
-        <textarea id="example" value={example} disabled={!online} onChange={(event) => setExample(event.target.value)} />
-        {notice && <p className="form-notice error" role="alert">{notice}</p>}
-        <div className="vocabulary-editor-actions">
-          <button className="primary-button" type="submit" disabled={saving || !online}>{saving ? 'Saving…' : 'Save Vocabulary Entry'}</button>
-          <button className="secondary-button" type="button" disabled={saving} onClick={cancelCapture}>Cancel</button>
-        </div>
-        {pendingSenses.length > 0 && <fieldset aria-labelledby="sense-choice-heading">
-          <legend id="sense-choice-heading">Choose an existing Sense or create a new Sense</legend>
-          {pendingSenses.map((sense, index) => <button className="secondary-button" key={sense.id} type="button" disabled={saving || !online} onClick={() => void capture(sense.id)}>
-            Choose existing Sense {index + 1}: {sense.translations.map((item) => `${item.text} (${item.answer_language_tag})`).join(', ') || 'No translations'}
-          </button>)}
-          <button className="secondary-button" type="button" disabled={saving || !online} onClick={() => void capture(null, true)}>Create a new Sense</button>
-        </fieldset>}
-      </form>}
+      <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression) => { setCapturedNotice(`Saved “${expression}” to your vocabulary.`); await loadEntries(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
       {loading && <div className="skeleton-list" aria-hidden="true">
         <div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line half" /><div className="skeleton-line narrow" /></div>
         <div className="skeleton-card"><div className="skeleton-line strong narrow" /><div className="skeleton-line wide" /></div>
@@ -423,7 +347,8 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         <p>{noResultsMessage}</p>
       </div>}
       {suspensionNotice && <p className="form-notice" role="status">{suspensionNotice}</p>}
-      {notice && !showForm && !draft && <p className="form-notice error" role="alert">{notice}</p>}
+      {capturedNotice && <p className="form-notice" role="status">{capturedNotice}</p>}
+      {notice && !draft && <p className="form-notice error" role="alert">{notice}</p>}
       <div className="vocabulary-entry-list">
         {visibleEntries.map((entry) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id}>
           <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>
