@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { invalidateLibrary } from '../lib/libraryStore';
 import { supabase } from '../lib/supabase';
 
 type LearningLanguage = { id: string; languageTag: string };
@@ -131,6 +132,7 @@ export function Collections({ language }: { language: LearningLanguage }) {
     setShowCollectionForm(false);
     setEditingCollection(null);
     setCollectionName('');
+    invalidateLibrary(language.id);
     await loadCollections();
   }
 
@@ -145,6 +147,7 @@ export function Collections({ language }: { language: LearningLanguage }) {
       return;
     }
     setDeletingCollection(null);
+    invalidateLibrary(language.id);
     await loadCollections();
   }
 
@@ -168,6 +171,7 @@ export function Collections({ language }: { language: LearningLanguage }) {
     }
     setOpenAddCollectionId('');
     setSelectedEntries((current) => ({ ...current, [collection.id]: '' }));
+    invalidateLibrary(language.id);
     await loadCollections();
   }
 
@@ -183,6 +187,7 @@ export function Collections({ language }: { language: LearningLanguage }) {
       setNotice(error.message);
       return;
     }
+    invalidateLibrary(language.id);
     await loadCollections();
   }
 

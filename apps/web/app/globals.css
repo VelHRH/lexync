@@ -357,6 +357,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-library { margin-top: 0; }
 .library-toolbar, .vocabulary-entry-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
 .library-toolbar .page-lede { margin: 0; }
+.library-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
 .vocabulary-discovery-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, .4fr); align-items: end; gap: 1rem; margin-top: 1.25rem; padding-bottom: 1.5rem; border-bottom: var(--web-outline); }
 .field { display: flex; min-width: 0; flex-direction: column; gap: .4rem; }
 .vocabulary-discovery-controls input, .vocabulary-discovery-controls select { margin: 0; }
@@ -459,8 +460,8 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
   .collection-card-controls > * { width: 100%; }
   .extension-recommendation { grid-template-columns: 1fr; }
   .privacy-layout { gap: 2rem; }
-  .library-toolbar, .vocabulary-editor-actions, .pair-row, .pair-row-actions, .pair-delete-dialog > div { align-items: stretch; flex-direction: column; }
-  .library-toolbar > *, .vocabulary-editor-actions > *, .pair-row-actions > * { width: 100%; }
+  .library-toolbar, .vocabulary-editor-actions, .pair-row, .pair-row-actions, .pair-delete-dialog > div, .library-toolbar-actions { align-items: stretch; flex-direction: column; }
+  .library-toolbar > *, .vocabulary-editor-actions > *, .pair-row-actions > *, .library-toolbar-actions > * { width: 100%; }
   .vocabulary-entry-actions > * { flex: 1 1 auto; }
   .vocabulary-discovery-controls, .lesson-choices { grid-template-columns: 1fr; }
   .vocabulary-editor-row, .vocabulary-example-editor { grid-template-columns: 1fr; }
