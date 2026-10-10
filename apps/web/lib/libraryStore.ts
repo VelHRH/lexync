@@ -1,6 +1,7 @@
 'use client';
 
 import type { Translation } from '../components/VocabularyCaptureDialog';
+import { normalizeSearchText } from './searchText';
 import { supabase } from './supabase';
 
 export type Example = { id: string; text: string };
@@ -100,7 +101,7 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
   if (translationsError || examplesError) return { error: translationsError?.message ?? examplesError?.message ?? 'Vocabulary details could not be loaded.' };
   const merged = new Map<string, LibraryEntry>();
   for (const entry of data ?? []) {
-    const key = entry.expression.normalize('NFC').trim().replaceAll(/\s+/g, ' ').toLocaleLowerCase();
+    const key = normalizeSearchText(entry.expression);
     const nextSenses = (senses ?? []).filter((sense) => sense.vocabulary_entry_id === entry.id).map((sense) => ({
       id: sense.id,
       translations: (translations ?? []).filter((item) => item.sense_id === sense.id),

@@ -247,7 +247,7 @@ test.describe('web design system surfaces', () => {
     await shell.getByRole('link', { name: 'Library', exact: true }).click();
     await expect(page).toHaveURL('/library');
     await expect(page.locator('[data-ui="empty-state"]')).toBeVisible();
-    await expect(page.getByRole('status')).toBeVisible();
+    await expect(page.locator('[data-ui="empty-state"]')).toHaveRole('status');
   });
 
   test('keeps public and authenticated surfaces responsive and accessible', async ({ page }) => {
