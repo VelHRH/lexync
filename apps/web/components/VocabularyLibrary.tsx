@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
+import { normalizeSearchText } from '../lib/searchText';
+import { SearchablePicker } from './SearchablePicker';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 
 type LearningLanguage = { id: string; languageTag: string };
@@ -15,8 +17,14 @@ type DraftItem = { id: string | null; key: string; text: string };
 type DraftSense = { id: string | null; key: string; translations: DraftItem[]; examples: DraftItem[] };
 type EntryDraft = { id: string; expression: string; senses: DraftSense[] };
 
+const NO_COLLECTION_SCOPE = 'none';
+
 function draftKey() {
   return crypto.randomUUID();
+}
+
+function entryCountDetail(count: number) {
+  return `${count} ${count === 1 ? 'entry' : 'entries'}`;
 }
 
 function toDraft(entry: LibraryEntry): EntryDraft {
@@ -68,7 +76,10 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       if (searchParams.get('add') === '1') {
         setCapturedNotice('');
         setShowForm(true);
-        window.history.replaceState(null, '', '/library');
+        const remaining = new URLSearchParams(window.location.search);
+        remaining.delete('add');
+        const remainingSearch = remaining.toString();
+        window.history.replaceState(null, '', remainingSearch ? `/library?${remainingSearch}` : '/library');
       }
     });
   }, []);
@@ -139,7 +150,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       return;
     }
     const hasDuplicateTranslation = draft.senses.some((sense) => {
-      const identities = sense.translations.map((item) => item.text.normalize('NFC').trim().replaceAll(/\s+/g, ' ').toLocaleLowerCase());
+      const identities = sense.translations.map((item) => normalizeSearchText(item.text));
       return new Set(identities).size !== identities.length;
     });
     if (hasDuplicateTranslation) {
@@ -219,30 +230,49 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   }
 
   const draftExamples = draft?.senses.flatMap((sense) => sense.examples) ?? [];
-  const normalizedQuery = query.normalize('NFC').trim().toLocaleLowerCase();
-  const selectedCollectionId = searchParams.get('collection') ?? '';
+  const normalizedQuery = normalizeSearchText(query);
+  const scopeParam = searchParams.get('collection') ?? '';
+  const scopeIsKnown = scopeParam === '' || scopeParam === NO_COLLECTION_SCOPE || collections.some((collection) => collection.id === scopeParam);
+  const staleScope = !scopeIsKnown && snapshot.loadedAt !== null && !snapshot.loading && !snapshot.error;
+  const selectedCollectionId = scopeIsKnown ? scopeParam : '';
+  const collectedEntryIds = useMemo(() => new Set(memberships.map((membership) => membership.learning_vocabulary_entry_id)), [memberships]);
+  const collectionScopeOptions = useMemo(() => [
+    { id: '', label: 'All vocabulary' },
+    { id: NO_COLLECTION_SCOPE, label: 'Not in a Collection', detail: entryCountDetail(entries.filter((entry) => !collectedEntryIds.has(entry.learningVocabularyEntryId)).length) },
+    ...collections.map((collection) => ({ id: collection.id, label: collection.name, detail: entryCountDetail(memberships.filter((membership) => membership.collection_id === collection.id).length) })),
+  ], [collectedEntryIds, collections, entries, memberships]);
+
+  useEffect(() => {
+    if (staleScope) router.replace('/library');
+  }, [router, staleScope]);
+
+  function selectCollectionScope(id: string) {
+    router.replace(id ? `/library?collection=${encodeURIComponent(id)}` : '/library');
+  }
+
   const selectedCollection = collections.find((collection) => collection.id === selectedCollectionId);
   const selectedCollectionEntryIds = new Set(memberships.filter((membership) => membership.collection_id === selectedCollectionId).map((membership) => membership.learning_vocabulary_entry_id));
   const visibleEntries = entries.filter((entry) => {
     const matchesStatus = status === 'all' || (status === 'suspended' ? entry.suspended : !entry.suspended);
-    const matchesCollection = !selectedCollectionId || selectedCollectionEntryIds.has(entry.learningVocabularyEntryId);
-    const searchableText = [entry.expression, ...entry.senses.flatMap((sense) => sense.translations.map((item) => item.text))]
-      .join('\n')
-      .normalize('NFC')
-      .toLocaleLowerCase();
-    return matchesStatus && matchesCollection && (!normalizedQuery || searchableText.includes(normalizedQuery));
+    const matchesCollection = !selectedCollectionId || (selectedCollectionId === NO_COLLECTION_SCOPE ? !collectedEntryIds.has(entry.learningVocabularyEntryId) : selectedCollectionEntryIds.has(entry.learningVocabularyEntryId));
+    const haystacks = [entry.expression, ...entry.senses.flatMap((sense) => sense.translations.map((item) => item.text))].map(normalizeSearchText);
+    return matchesStatus && matchesCollection && (!normalizedQuery || haystacks.some((text) => text.includes(normalizedQuery)));
   });
-  const emptyHeading = selectedCollection
-    ? 'This Collection is empty.'
-    : normalizedQuery
+  const emptyHeading = normalizedQuery
     ? 'No match in this library.'
+    : selectedCollection
+    ? 'This Collection is empty.'
+    : selectedCollectionId === NO_COLLECTION_SCOPE
+    ? 'Nothing outside your Collections.'
     : status === 'all' && entries.length === 0
       ? 'Nothing filed under this language yet.'
       : 'Nothing here right now.';
-  const noResultsMessage = selectedCollection
-    ? `No vocabulary entries in “${selectedCollection.name}”.`
-    : normalizedQuery
+  const noResultsMessage = normalizedQuery
     ? `No ${status === 'all' ? '' : `${status} `}Vocabulary Entries match “${query.trim()}”.`
+    : selectedCollection
+    ? `No vocabulary entries in “${selectedCollection.name}”.`
+    : selectedCollectionId === NO_COLLECTION_SCOPE
+    ? 'No Vocabulary Entries are outside a Collection.'
     : status === 'all' && entries.length === 0
       ? 'No vocabulary entries yet. Add your first one.'
       : `No ${status} Vocabulary Entries yet.`;
@@ -271,6 +301,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
             <option value="suspended">Suspended entries</option>
           </select>
         </div>
+        <SearchablePicker id="vocabulary-collection-scope" label="Collection scope" value={selectedCollectionId} options={collectionScopeOptions} onChange={selectCollectionScope} emptyMessage="No Collections match" />
       </div>
       <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression) => { setCapturedNotice(`Saved “${expression}” to your vocabulary.`); await reload(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
       {snapshot.loading && <p className="collections-sr-only" role="status">Loading your vocabulary…</p>}
