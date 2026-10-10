@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { clearLibraryStore } from '../lib/libraryStore';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { LearningLanguageOnboarding, type LearningLanguage } from './LearningLanguageOnboarding';
@@ -334,6 +335,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
 
   async function signOut() {
     setSigningOut(true);
+    clearLibraryStore();
     await supabase.auth.signOut();
     window.location.assign('/');
   }

@@ -2,17 +2,13 @@
 
 import type { StudyPair } from '@lexync/domain';
 import type { FormEvent } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
-import { VocabularyCaptureDialog, type Translation } from './VocabularyCaptureDialog';
+import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
+import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 
-type Example = { id: string; text: string };
-type Sense = { id: string; translations: Translation[]; examples: Example[] };
-type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean };
-type Collection = { id: string; name: string };
-type Membership = { collection_id: string; learning_vocabulary_entry_id: string };
 type LearningLanguage = { id: string; languageTag: string };
 type VocabularyStatus = 'active' | 'all' | 'suspended';
 type DraftItem = { id: string | null; key: string; text: string };
@@ -39,13 +35,11 @@ function toDraft(entry: LibraryEntry): EntryDraft {
 export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEntriesChanged: () => Promise<void>; language: LearningLanguage; pairs: Array<StudyPair & { learningLanguageId: string }> }) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [entries, setEntries] = useState<LibraryEntry[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const snapshot = useSyncExternalStore(subscribeLibrary, () => librarySnapshot(language.id), () => EMPTY_LIBRARY_SNAPSHOT);
+  const { entries, collections, memberships } = snapshot;
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState('');
   const [capturedNotice, setCapturedNotice] = useState('');
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EntryDraft | null>(null);
   const [query, setQuery] = useState('');
@@ -54,83 +48,22 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   const [changingMembership, setChangingMembership] = useState('');
   const online = useOnlineStatus();
 
-  const loadCollections = useCallback(async () => {
-    const { data: collectionData, error: collectionError } = await supabase.from('collections').select('id,name').eq('learning_language_id', language.id).order('created_at');
-    if (collectionError) {
-      setNotice(collectionError.message);
-      return;
-    }
-    const nextCollections = (collectionData ?? []) as Collection[];
-    const collectionIds = nextCollections.map((collection) => collection.id);
-    const { data: membershipData, error: membershipError } = collectionIds.length
-      ? await supabase.from('collection_memberships').select('collection_id,learning_vocabulary_entry_id').in('collection_id', collectionIds)
-      : { data: [], error: null };
-    if (membershipError) {
-      setNotice(membershipError.message);
-      return;
-    }
-    setCollections(nextCollections);
-    setMemberships((membershipData ?? []) as Membership[]);
-  }, [language.id]);
+  const pairIdsKey = useMemo(
+    () => pairs.filter((pair) => pair.learningLanguageId === language.id).map((pair) => pair.id).sort().join(','),
+    [pairs, language.id],
+  );
+  const pairIds = useMemo(() => (pairIdsKey ? pairIdsKey.split(',') : []), [pairIdsKey]);
 
-  const loadEntries = useCallback(async () => {
-    setLoading(true);
-    const pairIds = pairs.filter((pair) => pair.learningLanguageId === language.id).map((pair) => pair.id);
-    if (!pairIds.length) {
-      setEntries([]);
-      setLoading(false);
-      return;
-    }
-    const { data, error } = await supabase.from('vocabulary_entries').select('id,learning_vocabulary_entry_id,expression,suspended,study_pair_id').in('study_pair_id', pairIds).order('created_at');
-    if (error) {
-      setNotice(error.message);
-      setLoading(false);
-      return;
-    }
-    const entryIds = (data ?? []).map((entry) => entry.id);
-    const { data: senses, error: sensesError } = entryIds.length
-      ? await supabase.from('senses').select('id,vocabulary_entry_id').in('vocabulary_entry_id', entryIds).order('created_at')
-      : { data: [], error: null };
-    if (sensesError) {
-      setNotice(sensesError.message);
-      setLoading(false);
-      return;
-    }
-    const senseIds = (senses ?? []).map((sense) => sense.id);
-    const [{ data: translations, error: translationsError }, { data: examples, error: examplesError }] = senseIds.length
-      ? await Promise.all([
-        supabase.from('translations').select('id,sense_id,text,answer_language_tag').in('sense_id', senseIds).order('created_at'),
-        supabase.from('examples').select('id,sense_id,text').in('sense_id', senseIds).order('created_at'),
-      ])
-      : [{ data: [], error: null }, { data: [], error: null }];
-    if (translationsError || examplesError) {
-      setNotice(translationsError?.message ?? examplesError?.message ?? 'Vocabulary details could not be loaded.');
-      setLoading(false);
-      return;
-    }
-    const merged = new Map<string, LibraryEntry>();
-    for (const entry of data ?? []) {
-      const key = entry.expression.normalize('NFC').trim().replaceAll(/\s+/g, ' ').toLocaleLowerCase();
-      const nextSenses = (senses ?? []).filter((sense) => sense.vocabulary_entry_id === entry.id).map((sense) => ({
-        id: sense.id,
-        translations: (translations ?? []).filter((item) => item.sense_id === sense.id),
-        examples: (examples ?? []).filter((item) => item.sense_id === sense.id),
-      }));
-      const existing = merged.get(key);
-      if (existing) {
-        existing.senses = [...existing.senses, ...nextSenses];
-        existing.suspended = existing.suspended && entry.suspended;
-      } else {
-        merged.set(key, { id: entry.id, learningVocabularyEntryId: entry.learning_vocabulary_entry_id, expression: entry.expression.trim(), suspended: entry.suspended, senses: nextSenses });
-      }
-    }
-    setEntries([...merged.values()]);
-    setLoading(false);
-  }, [language.id, pairs]);
+  const reload = useCallback(() => {
+    invalidateLibrary(language.id);
+    return loadLibrary(language.id, pairIds);
+  }, [language.id, pairIds]);
 
   useEffect(() => {
-    queueMicrotask(() => void loadEntries());
-    queueMicrotask(() => void loadCollections());
+    void loadLibrary(language.id, pairIds);
+  }, [language.id, pairIds]);
+
+  useEffect(() => {
     queueMicrotask(() => {
       if (searchParams.get('add') === '1') {
         setCapturedNotice('');
@@ -138,7 +71,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         window.history.replaceState(null, '', '/library');
       }
     });
-  }, [loadCollections, loadEntries, searchParams]);
+  }, []);
 
   function updateSense(index: number, update: (sense: DraftSense) => DraftSense) {
     setDraft((current) => current && ({ ...current, senses: current.senses.map((sense, senseIndex) => senseIndex === index ? update(sense) : sense) }));
@@ -233,7 +166,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       return;
     }
     setDraft(null);
-    await loadEntries();
+    await reload();
   }
 
   async function deleteEntry(entry: LibraryEntry) {
@@ -246,7 +179,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       return;
     }
     setDraft(null);
-    await loadEntries();
+    await reload();
     await onEntriesChanged();
   }
 
@@ -261,7 +194,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       setNotice(`${entry.expression} could not be ${suspended ? 'suspended' : 'resumed'}. ${error.message}`);
       return;
     }
-    setEntries((current) => current.map((candidate) => candidate.id === entry.id ? { ...candidate, suspended } : candidate));
+    setEntrySuspendedInStore(language.id, entry.id, suspended);
     setSuspensionNotice(`${entry.expression} is ${suspended ? 'suspended' : 'active'}.`);
   }
 
@@ -282,7 +215,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       setNotice(`Collection membership could not be ${member ? 'removed' : 'added'}. ${error.message}`);
       return;
     }
-    await loadCollections();
+    await reload();
   }
 
   const draftExamples = draft?.senses.flatMap((sense) => sense.examples) ?? [];
@@ -318,7 +251,10 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
     <section className="vocabulary-library" aria-labelledby="app-heading">
       <div className="library-toolbar">
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
-        <button className="primary-button" type="button" disabled={!online} onClick={() => { setNotice(''); setCapturedNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
+        <div className="library-toolbar-actions">
+          <button className="primary-button" type="button" disabled={!online} onClick={() => { setNotice(''); setCapturedNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
+          <button className="secondary-button" type="button" disabled={!online || snapshot.loading || snapshot.refreshing} onClick={() => void loadLibrary(language.id, pairIds, { force: true })}>{snapshot.loading || snapshot.refreshing ? 'Refreshing…' : 'Refresh library'}</button>
+        </div>
       </div>
       {!online && <p className="form-notice" role="status">You are offline. Vocabulary changes require a connection.</p>}
       {selectedCollection && <div className="library-collection-filter" role="status"><span>Filtered by {selectedCollection.name}</span><button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button></div>}
@@ -336,19 +272,22 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
           </select>
         </div>
       </div>
-      <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression) => { setCapturedNotice(`Saved “${expression}” to your vocabulary.`); await loadEntries(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
-      {loading && <div className="skeleton-list" aria-hidden="true">
+      <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression) => { setCapturedNotice(`Saved “${expression}” to your vocabulary.`); await reload(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
+      {snapshot.loading && <p className="collections-sr-only" role="status">Loading your vocabulary…</p>}
+      {snapshot.refreshing && <p className="collections-sr-only" role="status">Refreshing your vocabulary…</p>}
+      {snapshot.loading && <div className="skeleton-list" aria-hidden="true">
         <div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line half" /><div className="skeleton-line narrow" /></div>
         <div className="skeleton-card"><div className="skeleton-line strong narrow" /><div className="skeleton-line wide" /></div>
         <div className="skeleton-card"><div className="skeleton-line strong half" /><div className="skeleton-line wide" /></div>
       </div>}
-      {!loading && visibleEntries.length === 0 && <div className="empty-state" data-ui="empty-state" role="status">
+      {!snapshot.loading && visibleEntries.length === 0 && <div className="empty-state" data-ui="empty-state" role="status">
         <h3>{emptyHeading}</h3>
         <p>{noResultsMessage}</p>
       </div>}
       {suspensionNotice && <p className="form-notice" role="status">{suspensionNotice}</p>}
       {capturedNotice && <p className="form-notice" role="status">{capturedNotice}</p>}
       {notice && !draft && <p className="form-notice error" role="alert">{notice}</p>}
+      {snapshot.error && <p className="form-notice error" role="alert">{snapshot.error}</p>}
       <div className="vocabulary-entry-list">
         {visibleEntries.map((entry) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id}>
           <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>

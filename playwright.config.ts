@@ -90,6 +90,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-library-caching',
+      testMatch: /web-library-caching\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-library-caching-mobile',
+      testMatch: /web-library-caching\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-learning-materials',
       testMatch: /web-learning-materials\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
