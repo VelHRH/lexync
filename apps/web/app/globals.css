@@ -47,6 +47,7 @@
   --web-glass-highlight: var(--lexync-glass-highlight);
   --web-control-radius: var(--lexync-radius-pill);
   --web-lift-high: var(--lexync-elevation-high);
+  --web-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 6 5 5 5-5' fill='none' stroke='currentColor' stroke-width='1.8'/%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
@@ -136,11 +137,11 @@ footer p { margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size
 .web-auth-form .primary-button, .web-auth-form .secondary-button { margin-top: .5rem; }
 .web-auth-form label, .pair-selector-label, .vocabulary-discovery-controls label, .pair-language-form label, .pair-delete-dialog label, .vocabulary-move-panel label, .searchable-picker label { color: var(--web-ink); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); line-height: var(--lexync-type-line-tight); }
 .web-auth-form input, .web-auth-form select, .web-auth-form textarea, .app-content select, .pair-language-form input, .pair-delete-dialog input, .vocabulary-move-panel select, .vocabulary-discovery-controls input, .vocabulary-discovery-controls select, .vocabulary-editor input, .vocabulary-editor textarea, .vocabulary-editor select, .vocabulary-form textarea, .searchable-picker input { width: 100%; min-height: 3rem; padding: .7rem .8rem; border: var(--web-outline); border-radius: var(--lexync-radius-md); background-color: var(--web-surface); color: var(--web-ink); font-family: var(--lexync-type-family-body); }
-.web-auth-form input::placeholder, .vocabulary-editor input::placeholder, .vocabulary-form textarea::placeholder, .vocabulary-discovery-controls input::placeholder, .searchable-picker input::placeholder { color: var(--web-muted); opacity: 1; }
+.web-auth-form input::placeholder, .vocabulary-editor input::placeholder, .vocabulary-form textarea::placeholder, .vocabulary-discovery-controls input::placeholder { color: var(--web-muted); opacity: 1; }
 input[type='file'] { padding: .55rem .6rem; }
 input[type='file']::file-selector-button { min-height: 2.25rem; margin-right: .75rem; padding: 0 .85rem; border: var(--web-outline); border-radius: var(--lexync-radius-md); background: var(--web-strong); color: var(--web-ink); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); cursor: pointer; }
 input[type='file']::file-selector-button:hover { background: var(--web-surface-deep, var(--lexync-color-surface-deep)); }
-.web-auth-form select, .app-content select, .vocabulary-move-panel select, .vocabulary-discovery-controls select, .vocabulary-editor select { appearance: none; padding-inline-end: 2.75rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 6 5 5 5-5' fill='none' stroke='currentColor' stroke-width='1.8'/%3E%3C/svg%3E"); background-position: right .85rem center; background-repeat: no-repeat; background-size: 1rem; }
+.web-auth-form select, .app-content select, .vocabulary-move-panel select, .vocabulary-discovery-controls select, .vocabulary-editor select { appearance: none; padding-inline-end: 2.75rem; background-image: var(--web-chevron); background-position: right .85rem center; background-repeat: no-repeat; background-size: 1rem; }
 input:hover, select:hover, textarea:hover { border-color: var(--web-primary); }
 input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border-color: var(--web-line); background-color: var(--web-dim); color: var(--web-muted); }
 .primary-button, .secondary-button { min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; gap: .4rem; border: var(--web-outline); border-radius: var(--web-control-radius); padding: .7rem 1.15rem; color: var(--lexync-color-white); background: var(--web-primary); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer; box-shadow: var(--web-lift); transition: background var(--web-state), box-shadow var(--web-state), transform var(--web-state); }
@@ -699,9 +700,8 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .searchable-picker-control { position: relative; display: flex; min-width: 0; align-items: center; }
 .searchable-picker input { padding-inline-end: 2.75rem; text-overflow: ellipsis; }
 .searchable-picker input[aria-expanded='true'] { border-color: var(--web-primary); }
-.searchable-picker-indicator { position: absolute; top: 50%; right: .85rem; width: 1rem; height: 1rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 6 5 5 5-5' fill='none' stroke='currentColor' stroke-width='1.8'/%3E%3C/svg%3E"); background-position: center; background-repeat: no-repeat; background-size: 1rem; transform: translateY(-50%); pointer-events: none; transition: transform var(--web-state); }
+.searchable-picker-indicator { position: absolute; top: 50%; right: .85rem; width: 1rem; height: 1rem; background-image: var(--web-chevron); background-position: center; background-repeat: no-repeat; background-size: 1rem; transform: translateY(-50%); pointer-events: none; transition: transform var(--web-state); }
 .searchable-picker input[aria-expanded='true'] ~ .searchable-picker-indicator { transform: translateY(-50%) rotate(180deg); }
-.searchable-picker input:disabled ~ .searchable-picker-indicator { opacity: .5; }
 .searchable-picker-panel { position: absolute; inset: calc(100% + .5rem) auto auto 0; z-index: var(--lexync-z-dropdown); width: min(100%, calc(100vw - 2rem)); min-width: min(13rem, calc(100vw - 2rem)); max-height: 18rem; overflow: hidden auto; margin: 0; padding: 0; border: var(--lexync-border-hairline) solid var(--web-line); border-radius: var(--lexync-radius-lg); background: var(--web-surface); box-shadow: var(--lexync-elevation-high); list-style: none; }
 .searchable-picker-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .6rem; min-height: 2.75rem; padding: .55rem .8rem; border-bottom: var(--lexync-border-regular) solid var(--web-quiet); color: var(--web-ink); font-size: var(--lexync-type-size-sm); cursor: pointer; transition: background var(--web-state); }
 .searchable-picker-option:last-child { border-bottom: 0; }

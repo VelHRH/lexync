@@ -17,6 +17,7 @@ type DraftItem = { id: string | null; key: string; text: string };
 type DraftSense = { id: string | null; key: string; translations: DraftItem[]; examples: DraftItem[] };
 type EntryDraft = { id: string; expression: string; senses: DraftSense[] };
 
+const ALL_VOCABULARY_SCOPE = '';
 const NO_COLLECTION_SCOPE = 'none';
 
 function draftKey() {
@@ -232,12 +233,12 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   const draftExamples = draft?.senses.flatMap((sense) => sense.examples) ?? [];
   const normalizedQuery = normalizeSearchText(query);
   const scopeParam = searchParams.get('collection') ?? '';
-  const scopeIsKnown = scopeParam === '' || scopeParam === NO_COLLECTION_SCOPE || collections.some((collection) => collection.id === scopeParam);
+  const scopeIsKnown = scopeParam === ALL_VOCABULARY_SCOPE || scopeParam === NO_COLLECTION_SCOPE || collections.some((collection) => collection.id === scopeParam);
   const staleScope = !scopeIsKnown && snapshot.loadedAt !== null && !snapshot.loading && !snapshot.error;
-  const selectedCollectionId = scopeIsKnown ? scopeParam : '';
+  const selectedCollectionId = scopeIsKnown ? scopeParam : ALL_VOCABULARY_SCOPE;
   const collectedEntryIds = useMemo(() => new Set(memberships.map((membership) => membership.learning_vocabulary_entry_id)), [memberships]);
   const collectionScopeOptions = useMemo(() => [
-    { id: '', label: 'All vocabulary' },
+    { id: ALL_VOCABULARY_SCOPE, label: 'All vocabulary' },
     { id: NO_COLLECTION_SCOPE, label: 'Not in a Collection', detail: entryCountDetail(entries.filter((entry) => !collectedEntryIds.has(entry.learningVocabularyEntryId)).length) },
     ...collections.map((collection) => ({ id: collection.id, label: collection.name, detail: entryCountDetail(memberships.filter((membership) => membership.collection_id === collection.id).length) })),
   ], [collectedEntryIds, collections, entries, memberships]);
@@ -247,35 +248,30 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   }, [router, staleScope]);
 
   function selectCollectionScope(id: string) {
-    router.replace(id ? `/library?collection=${encodeURIComponent(id)}` : '/library');
+    router.replace(id === ALL_VOCABULARY_SCOPE ? '/library' : `/library?collection=${encodeURIComponent(id)}`);
   }
 
   const selectedCollection = collections.find((collection) => collection.id === selectedCollectionId);
   const selectedCollectionEntryIds = new Set(memberships.filter((membership) => membership.collection_id === selectedCollectionId).map((membership) => membership.learning_vocabulary_entry_id));
   const visibleEntries = entries.filter((entry) => {
     const matchesStatus = status === 'all' || (status === 'suspended' ? entry.suspended : !entry.suspended);
-    const matchesCollection = !selectedCollectionId || (selectedCollectionId === NO_COLLECTION_SCOPE ? !collectedEntryIds.has(entry.learningVocabularyEntryId) : selectedCollectionEntryIds.has(entry.learningVocabularyEntryId));
+    const matchesCollection = selectedCollectionId === ALL_VOCABULARY_SCOPE || (selectedCollectionId === NO_COLLECTION_SCOPE ? !collectedEntryIds.has(entry.learningVocabularyEntryId) : selectedCollectionEntryIds.has(entry.learningVocabularyEntryId));
     const haystacks = [entry.expression, ...entry.senses.flatMap((sense) => sense.translations.map((item) => item.text))].map(normalizeSearchText);
     return matchesStatus && matchesCollection && (!normalizedQuery || haystacks.some((text) => text.includes(normalizedQuery)));
   });
-  const emptyHeading = normalizedQuery
-    ? 'No match in this library.'
-    : selectedCollection
-    ? 'This Collection is empty.'
-    : selectedCollectionId === NO_COLLECTION_SCOPE
-    ? 'Nothing outside your Collections.'
-    : status === 'all' && entries.length === 0
-      ? 'Nothing filed under this language yet.'
-      : 'Nothing here right now.';
-  const noResultsMessage = normalizedQuery
-    ? `No ${status === 'all' ? '' : `${status} `}Vocabulary Entries match “${query.trim()}”.`
-    : selectedCollection
-    ? `No vocabulary entries in “${selectedCollection.name}”.`
-    : selectedCollectionId === NO_COLLECTION_SCOPE
-    ? 'No Vocabulary Entries are outside a Collection.'
-    : status === 'all' && entries.length === 0
-      ? 'No vocabulary entries yet. Add your first one.'
-      : `No ${status} Vocabulary Entries yet.`;
+  function emptyStateCopy() {
+    if (normalizedQuery) return { heading: 'No match in this library.', message: `No ${status === 'all' ? '' : `${status} `}Vocabulary Entries match “${query.trim()}”.` };
+    if (selectedCollection) return status === 'all'
+      ? { heading: 'This Collection is empty.', message: `No vocabulary entries in “${selectedCollection.name}”.` }
+      : { heading: 'Nothing here right now.', message: `No ${status} Vocabulary Entries in “${selectedCollection.name}”.` };
+    if (selectedCollectionId === NO_COLLECTION_SCOPE) return status === 'all'
+      ? { heading: 'Nothing outside your Collections.', message: 'No Vocabulary Entries are outside a Collection.' }
+      : { heading: 'Nothing here right now.', message: `No ${status} Vocabulary Entries outside a Collection.` };
+    if (status === 'all' && entries.length === 0) return { heading: 'Nothing filed under this language yet.', message: 'No vocabulary entries yet. Add your first one.' };
+    return { heading: 'Nothing here right now.', message: `No ${status} Vocabulary Entries yet.` };
+  }
+
+  const { heading: emptyHeading, message: noResultsMessage } = emptyStateCopy();
 
   return (
     <section className="vocabulary-library" aria-labelledby="app-heading">

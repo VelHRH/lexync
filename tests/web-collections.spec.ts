@@ -518,10 +518,14 @@ test.describe('web Collections', () => {
     const { client, pairIds } = await register(account);
     const casa = await createEntry(client, pairIds[0], 'casa', 'house');
     const sol = await createEntry(client, pairIds[0], 'sol', 'sun');
+    const cielo = await createEntry(client, pairIds[0], 'cielo', 'sky');
     await createEntry(client, pairIds[0], 'luna', 'moon');
-    const places = await seedCollection(client, await languageIdFor(client, 'es'), 'Places');
+    const spanish = await languageIdFor(client, 'es');
+    const places = await seedCollection(client, spanish, 'Places');
+    const sky = await seedCollection(client, spanish, 'Sky');
     await fileEntry(client, places, casa.learningVocabularyEntryId);
     await fileEntry(client, places, sol.learningVocabularyEntryId);
+    await fileEntry(client, sky, cielo.learningVocabularyEntryId);
 
     await signIn(page, account);
     await page.goto('/library');
@@ -548,9 +552,24 @@ test.describe('web Collections', () => {
     await page.getByLabel('Search vocabulary').fill('luna');
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
     await expect(entrySummary(page, 'luna')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'No match in this library.' })).toBeVisible();
     await expect(page.getByText('No Vocabulary Entries match “luna”.', { exact: true })).toBeVisible();
     await expect(page.getByText('No vocabulary entries in “Places”.')).toHaveCount(0);
     await expect(scopePicker(page)).toHaveValue('Places');
+
+    await page.getByLabel('Search vocabulary').fill('');
+    await page.getByLabel('Vocabulary status').selectOption({ label: 'Suspended entries' });
+    await chooseScope(page, /Sky/);
+    await expect(page).toHaveURL(`/library?collection=${sky}`);
+    await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
+    await expect(page.getByText('No suspended Vocabulary Entries in “Sky”.', { exact: true })).toBeVisible();
+    await expect(page.getByText('No vocabulary entries in “Sky”.')).toHaveCount(0);
+
+    await chooseScope(page, 'Not in a Collection');
+    await expect(page).toHaveURL('/library?collection=none');
+    await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
+    await expect(page.getByText('No suspended Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
+    await expect(page.getByText('No Vocabulary Entries are outside a Collection.')).toHaveCount(0);
   });
 
   test('names an empty Collection and keeps it distinguishable from a failed load', async ({ page }) => {
@@ -673,5 +692,40 @@ test.describe('web Collections', () => {
     await expect(entrySummary(page, 'cielo')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
     expect(libraryRequests.count()).toBe(0);
+  });
+
+  test('falls back to all vocabulary when the page address names an unknown Collection', async ({ page }) => {
+    const account = credentials('web-collection-scope-unknown');
+    const { client, pairIds } = await register(account);
+    const casa = await createEntry(client, pairIds[0], 'casa', 'house');
+    await createEntry(client, pairIds[0], 'luna', 'moon');
+    const places = await seedCollection(client, await languageIdFor(client, 'es'), 'Places');
+    await fileEntry(client, places, casa.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto(`/library?collection=${crypto.randomUUID()}`);
+    await expect(page).toHaveURL('/library');
+    await expect(scopePicker(page)).toHaveValue('All vocabulary');
+    await expect(entrySummary(page, 'casa')).toBeVisible();
+    await expect(entrySummary(page, 'luna')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'This Collection is empty.' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toHaveCount(0);
+  });
+
+  test('opens the capture dialog from add=1 while keeping the Collection scope', async ({ page }) => {
+    const account = credentials('web-collection-scope-capture');
+    const { client, pairIds } = await register(account);
+    const casa = await createEntry(client, pairIds[0], 'casa', 'house');
+    await createEntry(client, pairIds[0], 'luna', 'moon');
+    const places = await seedCollection(client, await languageIdFor(client, 'es'), 'Places');
+    await fileEntry(client, places, casa.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto(`/library?collection=${places}&add=1`);
+    await expect(page.getByLabel('Expression')).toBeVisible();
+    await expect(page).toHaveURL(`/library?collection=${places}`);
+    await expect(scopePicker(page)).toHaveValue('Places');
+    await expect(entrySummary(page, 'casa')).toHaveCount(1);
+    await expect(entrySummary(page, 'luna')).toHaveCount(0);
   });
 });
