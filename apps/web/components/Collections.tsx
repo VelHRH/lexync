@@ -1,10 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { invalidateLibrary } from '../lib/libraryStore';
 import { supabase } from '../lib/supabase';
+import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 
 type LearningLanguage = { id: string; languageTag: string };
 type Collection = { id: string; name: string };
@@ -21,18 +22,10 @@ export function Collections({ language }: { language: LearningLanguage }) {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
-  const [showCollectionForm, setShowCollectionForm] = useState(false);
-  const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
-  const [collectionName, setCollectionName] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
+  const [collectionRequest, setCollectionRequest] = useState<CollectionDialogRequest | null>(null);
   const [openAddCollectionId, setOpenAddCollectionId] = useState('');
   const [selectedEntries, setSelectedEntries] = useState<Record<string, string>>({});
   const [changingMembership, setChangingMembership] = useState('');
-  const collectionDialogRef = useRef<HTMLDialogElement>(null);
-  const deleteDialogRef = useRef<HTMLDialogElement>(null);
-  const collectionReturnFocus = useRef<HTMLElement | null>(null);
-  const deleteReturnFocus = useRef<HTMLElement | null>(null);
 
   const loadCollections = useCallback(async () => {
     setLoading(true);
@@ -68,88 +61,6 @@ export function Collections({ language }: { language: LearningLanguage }) {
   useEffect(() => {
     queueMicrotask(() => void loadCollections());
   }, [loadCollections]);
-
-  useEffect(() => {
-    const dialog = collectionDialogRef.current;
-    if (!showCollectionForm || !dialog) return;
-    if (!dialog.open) dialog.showModal();
-    return () => {
-      if (dialog.open) dialog.close();
-      collectionReturnFocus.current?.focus();
-      collectionReturnFocus.current = null;
-    };
-  }, [showCollectionForm]);
-
-  useEffect(() => {
-    const dialog = deleteDialogRef.current;
-    if (!deletingCollection || !dialog) return;
-    if (!dialog.open) dialog.showModal();
-    return () => {
-      if (dialog.open) dialog.close();
-      deleteReturnFocus.current?.focus();
-      deleteReturnFocus.current = null;
-    };
-  }, [deletingCollection]);
-
-  function openCreateForm() {
-    collectionReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setNotice('');
-    setEditingCollection(null);
-    setCollectionName('');
-    setShowCollectionForm(true);
-  }
-
-  function openRenameForm(collection: Collection) {
-    collectionReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setNotice('');
-    setEditingCollection(collection);
-    setCollectionName(collection.name);
-    setShowCollectionForm(true);
-  }
-
-  function openDeleteDialog(collection: Collection) {
-    deleteReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setDeletingCollection(collection);
-  }
-
-  async function saveCollection(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const name = collectionName.trim();
-    if (!name) {
-      setNotice('Collection name is required.');
-      return;
-    }
-    setSaving(true);
-    setNotice('');
-    const result = editingCollection
-      ? await supabase.rpc('rename_collection', { p_collection_id: editingCollection.id, p_name: name })
-      : await supabase.rpc('create_collection', { p_learning_language_id: language.id, p_name: name });
-    setSaving(false);
-    if (result.error) {
-      setNotice(result.error.message);
-      return;
-    }
-    setShowCollectionForm(false);
-    setEditingCollection(null);
-    setCollectionName('');
-    invalidateLibrary(language.id);
-    await loadCollections();
-  }
-
-  async function deleteCollection() {
-    if (!deletingCollection) return;
-    setChangingMembership(`delete:${deletingCollection.id}`);
-    setNotice('');
-    const { error } = await supabase.rpc('delete_collection', { p_collection_id: deletingCollection.id });
-    setChangingMembership('');
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-    setDeletingCollection(null);
-    invalidateLibrary(language.id);
-    await loadCollections();
-  }
 
   function memberIds(collectionId: string) {
     return new Set(memberships.filter((membership) => membership.collection_id === collectionId).map((membership) => membership.learning_vocabulary_entry_id));
@@ -197,11 +108,11 @@ export function Collections({ language }: { language: LearningLanguage }) {
         <p className="collections-intro">Keep related vocabulary together for the way you study.</p>
       </div>
       {online
-        ? <button className="primary-button" type="button" onClick={openCreateForm}>Add collection</button>
+        ? <button className="primary-button" type="button" onClick={() => { setNotice(''); setCollectionRequest({ kind: 'create' }); }}>Add collection</button>
         : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add collection unavailable offline">Add collection</span>}
     </div>
     {!online && <p className="form-notice" role="status">{offlineMessage}</p>}
-    {notice && !showCollectionForm && <p className="form-notice error" role="alert">{notice}</p>}
+    {notice && <p className="form-notice error" role="alert">{notice}</p>}
     {loading && <>
       <p className="collections-sr-only" role="status">Loading your Collections…</p>
       <div className="collection-list collection-list-skeleton" aria-hidden="true">
@@ -226,8 +137,8 @@ export function Collections({ language }: { language: LearningLanguage }) {
               <p>{members.length} {members.length === 1 ? 'entry' : 'entries'}</p>
             </div>
             <div className="collection-card-actions">
-              <button className="text-button" type="button" aria-label={`Rename ${collection.name}`} disabled={!online || saving} onClick={() => openRenameForm(collection)}>Rename</button>
-              <button className="text-button danger" type="button" aria-label={`Delete ${collection.name}`} disabled={!online || changingMembership === `delete:${collection.id}`} onClick={() => openDeleteDialog(collection)}>Delete</button>
+              <button className="text-button" type="button" aria-label={`Rename ${collection.name}`} disabled={!online} onClick={() => { setNotice(''); setCollectionRequest({ kind: 'rename', collection }); }}>Rename</button>
+              <button className="text-button danger" type="button" aria-label={`Delete ${collection.name}`} disabled={!online} onClick={() => { setNotice(''); setCollectionRequest({ kind: 'delete', collection }); }}>Delete</button>
             </div>
           </div>
           {members.length > 0
@@ -250,25 +161,12 @@ export function Collections({ language }: { language: LearningLanguage }) {
         </article>;
       })}
     </div>}
-    {showCollectionForm && <dialog className="collection-dialog" ref={collectionDialogRef} aria-labelledby="collection-dialog-heading" onCancel={(event) => { event.preventDefault(); setShowCollectionForm(false); }} onClose={() => setShowCollectionForm(false)}>
-      <form onSubmit={saveCollection}>
-        <h2 id="collection-dialog-heading">{editingCollection ? 'Rename Collection' : 'Create Collection'}</h2>
-        <label htmlFor="collection-name">Collection name</label>
-        <input id="collection-name" value={collectionName} autoFocus onChange={(event) => setCollectionName(event.target.value)} disabled={saving || !online} />
-        {notice && <p className="form-notice error" role="alert">{notice}</p>}
-        <div className="collection-dialog-actions">
-          <button className="primary-button" type="submit" disabled={saving || !online}>{saving ? 'Saving…' : editingCollection ? 'Save Collection' : 'Create Collection'}</button>
-          <button className="secondary-button" type="button" disabled={saving} onClick={() => setShowCollectionForm(false)}>Cancel</button>
-        </div>
-      </form>
-    </dialog>}
-    {deletingCollection && <dialog className="pair-delete-dialog collection-dialog" ref={deleteDialogRef} aria-labelledby="delete-collection-heading" onCancel={(event) => { event.preventDefault(); setDeletingCollection(null); }} onClose={() => setDeletingCollection(null)}>
-      <h2 id="delete-collection-heading">Delete Collection</h2>
-      <p>Delete “{deletingCollection.name}”? Vocabulary entries will stay in your Library.</p>
-      <div>
-        <button className="secondary-button danger" type="button" disabled={!online || changingMembership === `delete:${deletingCollection.id}`} onClick={() => void deleteCollection()}>{changingMembership === `delete:${deletingCollection.id}` ? 'Deleting…' : 'Delete Collection'}</button>
-        <button className="secondary-button" type="button" disabled={changingMembership === `delete:${deletingCollection.id}`} onClick={() => setDeletingCollection(null)}>Cancel</button>
-      </div>
-    </dialog>}
+    <CollectionDialogs
+      languageId={language.id}
+      request={collectionRequest}
+      onClose={() => setCollectionRequest(null)}
+      onSaved={async () => { setCollectionRequest(null); invalidateLibrary(language.id); await loadCollections(); }}
+      onDeleted={async () => { setCollectionRequest(null); invalidateLibrary(language.id); await loadCollections(); }}
+    />
   </section>;
 }
