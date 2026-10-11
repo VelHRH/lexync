@@ -728,4 +728,184 @@ test.describe('web Collections', () => {
     await expect(entrySummary(page, 'casa')).toHaveCount(1);
     await expect(entrySummary(page, 'luna')).toHaveCount(0);
   });
+
+  test('creates a Collection from the Library and refuses an empty name', async ({ page }) => {
+    const account = credentials('web-library-collection-create');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'casa')).toBeVisible();
+
+    await page.getByRole('button', { name: 'New Collection' }).click();
+    const createDialog = page.getByRole('dialog', { name: 'Create Collection' });
+    await expect(createDialog).toBeVisible();
+    await createDialog.getByRole('button', { name: 'Create Collection' }).click();
+    await expect(createDialog.getByRole('alert')).toHaveText('Collection name is required.');
+    await expect(createDialog).toBeVisible();
+    await createDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(createDialog).toBeHidden();
+
+    await openScopePicker(page);
+    await expect(scopeOptions(page)).toHaveCount(2);
+    await expect(scopeOptions(page).nth(0)).toContainText('All vocabulary');
+    await expect(scopeOptions(page).nth(1)).toContainText('Not in a Collection');
+    await scopePicker(page).press('Escape');
+    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
+
+    await page.getByRole('button', { name: 'New Collection' }).click();
+    await page.getByLabel('Collection name').fill('Kitchen');
+    await createDialog.getByRole('button', { name: 'Create Collection' }).click();
+    await expect(createDialog).toBeHidden();
+
+    await chooseScope(page, /Kitchen/);
+    await expect(page).toHaveURL(/\/library\?collection=/);
+    await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
+
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
+  });
+
+  test('renames a Collection from the Library and propagates the new name without a reload', async ({ page }) => {
+    const account = credentials('web-library-collection-rename');
+    const { client, pairIds } = await register(account);
+    const casa = await createEntry(client, pairIds[0], 'casa', 'house');
+    const kitchn = await seedCollection(client, await languageIdFor(client, 'es'), 'Kitchn');
+    await fileEntry(client, kitchn, casa.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await chooseScope(page, /Kitchn/);
+    await expect(page).toHaveURL(`/library?collection=${kitchn}`);
+    await page.evaluate(() => { (window as unknown as { __lexyncNoReload?: boolean }).__lexyncNoReload = true; });
+
+    await page.getByRole('button', { name: 'Rename Kitchn' }).click();
+    const renameDialog = page.getByRole('dialog', { name: 'Rename Collection' });
+    await expect(renameDialog).toBeVisible();
+    await expect(page.getByLabel('Collection name')).toHaveValue('Kitchn');
+    await page.getByLabel('Collection name').fill('Kitchen');
+    await renameDialog.getByRole('button', { name: 'Save Collection' }).click();
+    await expect(renameDialog).toBeHidden();
+
+    await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
+    await openScopePicker(page);
+    await expect(scopeOptions(page).filter({ hasText: 'Kitchen' })).toHaveCount(1);
+    await expect(scopeOptions(page).filter({ hasText: 'Kitchn' })).toHaveCount(0);
+    await scopePicker(page).press('Escape');
+    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
+
+    await entrySummary(page, 'casa').click();
+    await expect(page.getByRole('button', { name: 'Remove casa from Kitchen' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Kitchn/ })).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __lexyncNoReload?: boolean }).__lexyncNoReload)).toBe(true);
+
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
+  });
+
+  test('deletes a Collection from the Library behind a confirmation and keeps its Vocabulary Entries', async ({ page }) => {
+    const account = credentials('web-library-collection-delete');
+    const { client, pairIds } = await register(account);
+    const casa = await createEntry(client, pairIds[0], 'casa', 'house');
+    await createEntry(client, pairIds[0], 'luna', 'moon');
+    const kitchen = await seedCollection(client, await languageIdFor(client, 'es'), 'Kitchen');
+    await fileEntry(client, kitchen, casa.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await chooseScope(page, /Kitchen/);
+    await expect(page).toHaveURL(`/library?collection=${kitchen}`);
+
+    await page.getByRole('button', { name: 'Delete Kitchen' }).click();
+    const deleteDialog = page.getByRole('dialog', { name: 'Delete Collection' });
+    await expect(deleteDialog).toBeVisible();
+    await expect(deleteDialog.getByText('Vocabulary entries will stay in your Library.')).toBeVisible();
+    await deleteDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(deleteDialog).toBeHidden();
+    await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Delete Kitchen' }).click();
+    await deleteDialog.getByRole('button', { name: 'Delete Collection' }).click();
+    await expect(page).toHaveURL('/library');
+    await expect(page.getByText('Filtered by Kitchen')).toHaveCount(0);
+    await expect(entrySummary(page, 'casa')).toBeVisible();
+    await expect(entrySummary(page, 'luna')).toBeVisible();
+
+    await openScopePicker(page);
+    await expect(scopeOptions(page).filter({ hasText: 'Kitchen' })).toHaveCount(0);
+
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
+  });
+
+  test("reflects Library Collection changes in the account snapshot and hides another Learner's Collections", async ({ page }) => {
+    const account = credentials('web-library-collection-snapshot');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await page.getByRole('button', { name: 'New Collection' }).click();
+    await page.getByLabel('Collection name').fill('Private shelf');
+    await page.getByRole('dialog', { name: 'Create Collection' }).getByRole('button', { name: 'Create Collection' }).click();
+    await chooseScope(page, /Private shelf/);
+    await expect(page.getByText('Filtered by Private shelf')).toBeVisible();
+
+    const { data: snapshot, error } = await client.rpc('account_learning_snapshot');
+    if (error) throw error;
+    expect(JSON.stringify(snapshot)).toContain('Private shelf');
+
+    const { data: shelf, error: shelfError } = await client.from('collections').select('id').eq('name', 'Private shelf').single();
+    if (shelfError || !shelf?.id) throw shelfError ?? new Error('The Library Collection fixture is missing.');
+
+    const other = credentials('web-library-collection-other');
+    const { client: otherClient, pairIds: otherPairIds } = await register(other);
+    await createEntry(otherClient, otherPairIds[0], 'otro', 'other');
+    await signIn(page, other);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'otro')).toBeVisible();
+
+    await openScopePicker(page);
+    await expect(scopeOptions(page).filter({ hasText: 'Private shelf' })).toHaveCount(0);
+    await scopePicker(page).press('Escape');
+
+    const { data: otherSnapshot, error: otherError } = await otherClient.rpc('account_learning_snapshot');
+    if (otherError) throw otherError;
+    expect(JSON.stringify(otherSnapshot)).not.toContain('Private shelf');
+
+    await page.goto(`/library?collection=${shelf.id as string}`);
+    await expect(page).toHaveURL('/library');
+  });
+
+  test('disables Library Collection controls with a stated reason while offline', async ({ page }) => {
+    const account = credentials('web-library-collection-offline');
+    const { client, pairIds } = await register(account);
+    const casa = await createEntry(client, pairIds[0], 'casa', 'house');
+    const kitchen = await seedCollection(client, await languageIdFor(client, 'es'), 'Kitchen');
+    await fileEntry(client, kitchen, casa.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await chooseScope(page, /Kitchen/);
+    await expect(page).toHaveURL(`/library?collection=${kitchen}`);
+
+    await page.context().setOffline(true);
+    const offlineNotice = page.getByText('You are offline. Collection changes require a connection.', { exact: true });
+    await expect(offlineNotice).toBeVisible();
+    const collectionControls = [
+      page.getByRole('button', { name: 'New Collection' }),
+      page.getByRole('button', { name: 'Rename Kitchen' }),
+      page.getByRole('button', { name: 'Delete Kitchen' }),
+    ];
+    for (const control of collectionControls) {
+      await expect(control).toBeDisabled();
+      const describedBy = await control.getAttribute('aria-describedby');
+      expect(describedBy).toBeTruthy();
+      await expect(page.locator(`#${describedBy}`)).toHaveText('You are offline. Collection changes require a connection.');
+    }
+    await assertNoHorizontalOverflow(page);
+
+    await page.context().setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    for (const control of collectionControls) await expect(control).toBeEnabled();
+    await expect(offlineNotice).toHaveCount(0);
+  });
 });

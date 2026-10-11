@@ -8,6 +8,7 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
 import { normalizeSearchText } from '../lib/searchText';
+import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 
@@ -55,6 +56,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   const [status, setStatus] = useState<VocabularyStatus>('all');
   const [suspensionNotice, setSuspensionNotice] = useState('');
   const [changingMembership, setChangingMembership] = useState('');
+  const [collectionRequest, setCollectionRequest] = useState<CollectionDialogRequest | null>(null);
   const online = useOnlineStatus();
 
   const pairIdsKey = useMemo(
@@ -279,11 +281,20 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <div className="library-toolbar-actions">
           <button className="primary-button" type="button" disabled={!online} onClick={() => { setNotice(''); setCapturedNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
+          <button className="secondary-button" type="button" disabled={!online} aria-describedby={online ? undefined : 'library-collection-offline-notice'} onClick={() => setCollectionRequest({ kind: 'create' })}>New Collection</button>
           <button className="secondary-button" type="button" disabled={!online || snapshot.loading || snapshot.refreshing} onClick={() => void loadLibrary(language.id, pairIds, { force: true })}>{snapshot.loading || snapshot.refreshing ? 'Refreshing…' : 'Refresh library'}</button>
         </div>
       </div>
       {!online && <p className="form-notice" role="status">You are offline. Vocabulary changes require a connection.</p>}
-      {selectedCollection && <div className="library-collection-filter" role="status"><span>Filtered by {selectedCollection.name}</span><button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button></div>}
+      {!online && <p className="form-notice" role="status" id="library-collection-offline-notice">You are offline. Collection changes require a connection.</p>}
+      {selectedCollection && <div className="library-collection-filter" role="status">
+        <span>Filtered by {selectedCollection.name}</span>
+        <span className="library-collection-filter-actions">
+          <button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button>
+          <button className="text-button" type="button" aria-label={`Rename ${selectedCollection.name}`} disabled={!online} aria-describedby={online ? undefined : 'library-collection-offline-notice'} onClick={() => setCollectionRequest({ kind: 'rename', collection: selectedCollection })}>Rename</button>
+          <button className="text-button danger" type="button" aria-label={`Delete ${selectedCollection.name}`} disabled={!online} aria-describedby={online ? undefined : 'library-collection-offline-notice'} onClick={() => setCollectionRequest({ kind: 'delete', collection: selectedCollection })}>Delete</button>
+        </span>
+      </div>}
       <div className="vocabulary-discovery-controls">
         <div className="field">
           <label htmlFor="vocabulary-search">Search vocabulary</label>
@@ -300,6 +311,17 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         <SearchablePicker id="vocabulary-collection-scope" label="Collection scope" value={selectedCollectionId} options={collectionScopeOptions} onChange={selectCollectionScope} emptyMessage="No Collections match" />
       </div>
       <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression) => { setCapturedNotice(`Saved “${expression}” to your vocabulary.`); await reload(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
+      <CollectionDialogs
+        languageId={language.id}
+        request={collectionRequest}
+        onClose={() => setCollectionRequest(null)}
+        onSaved={async () => { setCollectionRequest(null); await reload(); }}
+        onDeleted={async (collectionId) => {
+          setCollectionRequest(null);
+          if (collectionId === selectedCollectionId) router.replace('/library');
+          await reload();
+        }}
+      />
       {snapshot.loading && <p className="collections-sr-only" role="status">Loading your vocabulary…</p>}
       {snapshot.refreshing && <p className="collections-sr-only" role="status">Refreshing your vocabulary…</p>}
       {snapshot.loading && <div className="skeleton-list" aria-hidden="true">
