@@ -409,7 +409,7 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(page.getByLabel('Add vocabulary unavailable offline')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Edit borrar' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Delete borrar' })).toBeDisabled();
-    await expect(page.getByText('You are offline. Vocabulary changes require a connection.')).toBeVisible();
+    await expect(page.getByText('You are offline. Vocabulary and Collection changes require a connection.')).toBeVisible();
     await page.context().setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
 

@@ -346,7 +346,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-capture-dialog fieldset { display: grid; min-width: 0; gap: .75rem; margin: 0; padding: .9rem 0 0; border: 0; border-top: var(--lexync-border-regular) solid var(--web-quiet); }
 .vocabulary-capture-dialog legend { padding: 0; color: var(--web-ink); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); }
 .text-button { min-height: 2.5rem; border: 0; padding: .35rem; background: transparent; color: var(--web-primary-active); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.text-button:disabled { color: var(--web-muted); cursor: not-allowed; }
+.text-button:disabled { opacity: .45; cursor: not-allowed; }
 .extension-recommendation { grid-template-columns: 1fr auto; align-items: center; gap: 1.5rem; margin-top: 2.5rem; padding: 1.5rem; background: var(--web-subtle); }
 .extension-recommendation h2, .extension-recommendation p { margin-top: 0; }
 .extension-recommendation h2 { margin-bottom: .75rem; }
@@ -624,7 +624,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .collection-card-header h3 { margin: 0; font-size: var(--lexync-type-size-xl); letter-spacing: var(--lexync-type-tracking-tight); }
 .collection-card-header p { margin: .35rem 0 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
 .collection-card-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: .35rem .7rem; }
-.collection-card .text-button { min-height: 2.75rem; }
+.collection-card .text-button, .library-collection-filter .text-button { min-height: 2.75rem; }
 .collection-members { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
 .collection-members li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 2.75rem; padding: .4rem 0; border-bottom: var(--lexync-border-regular) solid var(--web-quiet); }
 .collection-empty { margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
@@ -642,6 +642,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .collection-dialog h2 { margin: 0; font-size: var(--lexync-type-size-xl); }
 .collection-dialog p { margin: 0; color: var(--web-muted); line-height: var(--lexync-type-line-relaxed); }
 .collection-dialog input { width: 100%; min-height: 3rem; box-sizing: border-box; padding: .7rem .8rem; border: var(--web-outline); border-radius: var(--lexync-radius-md); background: var(--web-surface); color: var(--web-ink); font-family: var(--lexync-type-family-body); }
+.collection-dialog form .collection-dialog-notice { min-height: 2.75rem; }
 .collection-dialog-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .5rem; }
 .library-collection-filter { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; padding: .7rem 1rem; border: var(--web-outline); background: var(--web-strong); color: var(--web-ink); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); }
 .library-collection-filter-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
@@ -664,8 +665,8 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .collections-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; margin: -1px; padding: 0; border: 0; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
 @media (max-width: 44rem) {
-  .collections-toolbar, .collection-card-header, .collection-members li, .library-collection-filter { align-items: stretch; flex-direction: column; }
-  .collections-toolbar > *, .collection-card-actions, .collection-card-actions > *, .collection-filter-button, .collection-add-entry > .secondary-button, .library-collection-filter > * { width: 100%; }
+  .collections-toolbar, .collection-card-header, .collection-members li, .library-collection-filter, .library-collection-filter-actions { align-items: stretch; flex-direction: column; }
+  .collections-toolbar > *, .collection-card-actions, .collection-card-actions > *, .collection-filter-button, .collection-add-entry > .secondary-button, .library-collection-filter > *, .library-collection-filter-actions > * { width: 100%; }
   .collection-card-actions { align-items: stretch; }
   .collection-filter-button { text-align: center; }
 }

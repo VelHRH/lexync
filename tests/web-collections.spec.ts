@@ -744,8 +744,23 @@ test.describe('web Collections', () => {
     await createDialog.getByRole('button', { name: 'Create Collection' }).click();
     await expect(createDialog.getByRole('alert')).toHaveText('Collection name is required.');
     await expect(createDialog).toBeVisible();
+    await expect(page.locator('#collection-name')).toHaveAttribute('aria-invalid', 'true');
+
+    const createSubmit = createDialog.getByRole('button', { name: 'Create Collection' });
+    await page.context().setOffline(true);
+    await expect(createDialog.getByText('You are offline. Collection changes require a connection.', { exact: true })).toBeVisible();
+    await expect(createSubmit).toBeDisabled();
+    const describedBy = await createSubmit.getAttribute('aria-describedby');
+    expect(describedBy).toBe('collection-dialog-offline-notice');
+    await expect(createDialog.locator(`#${describedBy}`)).toHaveText('You are offline. Collection changes require a connection.');
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
+    await page.context().setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect(createSubmit).toBeEnabled();
+
     await createDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(createDialog).toBeHidden();
+    await expect(page.getByRole('button', { name: 'New Collection' })).toBeFocused();
 
     await openScopePicker(page);
     await expect(scopeOptions(page)).toHaveCount(2);
@@ -758,6 +773,7 @@ test.describe('web Collections', () => {
     await page.getByLabel('Collection name').fill('Kitchen');
     await createDialog.getByRole('button', { name: 'Create Collection' }).click();
     await expect(createDialog).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'Created the Collection “Kitchen”.' })).toBeVisible();
 
     await chooseScope(page, /Kitchen/);
     await expect(page).toHaveURL(/\/library\?collection=/);
@@ -799,6 +815,30 @@ test.describe('web Collections', () => {
     await expect(page.getByRole('button', { name: /Kitchn/ })).toHaveCount(0);
     expect(await page.evaluate(() => (window as unknown as { __lexyncNoReload?: boolean }).__lexyncNoReload)).toBe(true);
 
+    const renameTrigger = page.getByRole('button', { name: 'Rename Kitchen' });
+    await renameTrigger.click();
+    await expect(renameDialog).toBeVisible();
+    await renameDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(renameDialog).toBeHidden();
+    await expect(renameTrigger).toBeFocused();
+
+    await renameTrigger.click();
+    await expect(renameDialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(renameDialog).toBeHidden();
+    await expect(renameTrigger).toBeFocused();
+
+    await renameTrigger.click();
+    await expect(renameDialog).toBeVisible();
+    const { error: removedError } = await client.rpc('delete_collection', { p_collection_id: kitchn });
+    if (removedError) throw removedError;
+    await page.getByLabel('Collection name').fill('Kitchen shelf');
+    await renameDialog.getByRole('button', { name: 'Save Collection' }).click();
+    await expect(renameDialog.getByRole('alert')).toHaveText('Collection is unavailable.');
+    await expect(renameDialog).toBeVisible();
+    await renameDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(renameDialog).toBeHidden();
+
     if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
   });
 
@@ -815,17 +855,23 @@ test.describe('web Collections', () => {
     await chooseScope(page, /Kitchen/);
     await expect(page).toHaveURL(`/library?collection=${kitchen}`);
 
-    await page.getByRole('button', { name: 'Delete Kitchen' }).click();
+    const deleteTrigger = page.getByRole('button', { name: 'Delete Kitchen' });
+    await deleteTrigger.click();
     const deleteDialog = page.getByRole('dialog', { name: 'Delete Collection' });
     await expect(deleteDialog).toBeVisible();
-    await expect(deleteDialog.getByText('Vocabulary entries will stay in your Library.')).toBeVisible();
+    await expect(deleteDialog.getByText('Delete “Kitchen”? Vocabulary Entries will stay in your Library.', { exact: true })).toBeVisible();
+    await expect(deleteDialog).toHaveAttribute('aria-describedby', 'delete-collection-description');
+    await expect(page.locator('#delete-collection-description')).toHaveText('Delete “Kitchen”? Vocabulary Entries will stay in your Library.');
     await deleteDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(deleteDialog).toBeHidden();
+    await expect(deleteTrigger).toBeFocused();
     await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Delete Kitchen' }).click();
+    await deleteTrigger.click();
     await deleteDialog.getByRole('button', { name: 'Delete Collection' }).click();
     await expect(page).toHaveURL('/library');
+    await expect(page.getByRole('status').filter({ hasText: 'Deleted the Collection “Kitchen”. Its Vocabulary Entries are still in your Library.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'New Collection' })).toBeFocused();
     await expect(page.getByText('Filtered by Kitchen')).toHaveCount(0);
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
@@ -855,6 +901,25 @@ test.describe('web Collections', () => {
 
     const { data: shelf, error: shelfError } = await client.from('collections').select('id').eq('name', 'Private shelf').single();
     if (shelfError || !shelf?.id) throw shelfError ?? new Error('The Library Collection fixture is missing.');
+
+    await page.getByRole('button', { name: 'Rename Private shelf' }).click();
+    await page.getByLabel('Collection name').fill('Private archive');
+    await page.getByRole('dialog', { name: 'Rename Collection' }).getByRole('button', { name: 'Save Collection' }).click();
+    await expect(page.getByText('Filtered by Private archive')).toBeVisible();
+
+    const { data: renamedSnapshot, error: renamedError } = await client.rpc('account_learning_snapshot');
+    if (renamedError) throw renamedError;
+    expect(JSON.stringify(renamedSnapshot)).toContain('Private archive');
+    expect(JSON.stringify(renamedSnapshot)).not.toContain('Private shelf');
+
+    await page.getByRole('button', { name: 'Delete Private archive' }).click();
+    await page.getByRole('dialog', { name: 'Delete Collection' }).getByRole('button', { name: 'Delete Collection' }).click();
+    await expect(page).toHaveURL('/library');
+    await expect(page.getByRole('status').filter({ hasText: 'Deleted the Collection “Private archive”. Its Vocabulary Entries are still in your Library.' })).toBeVisible();
+
+    const { data: deletedSnapshot, error: deletedError } = await client.rpc('account_learning_snapshot');
+    if (deletedError) throw deletedError;
+    expect(JSON.stringify(deletedSnapshot)).not.toContain('Private archive');
 
     const other = credentials('web-library-collection-other');
     const { client: otherClient, pairIds: otherPairIds } = await register(other);
@@ -888,8 +953,10 @@ test.describe('web Collections', () => {
     await expect(page).toHaveURL(`/library?collection=${kitchen}`);
 
     await page.context().setOffline(true);
-    const offlineNotice = page.getByText('You are offline. Collection changes require a connection.', { exact: true });
+    const offlineNotice = page.getByText('You are offline. Vocabulary and Collection changes require a connection.', { exact: true });
     await expect(offlineNotice).toBeVisible();
+    await expect(page.getByText('You are offline. Vocabulary changes require a connection.', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('You are offline. Collection changes require a connection.', { exact: true })).toHaveCount(0);
     const collectionControls = [
       page.getByRole('button', { name: 'New Collection' }),
       page.getByRole('button', { name: 'Rename Kitchen' }),
@@ -898,8 +965,8 @@ test.describe('web Collections', () => {
     for (const control of collectionControls) {
       await expect(control).toBeDisabled();
       const describedBy = await control.getAttribute('aria-describedby');
-      expect(describedBy).toBeTruthy();
-      await expect(page.locator(`#${describedBy}`)).toHaveText('You are offline. Collection changes require a connection.');
+      expect(describedBy).toBe('library-offline-notice');
+      await expect(page.locator(`#${describedBy}`)).toHaveText('You are offline. Vocabulary and Collection changes require a connection.');
     }
     await assertNoHorizontalOverflow(page);
 

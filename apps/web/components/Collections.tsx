@@ -108,7 +108,7 @@ export function Collections({ language }: { language: LearningLanguage }) {
         <p className="collections-intro">Keep related vocabulary together for the way you study.</p>
       </div>
       {online
-        ? <button className="primary-button" type="button" onClick={() => setCollectionRequest({ kind: 'create' })}>Add collection</button>
+        ? <button className="primary-button" type="button" onClick={() => { setNotice(''); setCollectionRequest({ kind: 'create' }); }}>Add collection</button>
         : <span className="secondary-button disabled" aria-disabled="true" aria-label="Add collection unavailable offline">Add collection</span>}
     </div>
     {!online && <p className="form-notice" role="status">{offlineMessage}</p>}
@@ -137,8 +137,8 @@ export function Collections({ language }: { language: LearningLanguage }) {
               <p>{members.length} {members.length === 1 ? 'entry' : 'entries'}</p>
             </div>
             <div className="collection-card-actions">
-              <button className="text-button" type="button" aria-label={`Rename ${collection.name}`} disabled={!online} onClick={() => setCollectionRequest({ kind: 'rename', collection })}>Rename</button>
-              <button className="text-button danger" type="button" aria-label={`Delete ${collection.name}`} disabled={!online} onClick={() => setCollectionRequest({ kind: 'delete', collection })}>Delete</button>
+              <button className="text-button" type="button" aria-label={`Rename ${collection.name}`} disabled={!online} onClick={() => { setNotice(''); setCollectionRequest({ kind: 'rename', collection }); }}>Rename</button>
+              <button className="text-button danger" type="button" aria-label={`Delete ${collection.name}`} disabled={!online} onClick={() => { setNotice(''); setCollectionRequest({ kind: 'delete', collection }); }}>Delete</button>
             </div>
           </div>
           {members.length > 0
