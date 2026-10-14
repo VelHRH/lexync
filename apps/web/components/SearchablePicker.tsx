@@ -11,7 +11,7 @@ function filterOptions(options: SearchablePickerOption[], query: string) {
   return options.filter((option) => [option.label, ...(option.keywords ?? [])].some((haystack) => normalizeSearchText(haystack).includes(needle)));
 }
 
-export function SearchablePicker({ id, label, value, options, onChange, emptyMessage }: { id: string; label: string; value: string; options: SearchablePickerOption[]; onChange: (id: string) => void; emptyMessage: string }): JSX.Element {
+export function SearchablePicker({ id, label, value, options, onChange, emptyMessage, disabled = false, describedBy }: { id: string; label: string; value: string; options: SearchablePickerOption[]; onChange: (id: string) => void; emptyMessage: string; disabled?: boolean; describedBy?: string }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [filtering, setFiltering] = useState(false);
@@ -21,8 +21,10 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
   const optionNodes = useRef<(HTMLLIElement | null)[]>([]);
   const listboxId = `${id}-listbox`;
   const selectedLabel = options.find((option) => option.id === value)?.label ?? '';
-  const visible = useMemo(() => (filtering ? filterOptions(options, query) : options), [filtering, options, query]);
-  const activeDescendant = open && visible[activeIndex] ? `${id}-option-${activeIndex}` : undefined;
+  const searching = filtering && !disabled;
+  const panelOpen = open && !disabled;
+  const visible = useMemo(() => (searching ? filterOptions(options, query) : options), [options, query, searching]);
+  const activeDescendant = panelOpen && visible[activeIndex] ? `${id}-option-${activeIndex}` : undefined;
 
   const closePanel = useCallback(() => {
     setOpen(false);
@@ -31,19 +33,19 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!panelOpen) return;
     const closeOnOutside = (event: MouseEvent) => {
       if (container.current?.contains(event.target as Node)) return;
       closePanel();
     };
     document.addEventListener('mousedown', closeOnOutside);
     return () => document.removeEventListener('mousedown', closeOnOutside);
-  }, [closePanel, open]);
+  }, [closePanel, panelOpen]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!panelOpen) return;
     optionNodes.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex, open]);
+  }, [activeIndex, panelOpen]);
 
   function announceList(list: SearchablePickerOption[]) {
     setAnnouncement(list.length ? `${list.length} options available` : emptyMessage);
@@ -73,7 +75,7 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
       event.currentTarget.focus();
       return;
     }
-    if (!open) openPanel();
+    if (!panelOpen) openPanel();
   }
 
   function onInputFocus(event: React.FocusEvent<HTMLInputElement>) {
@@ -93,14 +95,14 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
   function onInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      if (!open) {
+      if (!panelOpen) {
         openPanel();
         return;
       }
       move(event.key === 'ArrowDown' ? activeIndex + 1 : activeIndex - 1);
       return;
     }
-    if (!open) return;
+    if (!panelOpen) return;
     if (event.key === 'Home') {
       event.preventDefault();
       move(0);
@@ -133,21 +135,23 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
       <input
         aria-activedescendant={activeDescendant}
         aria-autocomplete="list"
-        aria-controls={open ? listboxId : undefined}
-        aria-expanded={open}
+        aria-controls={panelOpen ? listboxId : undefined}
+        aria-describedby={describedBy}
+        aria-expanded={panelOpen}
         autoComplete="off"
+        disabled={disabled}
         id={id}
-        onBlur={() => { if (open) closePanel(); }}
+        onBlur={() => { if (panelOpen) closePanel(); }}
         onChange={onInputChange}
         onFocus={onInputFocus}
         onKeyDown={onInputKeyDown}
         onMouseDown={onInputMouseDown}
         role="combobox"
         type="text"
-        value={filtering ? query : selectedLabel}
+        value={searching ? query : selectedLabel}
       />
       <span aria-hidden="true" className="searchable-picker-indicator" data-ui="picker-indicator" />
-      {open && <ul aria-label={label} className="searchable-picker-panel" id={listboxId} role="listbox">
+      {panelOpen && <ul aria-label={label} className="searchable-picker-panel" id={listboxId} role="listbox">
         {visible.map((option, index) => <li
           aria-selected={option.id === value}
           className="searchable-picker-option"
