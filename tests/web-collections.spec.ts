@@ -100,51 +100,80 @@ async function fileEntry(client: Awaited<ReturnType<typeof register>>['client'],
   if (error) throw error;
 }
 
+async function snapshotCollections(client: Awaited<ReturnType<typeof register>>['client'], learningLanguageId: string) {
+  const { data, error } = await client.rpc('account_learning_snapshot');
+  if (error) throw error;
+  const language = (data.learningLanguages as Array<{ id: string; collections: Array<{ id: string; name: string; vocabularyEntryIds: string[] }> }>).find((item) => item.id === learningLanguageId);
+  if (!language) throw new Error('The Learning Language is missing from the account snapshot.');
+  return language.collections;
+}
+
 function entrySummary(page: Page, expression: string) {
   return page.locator('summary').filter({ hasText: expression });
 }
 
-function scopePicker(page: Page) {
-  return page.getByRole('combobox', { name: 'Collection scope' });
+function entryCheckbox(page: Page, expression: string) {
+  return page.getByRole('checkbox', { name: `Select ${expression}` });
 }
 
-function scopeListbox(page: Page) {
-  return page.getByRole('listbox');
+function selectionCount(page: Page) {
+  return page.getByRole('status').filter({ hasText: /Vocabulary Entr(?:y|ies) selected/ });
 }
 
-function scopeOptions(page: Page) {
-  return scopeListbox(page).getByRole('option');
+async function expandEntry(page: Page, expression: string) {
+  await entrySummary(page, expression).getByRole('heading', { name: expression }).click();
+  return entrySummary(page, expression).locator('..');
 }
 
-function scopeAnnouncement(page: Page, text: string | RegExp) {
+function picker(page: Page, label: string) {
+  return page.getByRole('combobox', { name: label });
+}
+
+function pickerListbox(page: Page, label: string) {
+  return page.getByRole('listbox', { name: label });
+}
+
+function pickerOptions(page: Page, label: string) {
+  return pickerListbox(page, label).getByRole('option');
+}
+
+function pickerAnnouncement(page: Page, text: string | RegExp) {
   return page.getByRole('status').filter({ hasText: text });
 }
 
-async function openScopePicker(page: Page) {
-  await scopePicker(page).click();
-  await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'true');
-  const listboxId = await scopePicker(page).getAttribute('aria-controls');
+async function openPicker(page: Page, label: string) {
+  await picker(page, label).click();
+  await expect(picker(page, label)).toHaveAttribute('aria-expanded', 'true');
+  const listboxId = await picker(page, label).getAttribute('aria-controls');
   expect(listboxId).toBeTruthy();
-  await expect(scopeListbox(page)).toHaveAttribute('id', String(listboxId));
+  await expect(pickerListbox(page, label)).toHaveAttribute('id', String(listboxId));
 }
 
-async function chooseScope(page: Page, option: string | RegExp) {
-  await openScopePicker(page);
-  await scopeListbox(page).getByRole('option', { name: option }).click();
-  await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
+async function choosePickerOption(page: Page, label: string, option: string | RegExp) {
+  await openPicker(page, label);
+  await pickerListbox(page, label).getByRole('option', { name: option }).click();
+  await expect(picker(page, label)).toHaveAttribute('aria-expanded', 'false');
 }
 
-async function highlightedScopeOption(page: Page) {
-  const activeDescendant = await scopePicker(page).getAttribute('aria-activedescendant');
-  for (const option of await scopeOptions(page).all()) {
+async function fileSelectionInto(page: Page, name: string, typed: string) {
+  await openPicker(page, 'Collection to file into');
+  await picker(page, 'Collection to file into').fill(typed);
+  await pickerListbox(page, 'Collection to file into').getByRole('option', { name }).click();
+  await expect(picker(page, 'Collection to file into')).toHaveValue(name);
+  await page.getByRole('button', { name: 'File into Collection' }).click();
+}
+
+async function highlightedPickerOption(page: Page, label: string) {
+  const activeDescendant = await picker(page, label).getAttribute('aria-activedescendant');
+  for (const option of await pickerOptions(page, label).all()) {
     if ((await option.getAttribute('id')) !== activeDescendant) continue;
     return `${await option.getAttribute('role')} ${(await option.innerText()).replace(/\s+/g, ' ').trim()}`;
   }
   return 'no option carries the aria-activedescendant id';
 }
 
-async function expectHighlightedScopeOption(page: Page, name: string) {
-  await expect.poll(() => highlightedScopeOption(page)).toContain(`option ${name}`);
+async function expectHighlightedPickerOption(page: Page, label: string, name: string) {
+  await expect.poll(() => highlightedPickerOption(page, label)).toContain(`option ${name}`);
 }
 
 function trackRequests(page: Page, pattern: RegExp) {
@@ -353,23 +382,23 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await expect(scopePicker(page)).toHaveValue('All vocabulary');
-    await expect(scopePicker(page)).toHaveAttribute('aria-autocomplete', 'list');
+    await expect(picker(page, 'Collection scope')).toHaveValue('All vocabulary');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-autocomplete', 'list');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'sol')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
 
-    await chooseScope(page, /Places/);
+    await choosePickerOption(page, 'Collection scope', /Places/);
     await expect(page).toHaveURL(`/library?collection=${places}`);
-    await expect(scopePicker(page)).toHaveValue('Places');
+    await expect(picker(page, 'Collection scope')).toHaveValue('Places');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'sol')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toHaveCount(0);
 
-    await openScopePicker(page);
-    await expect(scopeListbox(page).getByRole('option', { name: /Places/ })).toHaveAttribute('aria-selected', 'true');
-    await scopePicker(page).press('Escape');
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
+    await openPicker(page, 'Collection scope');
+    await expect(pickerListbox(page, 'Collection scope').getByRole('option', { name: /Places/ })).toHaveAttribute('aria-selected', 'true');
+    await picker(page, 'Collection scope').press('Escape');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'false');
 
     await entrySummary(page, 'casa').click();
     const casaEntry = entrySummary(page, 'casa').locator('..');
@@ -378,12 +407,12 @@ test.describe('web Collections', () => {
     await expect(casaEntry.getByText('La casa es grande.', { exact: true })).toBeVisible();
     await expect(casaEntry.getByRole('button', { name: 'Suspend casa' })).toBeVisible();
 
-    await chooseScope(page, 'Not in a Collection');
+    await choosePickerOption(page, 'Collection scope', 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(entrySummary(page, 'luna')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
-    await chooseScope(page, 'All vocabulary');
+    await choosePickerOption(page, 'Collection scope', 'All vocabulary');
     await expect(page).toHaveURL('/library');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'sol')).toBeVisible();
@@ -410,19 +439,19 @@ test.describe('web Collections', () => {
     await page.goto('/library');
     await expect(entrySummary(page, 'casa')).toBeVisible();
 
-    await openScopePicker(page);
-    await expect(scopeOptions(page)).toHaveCount(5);
-    await expect(scopeOptions(page).nth(0)).toContainText('All vocabulary');
-    await expect(scopeOptions(page).nth(1)).toContainText('Not in a Collection');
-    await expect(scopeOptions(page).nth(2)).toContainText('Places');
-    await expect(scopeOptions(page).nth(2)).toContainText('2 entries');
-    await expect(scopeOptions(page).nth(3)).toContainText('Sky');
-    await expect(scopeOptions(page).nth(3)).toContainText('1 entry');
-    await expect(scopeOptions(page).nth(4)).toContainText('Empty shelf');
-    await expect(scopeOptions(page).nth(4)).toContainText('0 entries');
+    await openPicker(page, 'Collection scope');
+    await expect(pickerOptions(page, 'Collection scope')).toHaveCount(5);
+    await expect(pickerOptions(page, 'Collection scope').nth(0)).toContainText('All vocabulary');
+    await expect(pickerOptions(page, 'Collection scope').nth(1)).toContainText('Not in a Collection');
+    await expect(pickerOptions(page, 'Collection scope').nth(2)).toContainText('Places');
+    await expect(pickerOptions(page, 'Collection scope').nth(2)).toContainText('2 entries');
+    await expect(pickerOptions(page, 'Collection scope').nth(3)).toContainText('Sky');
+    await expect(pickerOptions(page, 'Collection scope').nth(3)).toContainText('1 entry');
+    await expect(pickerOptions(page, 'Collection scope').nth(4)).toContainText('Empty shelf');
+    await expect(pickerOptions(page, 'Collection scope').nth(4)).toContainText('0 entries');
 
     await page.getByLabel('Search vocabulary').click();
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'false');
   });
 
   test('filters the scope control by typing and states when no Collection matches', async ({ page }) => {
@@ -437,20 +466,20 @@ test.describe('web Collections', () => {
     await signIn(page, account);
     await page.goto('/library');
     await expect(entrySummary(page, 'casa')).toBeVisible();
-    await openScopePicker(page);
+    await openPicker(page, 'Collection scope');
 
-    await scopePicker(page).fill('pla');
-    await expect(scopeListbox(page).getByRole('option', { name: /Places/ })).toBeVisible();
-    await expect(scopeListbox(page).getByRole('option', { name: /Sky/ })).toHaveCount(0);
+    await picker(page, 'Collection scope').fill('pla');
+    await expect(pickerListbox(page, 'Collection scope').getByRole('option', { name: /Places/ })).toBeVisible();
+    await expect(pickerListbox(page, 'Collection scope').getByRole('option', { name: /Sky/ })).toHaveCount(0);
 
-    await scopePicker(page).fill('');
-    await scopePicker(page).fill('  WEATHER   WORDS  ');
-    await expect(scopeListbox(page).getByRole('option', { name: /Weather words/ })).toBeVisible();
+    await picker(page, 'Collection scope').fill('');
+    await picker(page, 'Collection scope').fill('  WEATHER   WORDS  ');
+    await expect(pickerListbox(page, 'Collection scope').getByRole('option', { name: /Weather words/ })).toBeVisible();
 
-    await scopePicker(page).fill('zzz');
+    await picker(page, 'Collection scope').fill('zzz');
     await expect(page.getByText('No Collections match').first()).toBeVisible();
-    await expect(scopeAnnouncement(page, 'No Collections match')).toHaveText('No Collections match');
-    await expect(scopeOptions(page)).toHaveCount(0);
+    await expect(pickerAnnouncement(page, 'No Collections match')).toHaveText('No Collections match');
+    await expect(pickerOptions(page, 'Collection scope')).toHaveCount(0);
   });
 
   test('operates the scope control with the keyboard alone to a completed choice', async ({ page }) => {
@@ -470,43 +499,43 @@ test.describe('web Collections', () => {
     await page.goto('/library');
     await expect(entrySummary(page, 'cielo')).toBeVisible();
 
-    await scopePicker(page).focus();
+    await picker(page, 'Collection scope').focus();
     await page.keyboard.press('ArrowDown');
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'true');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'true');
 
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('s');
-    await expect(scopeAnnouncement(page, /options available/)).toHaveText(/^\d+ options available$/);
+    await expect(pickerAnnouncement(page, /options available/)).toHaveText(/^\d+ options available$/);
 
     await page.keyboard.press('End');
-    await expectHighlightedScopeOption(page, 'Sky');
+    await expectHighlightedPickerOption(page, 'Collection scope', 'Sky');
     await page.keyboard.press('ArrowUp');
-    await expectHighlightedScopeOption(page, 'Places');
+    await expectHighlightedPickerOption(page, 'Collection scope', 'Places');
     await page.keyboard.press('Home');
-    await expectHighlightedScopeOption(page, 'Places');
+    await expectHighlightedPickerOption(page, 'Collection scope', 'Places');
     await page.keyboard.press('ArrowDown');
-    await expectHighlightedScopeOption(page, 'Sky');
+    await expectHighlightedPickerOption(page, 'Collection scope', 'Sky');
 
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(`/library?collection=${sky}`);
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
-    await expect(scopePicker(page)).toHaveValue('Sky');
-    await expect(scopeAnnouncement(page, 'Collection scope: Sky')).toHaveText('Collection scope: Sky');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'false');
+    await expect(picker(page, 'Collection scope')).toHaveValue('Sky');
+    await expect(pickerAnnouncement(page, 'Collection scope: Sky')).toHaveText('Collection scope: Sky');
     await expect(entrySummary(page, 'cielo')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
     await page.keyboard.press('ArrowDown');
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'true');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'true');
     await page.keyboard.press('Escape');
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
-    await expect(scopePicker(page)).toHaveValue('Sky');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'false');
+    await expect(picker(page, 'Collection scope')).toHaveValue('Sky');
 
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('pla');
     await page.keyboard.press('Tab');
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
-    await expect(scopePicker(page)).toHaveValue('Sky');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'false');
+    await expect(picker(page, 'Collection scope')).toHaveValue('Sky');
     await expect(page).toHaveURL(`/library?collection=${sky}`);
     await expect(entrySummary(page, 'cielo')).toBeVisible();
 
@@ -533,7 +562,7 @@ test.describe('web Collections', () => {
     await page.getByRole('button', { name: 'Suspend sol' }).click();
     await expect(page.getByText('Suspended', { exact: true })).toBeVisible();
 
-    await chooseScope(page, /Places/);
+    await choosePickerOption(page, 'Collection scope', /Places/);
     await expect(page).toHaveURL(`/library?collection=${places}`);
 
     await page.getByLabel('Vocabulary status').selectOption({ label: 'Active entries' });
@@ -555,17 +584,17 @@ test.describe('web Collections', () => {
     await expect(page.getByRole('heading', { name: 'No match in this library.' })).toBeVisible();
     await expect(page.getByText('No Vocabulary Entries match “luna”.', { exact: true })).toBeVisible();
     await expect(page.getByText('No vocabulary entries in “Places”.')).toHaveCount(0);
-    await expect(scopePicker(page)).toHaveValue('Places');
+    await expect(picker(page, 'Collection scope')).toHaveValue('Places');
 
     await page.getByLabel('Search vocabulary').fill('');
     await page.getByLabel('Vocabulary status').selectOption({ label: 'Suspended entries' });
-    await chooseScope(page, /Sky/);
+    await choosePickerOption(page, 'Collection scope', /Sky/);
     await expect(page).toHaveURL(`/library?collection=${sky}`);
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     await expect(page.getByText('No suspended Vocabulary Entries in “Sky”.', { exact: true })).toBeVisible();
     await expect(page.getByText('No vocabulary entries in “Sky”.')).toHaveCount(0);
 
-    await chooseScope(page, 'Not in a Collection');
+    await choosePickerOption(page, 'Collection scope', 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     await expect(page.getByText('No suspended Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
@@ -585,13 +614,13 @@ test.describe('web Collections', () => {
     await page.goto('/library');
     await expect(entrySummary(page, 'casa')).toBeVisible();
 
-    await chooseScope(page, /Empty shelf/);
+    await choosePickerOption(page, 'Collection scope', /Empty shelf/);
     await expect(page.getByRole('heading', { name: 'This Collection is empty.' })).toBeVisible();
     await expect(page.getByText('No vocabulary entries in “Empty shelf”.', { exact: true })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'This Collection is empty.' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Library' }).getByRole('alert')).toHaveCount(0);
 
-    await chooseScope(page, 'Not in a Collection');
+    await choosePickerOption(page, 'Collection scope', 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(page.getByRole('heading', { name: 'Nothing outside your Collections.' })).toBeVisible();
     await expect(page.getByText('No Vocabulary Entries are outside a Collection.', { exact: true })).toBeVisible();
@@ -608,21 +637,21 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await chooseScope(page, /Places/);
+    await choosePickerOption(page, 'Collection scope', /Places/);
     await expect(page).toHaveURL(`/library?collection=${places}`);
 
     await page.reload();
     await expect(page).toHaveURL(`/library?collection=${places}`);
-    await expect(scopePicker(page)).toHaveValue('Places');
+    await expect(picker(page, 'Collection scope')).toHaveValue('Places');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toHaveCount(0);
 
-    await chooseScope(page, 'Not in a Collection');
+    await choosePickerOption(page, 'Collection scope', 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
 
     await page.reload();
     await expect(page).toHaveURL('/library?collection=none');
-    await expect(scopePicker(page)).toHaveValue('Not in a Collection');
+    await expect(picker(page, 'Collection scope')).toHaveValue('Not in a Collection');
     await expect(entrySummary(page, 'luna')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
   });
@@ -641,19 +670,19 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await chooseScope(page, /Places/);
+    await choosePickerOption(page, 'Collection scope', /Places/);
     await expect(page).toHaveURL(`/library?collection=${places}`);
 
     await selectLearningLanguage(page, french);
     await expectActiveLearningLanguage(page, french);
     await expect(page).toHaveURL('/library');
-    await expect(scopePicker(page)).toHaveValue('All vocabulary');
+    await expect(picker(page, 'Collection scope')).toHaveValue('All vocabulary');
     await expect(entrySummary(page, 'fromage')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
-    await openScopePicker(page);
-    await expect(scopeListbox(page).getByRole('option', { name: /Paris/ })).toBeVisible();
-    await expect(scopeListbox(page).getByRole('option', { name: /Places/ })).toHaveCount(0);
+    await openPicker(page, 'Collection scope');
+    await expect(pickerListbox(page, 'Collection scope').getByRole('option', { name: /Paris/ })).toBeVisible();
+    await expect(pickerListbox(page, 'Collection scope').getByRole('option', { name: /Places/ })).toHaveCount(0);
   });
 
   test('changes the Collection scope without issuing a Library request', async ({ page }) => {
@@ -677,17 +706,17 @@ test.describe('web Collections', () => {
     const libraryRequests = trackLibraryRequests(page);
     libraryRequests.reset();
 
-    await chooseScope(page, /Places/);
+    await choosePickerOption(page, 'Collection scope', /Places/);
     await expect(page).toHaveURL(`/library?collection=${places}`);
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'cielo')).toHaveCount(0);
 
-    await chooseScope(page, 'Not in a Collection');
+    await choosePickerOption(page, 'Collection scope', 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(entrySummary(page, 'luna')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
-    await chooseScope(page, 'All vocabulary');
+    await choosePickerOption(page, 'Collection scope', 'All vocabulary');
     await expect(page).toHaveURL('/library');
     await expect(entrySummary(page, 'cielo')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
@@ -705,7 +734,7 @@ test.describe('web Collections', () => {
     await signIn(page, account);
     await page.goto(`/library?collection=${crypto.randomUUID()}`);
     await expect(page).toHaveURL('/library');
-    await expect(scopePicker(page)).toHaveValue('All vocabulary');
+    await expect(picker(page, 'Collection scope')).toHaveValue('All vocabulary');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'This Collection is empty.' })).toHaveCount(0);
@@ -724,7 +753,7 @@ test.describe('web Collections', () => {
     await page.goto(`/library?collection=${places}&add=1`);
     await expect(page.getByLabel('Expression')).toBeVisible();
     await expect(page).toHaveURL(`/library?collection=${places}`);
-    await expect(scopePicker(page)).toHaveValue('Places');
+    await expect(picker(page, 'Collection scope')).toHaveValue('Places');
     await expect(entrySummary(page, 'casa')).toHaveCount(1);
     await expect(entrySummary(page, 'luna')).toHaveCount(0);
   });
@@ -762,12 +791,12 @@ test.describe('web Collections', () => {
     await expect(createDialog).toBeHidden();
     await expect(page.getByRole('button', { name: 'New Collection' })).toBeFocused();
 
-    await openScopePicker(page);
-    await expect(scopeOptions(page)).toHaveCount(2);
-    await expect(scopeOptions(page).nth(0)).toContainText('All vocabulary');
-    await expect(scopeOptions(page).nth(1)).toContainText('Not in a Collection');
-    await scopePicker(page).press('Escape');
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
+    await openPicker(page, 'Collection scope');
+    await expect(pickerOptions(page, 'Collection scope')).toHaveCount(2);
+    await expect(pickerOptions(page, 'Collection scope').nth(0)).toContainText('All vocabulary');
+    await expect(pickerOptions(page, 'Collection scope').nth(1)).toContainText('Not in a Collection');
+    await picker(page, 'Collection scope').press('Escape');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'false');
 
     await page.getByRole('button', { name: 'New Collection' }).click();
     await page.getByLabel('Collection name').fill('Kitchen');
@@ -775,7 +804,7 @@ test.describe('web Collections', () => {
     await expect(createDialog).toBeHidden();
     await expect(page.getByRole('status').filter({ hasText: 'Created the Collection “Kitchen”.' })).toBeVisible();
 
-    await chooseScope(page, /Kitchen/);
+    await choosePickerOption(page, 'Collection scope', /Kitchen/);
     await expect(page).toHaveURL(/\/library\?collection=/);
     await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
 
@@ -791,7 +820,7 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await chooseScope(page, /Kitchn/);
+    await choosePickerOption(page, 'Collection scope', /Kitchn/);
     await expect(page).toHaveURL(`/library?collection=${kitchn}`);
     await page.evaluate(() => { (window as unknown as { __lexyncNoReload?: boolean }).__lexyncNoReload = true; });
 
@@ -804,11 +833,11 @@ test.describe('web Collections', () => {
     await expect(renameDialog).toBeHidden();
 
     await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
-    await openScopePicker(page);
-    await expect(scopeOptions(page).filter({ hasText: 'Kitchen' })).toHaveCount(1);
-    await expect(scopeOptions(page).filter({ hasText: 'Kitchn' })).toHaveCount(0);
-    await scopePicker(page).press('Escape');
-    await expect(scopePicker(page)).toHaveAttribute('aria-expanded', 'false');
+    await openPicker(page, 'Collection scope');
+    await expect(pickerOptions(page, 'Collection scope').filter({ hasText: 'Kitchen' })).toHaveCount(1);
+    await expect(pickerOptions(page, 'Collection scope').filter({ hasText: 'Kitchn' })).toHaveCount(0);
+    await picker(page, 'Collection scope').press('Escape');
+    await expect(picker(page, 'Collection scope')).toHaveAttribute('aria-expanded', 'false');
 
     await entrySummary(page, 'casa').click();
     await expect(page.getByRole('button', { name: 'Remove casa from Kitchen' })).toBeVisible();
@@ -852,7 +881,7 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await chooseScope(page, /Kitchen/);
+    await choosePickerOption(page, 'Collection scope', /Kitchen/);
     await expect(page).toHaveURL(`/library?collection=${kitchen}`);
 
     const deleteTrigger = page.getByRole('button', { name: 'Delete Kitchen' });
@@ -876,8 +905,8 @@ test.describe('web Collections', () => {
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
 
-    await openScopePicker(page);
-    await expect(scopeOptions(page).filter({ hasText: 'Kitchen' })).toHaveCount(0);
+    await openPicker(page, 'Collection scope');
+    await expect(pickerOptions(page, 'Collection scope').filter({ hasText: 'Kitchen' })).toHaveCount(0);
 
     if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
   });
@@ -892,7 +921,7 @@ test.describe('web Collections', () => {
     await page.getByRole('button', { name: 'New Collection' }).click();
     await page.getByLabel('Collection name').fill('Private shelf');
     await page.getByRole('dialog', { name: 'Create Collection' }).getByRole('button', { name: 'Create Collection' }).click();
-    await chooseScope(page, /Private shelf/);
+    await choosePickerOption(page, 'Collection scope', /Private shelf/);
     await expect(page.getByText('Filtered by Private shelf')).toBeVisible();
 
     const { data: snapshot, error } = await client.rpc('account_learning_snapshot');
@@ -928,9 +957,9 @@ test.describe('web Collections', () => {
     await page.goto('/library');
     await expect(entrySummary(page, 'otro')).toBeVisible();
 
-    await openScopePicker(page);
-    await expect(scopeOptions(page).filter({ hasText: 'Private shelf' })).toHaveCount(0);
-    await scopePicker(page).press('Escape');
+    await openPicker(page, 'Collection scope');
+    await expect(pickerOptions(page, 'Collection scope').filter({ hasText: 'Private shelf' })).toHaveCount(0);
+    await picker(page, 'Collection scope').press('Escape');
 
     const { data: otherSnapshot, error: otherError } = await otherClient.rpc('account_learning_snapshot');
     if (otherError) throw otherError;
@@ -949,7 +978,7 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await chooseScope(page, /Kitchen/);
+    await choosePickerOption(page, 'Collection scope', /Kitchen/);
     await expect(page).toHaveURL(`/library?collection=${kitchen}`);
 
     await page.context().setOffline(true);
@@ -974,5 +1003,569 @@ test.describe('web Collections', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     for (const control of collectionControls) await expect(control).toBeEnabled();
     await expect(offlineNotice).toHaveCount(0);
+  });
+
+  test('counts a Library selection and clears the whole selection in one action', async ({ page }) => {
+    const account = credentials('web-library-selection-count');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    await createEntry(client, pairIds[0], 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await expect(selectionCount(page)).toHaveCount(0);
+
+    await entryCheckbox(page, 'hola').check();
+    await expect(selectionCount(page)).toHaveText('1 Vocabulary Entry selected');
+    await entryCheckbox(page, 'adios').check();
+    await entryCheckbox(page, 'casa').check();
+    await expect(selectionCount(page)).toHaveText('3 Vocabulary Entries selected');
+
+    await entryCheckbox(page, 'casa').uncheck();
+    await expect(selectionCount(page)).toHaveText('2 Vocabulary Entries selected');
+    await expect(entryCheckbox(page, 'casa')).not.toBeChecked();
+
+    await page.getByRole('button', { name: 'Clear selection' }).click();
+    await expect(selectionCount(page)).toHaveCount(0);
+    for (const expression of ['hola', 'adios', 'casa']) await expect(entryCheckbox(page, expression)).not.toBeChecked();
+  });
+
+  test('files a Library selection into an existing Collection chosen by typing its name', async ({ page }) => {
+    const account = credentials('web-library-selection-merge');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+    await seedCollection(client, spanish, 'Kitchen');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await entryCheckbox(page, 'adios').check();
+    await expect(selectionCount(page)).toHaveText('2 Vocabulary Entries selected');
+
+    await openPicker(page, 'Collection to file into');
+    await picker(page, 'Collection to file into').fill('tra');
+    await expect(pickerOptions(page, 'Collection to file into')).toHaveCount(1);
+    await pickerListbox(page, 'Collection to file into').getByRole('option', { name: 'Travel' }).click();
+    await expect(picker(page, 'Collection to file into')).toHaveValue('Travel');
+    await page.getByRole('button', { name: 'File into Collection' }).click();
+
+    await expect(page.getByText('Filed 2 Vocabulary Entries into Travel.', { exact: true })).toBeVisible();
+    await expect(selectionCount(page)).toHaveCount(0);
+    await expect(entryCheckbox(page, 'hola')).not.toBeChecked();
+    await expect(entryCheckbox(page, 'adios')).not.toBeChecked();
+
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await expect(entrySummary(page, 'adios')).toBeVisible();
+    await expect(entrySummary(page, 'casa')).toHaveCount(0);
+  });
+
+  test('files a Library selection into a Collection named during the same action', async ({ page }) => {
+    const account = credentials('web-library-selection-new-collection');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await entryCheckbox(page, 'adios').check();
+    await expect(selectionCount(page)).toHaveText('2 Vocabulary Entries selected');
+
+    await page.getByRole('button', { name: 'File into new Collection' }).click();
+    const fileIntoNew = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Create and file' }) });
+    await expect(fileIntoNew).toBeVisible();
+    await fileIntoNew.getByLabel('Collection name').fill('Travel');
+    await fileIntoNew.getByRole('button', { name: 'Create and file' }).click();
+    await expect(fileIntoNew).toBeHidden();
+    await expect(page.getByText('Filed 2 Vocabulary Entries into Travel.', { exact: true })).toBeVisible();
+    await expect(selectionCount(page)).toHaveCount(0);
+
+    await openPicker(page, 'Collection scope');
+    const travelOption = pickerOptions(page, 'Collection scope').filter({ hasText: 'Travel' });
+    await expect(travelOption).toHaveCount(1);
+    await expect(travelOption).toContainText('2 entries');
+    await travelOption.click();
+    await expect(page).toHaveURL(/\/library\?collection=/);
+    await expect(picker(page, 'Collection scope')).toHaveValue('Travel');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await expect(entrySummary(page, 'adios')).toBeVisible();
+  });
+
+  test('reports filing an Entry that is already a member as success without duplicating it', async ({ page }) => {
+    const account = credentials('web-library-selection-member');
+    const { client, pairIds } = await register(account);
+    const hola = await createEntry(client, pairIds[0], 'hola', 'hello');
+    const adios = await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+    await fileEntry(client, travel, hola.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await entryCheckbox(page, 'adios').check();
+    await fileSelectionInto(page, 'Travel', 'trav');
+
+    await expect(page.getByText('Filed 2 Vocabulary Entries into Travel.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Some Vocabulary Entries could not be filed into Travel')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Library' }).getByRole('alert')).toHaveCount(0);
+    await expect(selectionCount(page)).toHaveCount(0);
+
+    const members = (await snapshotCollections(client, spanish)).find((collection) => collection.id === travel)?.vocabularyEntryIds ?? [];
+    expect(members.filter((id) => id === hola.learningVocabularyEntryId)).toHaveLength(1);
+    expect(members).toContain(adios.learningVocabularyEntryId);
+  });
+
+  test('keeps other Collection memberships intact when filing a selection', async ({ page }) => {
+    const account = credentials('web-library-selection-other-collections');
+    const { client, pairIds } = await register(account);
+    const hola = await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    const spanish = await languageIdFor(client, 'es');
+    const places = await seedCollection(client, spanish, 'Places');
+    const travel = await seedCollection(client, spanish, 'Travel');
+    await fileEntry(client, places, hola.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await expect(selectionCount(page)).toHaveText('1 Vocabulary Entry selected');
+    await fileSelectionInto(page, 'Travel', 'trav');
+    await expect(page.getByText('Filed 1 Vocabulary Entry into Travel.', { exact: true })).toBeVisible();
+
+    await choosePickerOption(page, 'Collection scope', /Places/);
+    await expect(page).toHaveURL(`/library?collection=${places}`);
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+
+    expect(await snapshotCollections(client, spanish)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: places, vocabularyEntryIds: [hola.learningVocabularyEntryId] }),
+      expect.objectContaining({ id: travel, vocabularyEntryIds: [hola.learningVocabularyEntryId] }),
+    ]));
+  });
+
+  test('names the Entries that were not filed, keeps the selection, and leaves the rest filed', async ({ page }) => {
+    const account = credentials('web-library-selection-partial');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'hola', 'hello');
+    const adios = await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+
+    await signIn(page, account);
+    await page.route('**/rest/v1/rpc/add_collection_membership', async (route) => {
+      if (!(route.request().postData() ?? '').includes(adios.learningVocabularyEntryId)) {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'The Collection membership could not be stored.' }) });
+    });
+
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await entryCheckbox(page, 'adios').check();
+    await entryCheckbox(page, 'casa').check();
+    await fileSelectionInto(page, 'Travel', 'trav');
+
+    await expect(page.getByText('Some Vocabulary Entries could not be filed into Travel: adios.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Filed 3 Vocabulary Entries into Travel.')).toHaveCount(0);
+    await expect(selectionCount(page)).toHaveText('3 Vocabulary Entries selected');
+    for (const expression of ['hola', 'adios', 'casa']) await expect(entryCheckbox(page, expression)).toBeChecked();
+
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await expect(entrySummary(page, 'casa')).toBeVisible();
+    await expect(entrySummary(page, 'adios')).toHaveCount(0);
+  });
+
+  test('drops the selection on a Collection scope change and on an Active Learning Language change', async ({ page }) => {
+    const account = credentials('web-library-selection-reset');
+    const { client, pairIds } = await register(account, [['es', 'en'], ['fr', 'en']]);
+    const hola = await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    await createEntry(client, pairIds[1], 'bonjour', 'good day');
+    const spanish = await languageIdFor(client, 'es');
+    const french = await languageIdFor(client, 'fr');
+    const places = await seedCollection(client, spanish, 'Places');
+    await fileEntry(client, places, hola.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await entryCheckbox(page, 'adios').check();
+    await expect(selectionCount(page)).toHaveText('2 Vocabulary Entries selected');
+
+    await choosePickerOption(page, 'Collection scope', /Places/);
+    await expect(page).toHaveURL(`/library?collection=${places}`);
+    await expect(selectionCount(page)).toHaveCount(0);
+    await expect(entryCheckbox(page, 'hola')).not.toBeChecked();
+
+    await entryCheckbox(page, 'hola').check();
+    await expect(selectionCount(page)).toHaveText('1 Vocabulary Entry selected');
+
+    await selectLearningLanguage(page, french);
+    await expectActiveLearningLanguage(page, french);
+    await expect(page).toHaveURL('/library');
+    await expect(entrySummary(page, 'bonjour')).toBeVisible();
+    await expect(selectionCount(page)).toHaveCount(0);
+    await expect(entryCheckbox(page, 'bonjour')).not.toBeChecked();
+  });
+
+  test('adds a single Vocabulary Entry to the scoped Collection through the Entry picker', async ({ page }) => {
+    const account = credentials('web-library-entry-picker');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await expect(picker(page, 'Vocabulary Entry to add')).toHaveCount(0);
+
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+    await expect(page.getByRole('heading', { name: 'This Collection is empty.' })).toBeVisible();
+
+    await openPicker(page, 'Vocabulary Entry to add');
+    await picker(page, 'Vocabulary Entry to add').fill('hol');
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toHaveCount(1);
+    await pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'hola' }).click();
+
+    await expect(page.getByText('Added hola to Travel.', { exact: true })).toBeVisible();
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await expect(entrySummary(page, 'adios')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'This Collection is empty.' })).toHaveCount(0);
+
+    await openPicker(page, 'Collection scope');
+    await expect(pickerOptions(page, 'Collection scope').filter({ hasText: 'Travel' })).toContainText('1 entry');
+  });
+
+  test('matches the Entry picker on translations under the Library normalisation rule', async ({ page }) => {
+    const account = credentials('web-library-entry-picker-search');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'hola', 'Hello there');
+    await createEntry(client, pairIds[0], 'adios', 'Goodbye friend');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+
+    await openPicker(page, 'Vocabulary Entry to add');
+    await picker(page, 'Vocabulary Entry to add').fill('goodbye');
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toHaveCount(1);
+    await expect(pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'adios' })).toBeVisible();
+
+    await picker(page, 'Vocabulary Entry to add').fill('  HELLO   THERE  ');
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toHaveCount(1);
+    await pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'hola' }).click();
+    await expect(page.getByText('Added hola to Travel.', { exact: true })).toBeVisible();
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await expect(entrySummary(page, 'adios')).toHaveCount(0);
+  });
+
+  test('leaves Entries already in the scoped Collection out of the Entry picker', async ({ page }) => {
+    const account = credentials('web-library-entry-picker-members');
+    const { client, pairIds } = await register(account);
+    const hola = await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+    await fileEntry(client, travel, hola.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+
+    await openPicker(page, 'Vocabulary Entry to add');
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toHaveCount(2);
+    await expect(pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'hola' })).toHaveCount(0);
+    await pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'adios' }).click();
+    await expect(page.getByText('Added adios to Travel.', { exact: true })).toBeVisible();
+
+    await openPicker(page, 'Vocabulary Entry to add');
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toHaveCount(1);
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toContainText('casa');
+    await expect(pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'hola' })).toHaveCount(0);
+    await expect(pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'adios' })).toHaveCount(0);
+  });
+
+  test('operates the filing and Entry pickers with the keyboard alone to a completed choice', async ({ page }) => {
+    const account = credentials('web-library-filing-keyboard');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    const spanish = await languageIdFor(client, 'es');
+    await seedCollection(client, spanish, 'Travel');
+    const trips = await seedCollection(client, spanish, 'Trips');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await expect(selectionCount(page)).toHaveText('1 Vocabulary Entry selected');
+
+    await picker(page, 'Collection to file into').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(picker(page, 'Collection to file into')).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('zzz');
+    await expect(pickerOptions(page, 'Collection to file into')).toHaveCount(0);
+    await expect(pickerListbox(page, 'Collection to file into')).toContainText('No Collections match');
+    await expect(pickerAnnouncement(page, 'No Collections match')).toHaveText('No Collections match');
+
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('tr');
+    await expect(pickerAnnouncement(page, /options available/)).toHaveText('2 options available');
+    await page.keyboard.press('End');
+    await expectHighlightedPickerOption(page, 'Collection to file into', 'Trips');
+    await page.keyboard.press('ArrowUp');
+    await expectHighlightedPickerOption(page, 'Collection to file into', 'Travel');
+    await page.keyboard.press('Home');
+    await expectHighlightedPickerOption(page, 'Collection to file into', 'Travel');
+    await page.keyboard.press('ArrowDown');
+    await expectHighlightedPickerOption(page, 'Collection to file into', 'Trips');
+
+    await page.keyboard.press('Enter');
+    await expect(picker(page, 'Collection to file into')).toHaveAttribute('aria-expanded', 'false');
+    await expect(picker(page, 'Collection to file into')).toHaveValue('Trips');
+    await expect(pickerAnnouncement(page, 'Collection to file into: Trips')).toHaveText('Collection to file into: Trips');
+
+    await page.getByRole('button', { name: 'File into Collection' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Filed 1 Vocabulary Entry into Trips.', { exact: true })).toBeVisible();
+    await expect(selectionCount(page)).toHaveCount(0);
+
+    await picker(page, 'Collection scope').focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('trips');
+    await expectHighlightedPickerOption(page, 'Collection scope', 'Trips');
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(`/library?collection=${trips}`);
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+
+    await picker(page, 'Vocabulary Entry to add').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(picker(page, 'Vocabulary Entry to add')).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('zzz');
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toHaveCount(0);
+    await expect(pickerListbox(page, 'Vocabulary Entry to add')).toContainText('No Vocabulary Entries match');
+    await expect(pickerAnnouncement(page, 'No Vocabulary Entries match')).toHaveText('No Vocabulary Entries match');
+
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('a');
+    await expect(pickerAnnouncement(page, /options available/)).toHaveText('2 options available');
+    await page.keyboard.press('End');
+    await expectHighlightedPickerOption(page, 'Vocabulary Entry to add', 'casa');
+    await page.keyboard.press('ArrowUp');
+    await expectHighlightedPickerOption(page, 'Vocabulary Entry to add', 'adios');
+    await page.keyboard.press('Home');
+    await expectHighlightedPickerOption(page, 'Vocabulary Entry to add', 'adios');
+    await page.keyboard.press('ArrowDown');
+    await expectHighlightedPickerOption(page, 'Vocabulary Entry to add', 'casa');
+
+    await page.keyboard.press('Enter');
+    await expect(picker(page, 'Vocabulary Entry to add')).toHaveAttribute('aria-expanded', 'false');
+    await expect(pickerAnnouncement(page, 'Vocabulary Entry to add: casa')).toHaveText('Vocabulary Entry to add: casa');
+    await expect(page.getByText('Added casa to Trips.', { exact: true })).toBeVisible();
+    await expect(entrySummary(page, 'casa')).toBeVisible();
+    await expect(entrySummary(page, 'adios')).toHaveCount(0);
+
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
+  });
+
+  test('adds and removes Collection membership from an expanded Entry without leaving the Library', async ({ page }) => {
+    const account = credentials('web-library-entry-chips');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    const spanish = await languageIdFor(client, 'es');
+    const places = await seedCollection(client, spanish, 'Places');
+    const travel = await seedCollection(client, spanish, 'Travel');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    const entry = await expandEntry(page, 'hola');
+    await entry.getByRole('button', { name: 'Add hola to Places' }).click();
+    await expect(entry.getByRole('button', { name: 'Remove hola from Places' })).toHaveAttribute('aria-pressed', 'true');
+    await entry.getByRole('button', { name: 'Add hola to Travel' }).click();
+    await expect(entry.getByRole('button', { name: 'Remove hola from Travel' })).toHaveAttribute('aria-pressed', 'true');
+
+    await entry.getByRole('button', { name: 'Remove hola from Places' }).click();
+    await expect(entry.getByRole('button', { name: 'Add hola to Places' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+
+    await choosePickerOption(page, 'Collection scope', /Places/);
+    await expect(page).toHaveURL(`/library?collection=${places}`);
+    await expect(page.getByRole('heading', { name: 'This Collection is empty.' })).toBeVisible();
+
+    await choosePickerOption(page, 'Collection scope', 'All vocabulary');
+    await expect(page).toHaveURL('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await expect(entrySummary(page, 'adios')).toBeVisible();
+  });
+
+  test('refuses Collection membership across Learning Languages from the Library', async ({ page }) => {
+    const account = credentials('web-library-cross-language');
+    const { client, pairIds } = await register(account, [['es', 'en'], ['fr', 'en']]);
+    await createEntry(client, pairIds[0], 'hola', 'hello');
+    const bonjour = await createEntry(client, pairIds[1], 'bonjour', 'good day');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+
+    await openPicker(page, 'Vocabulary Entry to add');
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toHaveCount(1);
+    await expect(pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'hola' })).toBeVisible();
+    await expect(pickerListbox(page, 'Vocabulary Entry to add').getByRole('option', { name: 'bonjour' })).toHaveCount(0);
+
+    await picker(page, 'Vocabulary Entry to add').fill('bonjour');
+    await expect(pickerOptions(page, 'Vocabulary Entry to add')).toHaveCount(0);
+    await expect(pickerListbox(page, 'Vocabulary Entry to add')).toContainText('No Vocabulary Entries match');
+
+    const refused = await client.rpc('add_collection_membership', { p_collection_id: travel, p_learning_vocabulary_entry_id: bonjour.learningVocabularyEntryId });
+    expect(refused.error).not.toBeNull();
+  });
+
+  test('reflects a Library merge in account_learning_snapshot', async ({ page }) => {
+    const account = credentials('web-library-merge-snapshot');
+    const { client, pairIds } = await register(account);
+    const hola = await createEntry(client, pairIds[0], 'hola', 'hello');
+    const adios = await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await entryCheckbox(page, 'adios').check();
+    await fileSelectionInto(page, 'Travel', 'trav');
+    await expect(page.getByText('Filed 2 Vocabulary Entries into Travel.', { exact: true })).toBeVisible();
+
+    expect(await snapshotCollections(client, spanish)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: travel,
+        name: 'Travel',
+        vocabularyEntryIds: expect.arrayContaining([hola.learningVocabularyEntryId, adios.learningVocabularyEntryId]),
+      }),
+    ]));
+
+    await openPicker(page, 'Collection scope');
+    await expect(pickerOptions(page, 'Collection scope').filter({ hasText: 'Travel' })).toContainText('2 entries');
+  });
+
+  test('disables every Library filing control with a stated reason while offline', async ({ page }) => {
+    const account = credentials('web-library-filing-offline');
+    const { client, pairIds } = await register(account);
+    const hola = await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel');
+    await fileEntry(client, travel, hola.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+    const entry = await expandEntry(page, 'hola');
+    await entryCheckbox(page, 'hola').check();
+    await expect(selectionCount(page)).toHaveText('1 Vocabulary Entry selected');
+    await choosePickerOption(page, 'Collection to file into', 'Travel');
+
+    await page.context().setOffline(true);
+    const offlineNotice = page.getByText('You are offline. Vocabulary and Collection changes require a connection.', { exact: true });
+    await expect(offlineNotice).toBeVisible();
+    const filingControls = [
+      picker(page, 'Collection to file into'),
+      picker(page, 'Vocabulary Entry to add'),
+      page.getByRole('button', { name: 'File into Collection' }),
+      page.getByRole('button', { name: 'File into new Collection' }),
+      entry.getByRole('button', { name: 'Remove hola from Travel' }),
+    ];
+    for (const control of filingControls) {
+      await expect(control).toBeDisabled();
+      const describedBy = await control.getAttribute('aria-describedby');
+      expect(describedBy).toBe('library-offline-notice');
+      await expect(page.locator(`#${describedBy}`)).toHaveText('You are offline. Vocabulary and Collection changes require a connection.');
+    }
+    await assertNoHorizontalOverflow(page);
+
+    await page.context().setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    for (const control of filingControls) await expect(control).toBeEnabled();
+    await expect(offlineNotice).toHaveCount(0);
+  });
+
+  test('keeps the selection bar and the Collection controls free of horizontal overflow at phone width', async ({ page }) => {
+    const account = credentials('web-library-selection-overflow');
+    const { client, pairIds } = await register(account);
+    const hola = await createEntry(client, pairIds[0], 'hola', 'hello');
+    await createEntry(client, pairIds[0], 'adios', 'goodbye');
+    const spanish = await languageIdFor(client, 'es');
+    const travel = await seedCollection(client, spanish, 'Travel plans for the long summer');
+    await fileEntry(client, travel, hola.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'hola')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await entryCheckbox(page, 'adios').check();
+    await expect(selectionCount(page)).toHaveText('2 Vocabulary Entries selected');
+    await expect(picker(page, 'Collection to file into')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'File into Collection' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'File into new Collection' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear selection' })).toBeVisible();
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
+
+    await choosePickerOption(page, 'Collection scope', /Travel plans/);
+    await expect(page).toHaveURL(`/library?collection=${travel}`);
+    await expect(page.getByText('Filtered by Travel plans for the long summer')).toBeVisible();
+    await expect(picker(page, 'Vocabulary Entry to add')).toBeVisible();
+    await entryCheckbox(page, 'hola').check();
+    await expect(selectionCount(page)).toHaveText('1 Vocabulary Entry selected');
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
   });
 });
