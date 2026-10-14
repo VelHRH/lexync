@@ -196,8 +196,9 @@ test.describe('web design system surfaces', () => {
     await expect(sidebar.getByText(/Active Learning Language/)).toHaveCount(0);
 
     const navigation = sidebar.locator('[data-ui="task-navigation"]');
+    const destinations = ['Lessons', 'Learning Materials', 'Library'];
     await expect(navigation.getByRole('link', { name: 'Collections', exact: true })).toHaveCount(0);
-    for (const name of ['Lessons', 'Learning Materials', 'Library']) await expect(navigation.getByRole('link', { name, exact: true })).toBeVisible();
+    for (const name of destinations) await expect(navigation.getByRole('link', { name, exact: true })).toBeVisible();
 
     const expanded = await sidebar.evaluate((element) => ({ width: element.getBoundingClientRect().width, height: Math.round(element.getBoundingClientRect().height) }));
     const viewportHeight = await page.evaluate(() => window.innerHeight);
@@ -205,7 +206,7 @@ test.describe('web design system surfaces', () => {
 
     await sidebar.getByRole('button', { name: 'Collapse navigation' }).click();
     await expect.poll(async () => sidebar.evaluate((element) => element.getBoundingClientRect().width)).toBeLessThan(expanded.width);
-    await expect(sidebar.getByRole('link', { name: 'Library', exact: true })).toBeVisible();
+    for (const name of destinations) await expect(navigation.getByRole('link', { name, exact: true })).toBeVisible();
     await expect(navigation.getByRole('link', { name: 'Collections', exact: true })).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
     await sidebar.locator('.app-sidebar-top').hover();

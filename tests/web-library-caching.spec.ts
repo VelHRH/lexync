@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
+import { materialsLinkName } from './support/navigation';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
-
-const materialsLinkName = /^(Learning Materials|Materials)$/;
 
 function credentials(prefix = 'web-library-caching') {
   return {
@@ -67,7 +66,7 @@ async function selectCollectionScope(page: Page, name: string | RegExp) {
   await expect(page.getByRole('combobox', { name: 'Collection scope' })).toHaveAttribute('aria-expanded', 'false');
 }
 
-async function expandEntry(page: Page, expression: string) {
+async function ensureEntryExpanded(page: Page, expression: string) {
   const summary = page.locator('summary').filter({ hasText: expression });
   const entry = summary.locator('..');
   if (!(await entry.evaluate((element) => (element as HTMLDetailsElement).open))) await summary.click();
@@ -223,7 +222,7 @@ test.describe('web Library data lifetime', () => {
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
     await createCollection(page, 'Travel');
 
-    let entry = await expandEntry(page, 'casa');
+    let entry = await ensureEntryExpanded(page, 'casa');
     await expect(entry.getByRole('button', { name: 'Add casa to Travel' })).toBeVisible();
     await entry.getByRole('button', { name: 'Add casa to Travel' }).click();
     await expect(entry.getByRole('button', { name: 'Remove casa from Travel' })).toBeVisible();
@@ -239,7 +238,7 @@ test.describe('web Library data lifetime', () => {
     await expect(page).toHaveURL('/materials');
     await clickNavLink(page, 'Library');
     await expect(page).toHaveURL('/library');
-    entry = await expandEntry(page, 'casa');
+    entry = await ensureEntryExpanded(page, 'casa');
     await expect(entry.getByRole('button', { name: 'Remove casa from Travel' })).toBeVisible();
     expect(libraryRequests.count()).toBe(0);
 
@@ -249,7 +248,7 @@ test.describe('web Library data lifetime', () => {
     await page.getByLabel('Collection name').fill('Trips');
     await page.getByRole('dialog', { name: 'Rename Collection' }).getByRole('button', { name: 'Save Collection' }).click();
     await expect(page.getByText('Filtered by Trips')).toBeVisible();
-    entry = await expandEntry(page, 'casa');
+    entry = await ensureEntryExpanded(page, 'casa');
     await expect(entry.getByRole('button', { name: 'Remove casa from Trips' })).toBeVisible();
     await expect(entry.getByRole('button', { name: /Travel/ })).toHaveCount(0);
 
@@ -257,7 +256,7 @@ test.describe('web Library data lifetime', () => {
     await expect(page.getByRole('dialog', { name: 'Delete Collection' })).toBeVisible();
     await page.getByRole('dialog', { name: 'Delete Collection' }).getByRole('button', { name: 'Delete Collection' }).click();
     await expect(page).toHaveURL('/library');
-    entry = await expandEntry(page, 'casa');
+    entry = await ensureEntryExpanded(page, 'casa');
     await expect(entry.getByText('Collections', { exact: true })).toHaveCount(0);
 
     if (test.info().project.name === 'web-library-caching-mobile') await assertNoHorizontalOverflow(page);

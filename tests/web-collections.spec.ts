@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
+import { materialsLinkName } from './support/navigation';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
-
-const materialsLinkName = /^(Learning Materials|Materials)$/;
 
 function credentials(prefix = 'web-collections') {
   return {
@@ -630,6 +629,43 @@ test.describe('web Collections', () => {
     await choosePickerOption(page, 'Collection scope', /Kitchen/);
     await expect(page).toHaveURL(/\/library\?collection=/);
     await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
+
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
+  });
+
+  test('opens and submits the New Collection and Rename dialogs with the keyboard alone', async ({ page }) => {
+    const account = credentials('web-library-collection-keyboard');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'teclado', 'keyboard');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'teclado')).toBeVisible();
+
+    await page.getByRole('button', { name: 'New Collection' }).focus();
+    await page.keyboard.press('Enter');
+    const createDialog = page.getByRole('dialog', { name: 'Create Collection' });
+    await expect(createDialog).toBeVisible();
+    await expect(page.getByLabel('Collection name')).toBeFocused();
+    await page.keyboard.type('Keyboard set');
+    await page.keyboard.press('Enter');
+    await expect(createDialog).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'Created the Collection “Keyboard set”.' })).toBeVisible();
+
+    await choosePickerOption(page, 'Collection scope', /Keyboard set/);
+    await expect(page).toHaveURL(/\/library\?collection=/);
+    await expect(page.getByText('Filtered by Keyboard set')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Rename Keyboard set' }).focus();
+    await page.keyboard.press('Enter');
+    const renameDialog = page.getByRole('dialog', { name: 'Rename Collection' });
+    await expect(renameDialog).toBeVisible();
+    await expect(page.getByLabel('Collection name')).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('Keyboard renamed');
+    await page.keyboard.press('Enter');
+    await expect(renameDialog).toBeHidden();
+    await expect(page.getByText('Filtered by Keyboard renamed')).toBeVisible();
 
     if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
   });
