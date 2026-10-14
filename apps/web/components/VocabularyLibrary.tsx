@@ -363,7 +363,7 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <div className="library-toolbar-actions">
           <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
-          <button className="secondary-button" type="button" ref={newCollectionRef} disabled={!online} aria-describedby={online ? undefined : 'library-offline-notice'} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'create' }); }}>New Collection</button>
+          <button className="secondary-button" type="button" ref={newCollectionRef} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'create' }); }}>New Collection</button>
           <button className="secondary-button" type="button" disabled={!online || snapshot.loading || snapshot.refreshing} onClick={() => void loadLibrary(language.id, pairIds, { force: true })}>{snapshot.loading || snapshot.refreshing ? 'Refreshing…' : 'Refresh library'}</button>
         </div>
       </div>
@@ -372,8 +372,8 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
         <span role="status">Filtered by {selectedCollection.name}</span>
         <span className="library-collection-filter-actions">
           <button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button>
-          <button className="text-button" type="button" aria-label={`Rename ${selectedCollection.name}`} disabled={!online} aria-describedby={online ? undefined : 'library-offline-notice'} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}>Rename</button>
-          <button className="text-button danger" type="button" aria-label={`Delete ${selectedCollection.name}`} disabled={!online} aria-describedby={online ? undefined : 'library-offline-notice'} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection: selectedCollection }); }}>Delete</button>
+          <button className="text-button" type="button" aria-label={`Rename ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}>Rename</button>
+          <button className="text-button danger" type="button" aria-label={`Delete ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection: selectedCollection }); }}>Delete</button>
         </span>
       </div>}
       <div className="vocabulary-discovery-controls">
