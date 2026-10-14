@@ -14,7 +14,6 @@ import { LearningLanguageOnboarding, type LearningLanguage } from './LearningLan
 import { BrandArtwork } from './BrandArtwork';
 import { NavigationIcon } from './NavigationIcon';
 import { VocabularyLibrary } from './VocabularyLibrary';
-import { Collections } from './Collections';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
 import { LessonHistory } from './LessonHistory';
 import { LearningMaterials } from './LearningMaterials';
@@ -26,7 +25,6 @@ const destinations = [
   ['Lessons', '/lessons'],
   ['Learning Materials', '/materials'],
   ['Library', '/library'],
-  ['Collections', '/collections'],
 ] as const;
 
 const navigationShortLabels: Record<string, string> = { 'Learning Materials': 'Materials' };
@@ -451,7 +449,6 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
           </section>}
           {lessonError && activeSection === 'Lessons' && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}
           {activeSection === 'Library' && <Suspense fallback={<div className="skeleton-list" aria-hidden="true"><div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line half" /></div><div className="skeleton-card"><div className="skeleton-line strong narrow" /><div className="skeleton-line wide" /></div></div>}><VocabularyLibrary key={activeLanguage.id} onEntriesChanged={async () => { await loadPairs(); await refreshLessonState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
-          {activeSection === 'Collections' && <Collections key={activeLanguage.id} language={activeLanguage} />}
           {activeSection === 'Lesson history' && <LessonHistory key={activeLanguage.id} learningLanguageId={activeLanguage.id} learningLanguageTag={activeLanguage.languageTag} />}
           {activeSection === 'Settings' && <section className="panel pair-management" aria-labelledby="learning-languages-heading">
             <div className="panel-header"><h2 id="learning-languages-heading">Learning Languages</h2></div>
@@ -470,7 +467,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
               </ul>
             </div>
           </section>}
-          {!['Dynamic Lesson', 'Lesson history', 'Lessons', 'Learning Materials', 'Library', 'Collections', 'Profile', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
+          {!['Dynamic Lesson', 'Lesson history', 'Lessons', 'Learning Materials', 'Library', 'Profile', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
         </section>
       </div>
     </main>

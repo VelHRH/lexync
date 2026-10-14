@@ -53,15 +53,25 @@ async function learningLanguages(client: Awaited<ReturnType<typeof register>>['c
   return data;
 }
 
-function collectionCard(page: Page, name: string) {
-  return page.getByRole('region', { name: `Collection ${name}` });
+async function createCollection(page: Page, name: string) {
+  await page.getByRole('button', { name: 'New Collection' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create Collection' });
+  await page.getByLabel('Collection name').fill(name);
+  await dialog.getByRole('button', { name: 'Create Collection' }).click();
+  await expect(dialog).toBeHidden();
 }
 
-async function createCollection(page: Page, name: string) {
-  await page.getByRole('button', { name: 'Add collection' }).click();
-  await page.getByLabel('Collection name').fill(name);
-  await page.getByRole('button', { name: 'Create Collection' }).click();
-  await expect(collectionCard(page, name)).toBeVisible();
+async function selectCollectionScope(page: Page, name: string | RegExp) {
+  await page.getByRole('combobox', { name: 'Collection scope' }).click();
+  await page.getByRole('listbox', { name: 'Collection scope' }).getByRole('option', { name }).click();
+  await expect(page.getByRole('combobox', { name: 'Collection scope' })).toHaveAttribute('aria-expanded', 'false');
+}
+
+async function expandEntry(page: Page, expression: string) {
+  const summary = page.locator('summary').filter({ hasText: expression });
+  const entry = summary.locator('..');
+  if (!(await entry.evaluate((element) => (element as HTMLDetailsElement).open))) await summary.click();
+  return entry;
 }
 
 function trackRequests(page: Page, pattern: RegExp) {
@@ -209,43 +219,45 @@ test.describe('web Library data lifetime', () => {
     const { client, pairIds } = await register(account);
     await createEntry(client, pairIds[0], 'casa', 'house');
     await signIn(page, account);
-    await page.goto('/collections');
+    await page.goto('/library');
+    await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
     await createCollection(page, 'Travel');
 
-    await clickNavLink(page, 'Library');
-    await expect(page).toHaveURL('/library');
-    const summary = page.locator('summary').filter({ hasText: 'casa' });
-    const entry = summary.locator('..');
-    await summary.click();
+    let entry = await expandEntry(page, 'casa');
     await expect(entry.getByRole('button', { name: 'Add casa to Travel' })).toBeVisible();
     await entry.getByRole('button', { name: 'Add casa to Travel' }).click();
     await expect(entry.getByRole('button', { name: 'Remove casa from Travel' })).toBeVisible();
     await entry.getByRole('button', { name: 'Remove casa from Travel' }).click();
     await expect(entry.getByRole('button', { name: 'Add casa to Travel' })).toBeVisible();
+    await entry.getByRole('button', { name: 'Add casa to Travel' }).click();
+    await expect(entry.getByRole('button', { name: 'Remove casa from Travel' })).toBeVisible();
 
-    await clickNavLink(page, 'Collections');
-    await expect(page).toHaveURL('/collections');
-    await collectionCard(page, 'Travel').getByRole('button', { name: 'Rename Travel' }).click();
-    await page.getByLabel('Collection name').fill('Trips');
-    await page.getByRole('button', { name: 'Save Collection' }).click();
-    await expect(collectionCard(page, 'Trips')).toBeVisible();
+    const libraryRequests = trackLibraryRequests(page);
+    libraryRequests.reset();
 
+    await clickNavLink(page, materialsLinkName);
+    await expect(page).toHaveURL('/materials');
     await clickNavLink(page, 'Library');
     await expect(page).toHaveURL('/library');
-    await summary.click();
-    await expect(entry.getByRole('button', { name: 'Add casa to Trips' })).toBeVisible();
+    entry = await expandEntry(page, 'casa');
+    await expect(entry.getByRole('button', { name: 'Remove casa from Travel' })).toBeVisible();
+    expect(libraryRequests.count()).toBe(0);
+
+    await selectCollectionScope(page, /Travel/);
+    await expect(page).toHaveURL(/\/library\?collection=/);
+    await page.getByRole('button', { name: 'Rename Travel' }).click();
+    await page.getByLabel('Collection name').fill('Trips');
+    await page.getByRole('dialog', { name: 'Rename Collection' }).getByRole('button', { name: 'Save Collection' }).click();
+    await expect(page.getByText('Filtered by Trips')).toBeVisible();
+    entry = await expandEntry(page, 'casa');
+    await expect(entry.getByRole('button', { name: 'Remove casa from Trips' })).toBeVisible();
     await expect(entry.getByRole('button', { name: /Travel/ })).toHaveCount(0);
 
-    await clickNavLink(page, 'Collections');
-    await expect(page).toHaveURL('/collections');
-    await collectionCard(page, 'Trips').getByRole('button', { name: 'Delete Trips' }).click();
+    await page.getByRole('button', { name: 'Delete Trips' }).click();
     await expect(page.getByRole('dialog', { name: 'Delete Collection' })).toBeVisible();
     await page.getByRole('dialog', { name: 'Delete Collection' }).getByRole('button', { name: 'Delete Collection' }).click();
-    await expect(collectionCard(page, 'Trips')).toHaveCount(0);
-
-    await clickNavLink(page, 'Library');
     await expect(page).toHaveURL('/library');
-    await summary.click();
+    entry = await expandEntry(page, 'casa');
     await expect(entry.getByText('Collections', { exact: true })).toHaveCount(0);
 
     if (test.info().project.name === 'web-library-caching-mobile') await assertNoHorizontalOverflow(page);
