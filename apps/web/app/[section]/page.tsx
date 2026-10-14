@@ -4,7 +4,7 @@ import { AuthenticatedApp } from '../../components/AuthenticatedApp';
 import { getChromeExtensionId } from '../../lib/extensionRecommendation';
 import { readNavigationCollapsed } from '../../lib/navigationPreference';
 
-const sections = new Set(['materials', 'library', 'collections', 'profile', 'settings']);
+const sections = new Set(['materials', 'library', 'profile', 'settings']);
 
 export default async function SectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
