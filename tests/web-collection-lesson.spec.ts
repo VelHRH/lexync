@@ -251,6 +251,12 @@ async function lessonRow(client: SupabaseClient, lessonId: string) {
   return data as LessonRow;
 }
 
+async function lessonTotalCount(client: SupabaseClient, lessonId: string) {
+  const { data, error } = await client.from('lessons').select('total_count').eq('id', lessonId).single();
+  if (error) throw error;
+  return (data as { total_count: number }).total_count;
+}
+
 async function lessonQuestions(client: SupabaseClient, lessonId: string) {
   const { data, error } = await client
     .from('lesson_questions')
@@ -310,7 +316,6 @@ test.describe('web Collection Lesson', () => {
     await openCollectionThroughPicker(page, fixture.collectionId);
     await expect(practiseButton(page)).toBeVisible();
     await expect(practiseButton(page)).toBeEnabled();
-    await expect(practiseButton(page)).toHaveAttribute('data-ui', 'practise-collection');
     await expect(practiceReason(page)).toHaveCount(0);
     await startFromLibrary(page);
     await expect(lessonShell(page).getByRole('progressbar', { name: 'Lesson progress' })).toBeVisible();
@@ -374,6 +379,21 @@ test.describe('web Collection Lesson', () => {
       expect(text).not.toContain(suspended.expression);
       expect(text).not.toContain(suspended.translation);
     }
+  });
+
+  test('caps the Collection Lesson at the eligible Sense count inside the Collection', async ({ page }) => {
+    const fixture = await seedTravelCollection('collection-lesson-question-cap', travelVocabulary.slice(0, 9));
+    const suspended = fixture.captured.slice(0, 4);
+    for (const entry of suspended) {
+      const { error } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: await bridgeEntryId(fixture.client, entry.vocabularyEntryId) });
+      if (error) throw error;
+    }
+    const eligibleSenseCount = fixture.captured.length - suspended.length;
+    await signIn(page, fixture.account);
+    await openCollectionByUrl(page, fixture.collectionId);
+    const lessonId = await startFromLibrary(page);
+    expect(await lessonTotalCount(fixture.client, lessonId)).toBe(eligibleSenseCount);
+    expect(await lessonQuestions(fixture.client, lessonId)).toHaveLength(eligibleSenseCount);
   });
 
   test('offers no practice for a Collection one Vocabulary Entry short of the threshold', async ({ page }) => {

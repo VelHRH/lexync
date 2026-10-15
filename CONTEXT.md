@@ -66,7 +66,7 @@ A practice direction for one Sense and one Answer Language. Recognition presents
 
 ## Collection
 
-A flat, Learner-owned grouping of Vocabulary Entries within one Learning Language. A Vocabulary Entry may belong to multiple Collections. Collections do not contain other Collections.
+A flat, Learner-owned grouping of Vocabulary Entries within one Learning Language. A Vocabulary Entry may belong to multiple Collections. Collections do not contain other Collections. A Collection holding enough Vocabulary Entries can be practised as a Vocabulary Lesson scoped to it alone.
 
 ## Lesson
 
@@ -74,7 +74,7 @@ A Learner-owned, persisted learning activity for exactly one Learning Language. 
 
 ## Vocabulary Lesson
 
-A Lesson whose source is `vocabulary`, using the Learner's vocabulary material and its Senses for practice.
+A Lesson whose source is `vocabulary`, using the Learner's vocabulary material and its Senses for practice. It may be scoped to a single Collection, in which case every prompt, choice and Example comes from a Vocabulary Entry in that Collection. The scope is recorded when the Lesson starts and does not change afterwards, even if the Collection is later edited or deleted.
 
 ## Dynamic Lesson
 

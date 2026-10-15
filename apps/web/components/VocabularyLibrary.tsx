@@ -409,7 +409,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
           <span className="library-collection-practice">
             {practiceShortfall <= 0 && <button className="primary-button" data-ui="practise-collection" type="button" disabled={!online || lessonInProgress || practiceStarting} aria-describedby={practiceDescribedBy} onClick={() => void practiseCollection(selectedCollection.id)}>{practiceStarting ? 'Opening Lesson…' : 'Practise this Collection'}</button>}
             {practiceReason && <span className="library-collection-practice-reason" role="status" id={practiceReasonId}>{practiceReason}</span>}
-            {practiceError && <p className="form-notice error library-collection-practice-error" role="alert">{practiceError}</p>}
+            {practiceError && <span className="form-notice error library-collection-practice-error" role="alert">{practiceError}</span>}
           </span>
           <button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button>
           <button className="text-button" type="button" aria-label={`Rename ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}>Rename</button>
