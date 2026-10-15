@@ -120,6 +120,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-collection-lesson',
+      testMatch: /web-collection-lesson\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-collection-lesson-mobile',
+      testMatch: /web-collection-lesson\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-lesson-history',
       testMatch: /web-lesson-history\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },

@@ -20,6 +20,7 @@ type EntryDraft = { id: string; expression: string; senses: DraftSense[] };
 
 const ALL_VOCABULARY_SCOPE = '';
 const NO_COLLECTION_SCOPE = 'none';
+const COLLECTION_PRACTICE_MINIMUM_ENTRIES = 8;
 
 function draftKey() {
   return crypto.randomUUID();
@@ -42,7 +43,7 @@ function toDraft(entry: LibraryEntry): EntryDraft {
   };
 }
 
-export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEntriesChanged: () => Promise<void>; language: LearningLanguage; pairs: Array<StudyPair & { learningLanguageId: string }> }) {
+export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language, pairs }: { lessonInProgress: boolean; onEntriesChanged: () => Promise<void>; language: LearningLanguage; pairs: Array<StudyPair & { learningLanguageId: string }> }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const snapshot = useSyncExternalStore(subscribeLibrary, () => librarySnapshot(language.id), () => EMPTY_LIBRARY_SNAPSHOT);
@@ -64,6 +65,8 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
   const [filing, setFiling] = useState(false);
   const [fileNotice, setFileNotice] = useState('');
   const [fileError, setFileError] = useState('');
+  const [practiceError, setPracticeError] = useState('');
+  const [practiceStarting, setPracticeStarting] = useState(false);
   const online = useOnlineStatus();
   const newCollectionRef = useRef<HTMLButtonElement>(null);
   const fileIntoNewCollectionRef = useRef<HTMLButtonElement>(null);
@@ -262,6 +265,10 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
     if (staleScope) router.replace('/library');
   }, [router, staleScope]);
 
+  useEffect(() => {
+    queueMicrotask(() => setPracticeError(''));
+  }, [selectedCollectionId]);
+
   function selectCollectionScope(id: string) {
     setFileTargetId('');
     setEntryToAddId('');
@@ -288,6 +295,13 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
     .filter((entry) => !selectedCollectionEntryIds.has(entry.learningVocabularyEntryId))
     .map((entry) => ({ id: entry.learningVocabularyEntryId, label: entry.expression, keywords: entry.senses.flatMap((sense) => sense.translations.map((item) => item.text)) }));
   const offlineReason = online ? undefined : 'library-offline-notice';
+  const practiceShortfall = COLLECTION_PRACTICE_MINIMUM_ENTRIES - selectedCollectionEntryIds.size;
+  const practiceReason = practiceShortfall > 0
+    ? `Add ${practiceShortfall} more ${practiceShortfall === 1 ? 'Vocabulary Entry' : 'Vocabulary Entries'} to practise this Collection.`
+    : lessonInProgress ? 'Finish the Lesson in progress first.'
+    : '';
+  const practiceReasonId = 'library-collection-practice-reason';
+  const practiceDescribedBy = lessonInProgress && offlineReason ? `${practiceReasonId} ${offlineReason}` : lessonInProgress ? practiceReasonId : offlineReason;
 
   function toggleEntrySelected(entry: LibraryEntry, selected: boolean) {
     setFileNotice('');
@@ -343,6 +357,27 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
     setFileNotice(`Added ${entry.expression} to ${selectedCollection.name}.`);
   }
 
+  async function practiseCollection(collectionId: string) {
+    setPracticeError('');
+    setPracticeStarting(true);
+    const { data, error } = await supabase.rpc('start_or_resume_vocabulary_lesson', {
+      p_collection_id: collectionId,
+      p_learning_language_id: language.id,
+    });
+    if (error) {
+      setPracticeStarting(false);
+      setPracticeError(`This Collection could not be practised. ${error.message}`);
+      return;
+    }
+    const lessonId = data && typeof data === 'object' && 'id' in data && typeof (data as { id: unknown }).id === 'string' ? (data as { id: string }).id : '';
+    if (!lessonId) {
+      setPracticeStarting(false);
+      setPracticeError('This Collection could not be practised. A Vocabulary Lesson could not be opened right now.');
+      return;
+    }
+    router.push(`/lessons/${lessonId}`);
+  }
+
   function emptyStateCopy() {
     if (normalizedQuery) return { heading: 'No match in this library.', message: `No ${status === 'all' ? '' : `${status} `}Vocabulary Entries match “${query.trim()}”.` };
     if (selectedCollection) return status === 'all'
@@ -371,6 +406,11 @@ export function VocabularyLibrary({ onEntriesChanged, language, pairs }: { onEnt
       {selectedCollection && <div className="library-collection-filter">
         <span role="status">Filtered by {selectedCollection.name}</span>
         <span className="library-collection-filter-actions">
+          <span className="library-collection-practice">
+            {practiceShortfall <= 0 && <button className="primary-button" data-ui="practise-collection" type="button" disabled={!online || lessonInProgress || practiceStarting} aria-describedby={practiceDescribedBy} onClick={() => void practiseCollection(selectedCollection.id)}>{practiceStarting ? 'Opening Lesson…' : 'Practise this Collection'}</button>}
+            {practiceReason && <span className="library-collection-practice-reason" role="status" id={practiceReasonId}>{practiceReason}</span>}
+            {practiceError && <p className="form-notice error library-collection-practice-error" role="alert">{practiceError}</p>}
+          </span>
           <button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button>
           <button className="text-button" type="button" aria-label={`Rename ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}>Rename</button>
           <button className="text-button danger" type="button" aria-label={`Delete ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection: selectedCollection }); }}>Delete</button>

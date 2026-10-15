@@ -22,7 +22,7 @@ select ok(
   'obsolete Review helpers are removed and canonical Lesson helpers remain'
 );
 select ok(to_regprocedure('public.lesson_overview(uuid)') is not null, 'the canonical Lesson overview RPC exists');
-select ok(to_regprocedure('public.start_or_resume_vocabulary_lesson(uuid)') is not null, 'the canonical vocabulary Lesson start RPC exists');
+select ok(to_regprocedure('public.start_or_resume_vocabulary_lesson(uuid, uuid)') is not null, 'the canonical vocabulary Lesson start RPC exists');
 select ok(to_regprocedure('public.submit_lesson_answer(uuid, uuid, text)') is not null, 'the canonical Lesson answer RPC exists');
 select ok(to_regprocedure('public.continue_lesson_question(uuid, uuid)') is not null, 'the canonical Lesson continue RPC exists');
 

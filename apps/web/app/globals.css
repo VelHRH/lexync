@@ -647,6 +647,9 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .collection-dialog-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .5rem; }
 .library-collection-filter { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; padding: .7rem 1rem; border: var(--web-outline); background: var(--web-strong); color: var(--web-ink); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); }
 .library-collection-filter-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.library-collection-practice { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; }
+.library-collection-practice-reason { color: var(--web-ink); font-weight: var(--lexync-type-weight-regular); line-height: var(--lexync-type-line-normal); }
+.library-collection-practice-error { max-width: 100%; margin: 0; font-weight: var(--lexync-type-weight-regular); }
 .library-collections { display: grid; gap: .5rem; min-width: 0; margin: .9rem 0 0; padding: .9rem 0 0; border: 0; border-top: var(--lexync-border-regular) solid var(--web-quiet); }
 .library-collections { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .library-collections legend { float: left; width: 100%; margin-bottom: .5rem; }
@@ -660,6 +663,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 @media (max-width: 44rem) {
   .library-collection-filter, .library-collection-filter-actions { align-items: stretch; flex-direction: column; }
   .library-collection-filter > *, .library-collection-filter-actions > * { width: 100%; }
+  .library-collection-practice { align-items: stretch; }
 }
 
 .panel { display: grid; gap: 1rem; width: 100%; margin-top: 0; }
