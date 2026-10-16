@@ -1,10 +1,10 @@
 'use client';
 
 import { languageName } from '@lexync/domain';
-import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
+import { BrandMark } from './BrandArtwork';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 
 type LessonQuestionType = 'translation' | 'cloze';
@@ -346,7 +346,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
   return <main className="lesson-shell" aria-label="Lesson">
     <header className="lesson-header">
       <button className="lesson-exit" type="button" onClick={onExit}>Exit</button>
-      <Image className="lesson-mark" src="/brand/mark-dark-on-light.png" alt="Lexync" width={44} height={44} priority unoptimized />
+      <BrandMark alt="Lexync" className="lesson-mark" size={44} />
       <p className="lesson-language-name">{lessonLanguageTag ? languageName(lessonLanguageTag) : ''}</p>
     </header>
     <div className="lesson-main">

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { materialsLinkName } from './support/navigation';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -196,7 +197,7 @@ test.describe('web design system surfaces', () => {
     await expect(sidebar.getByText(/Active Learning Language/)).toHaveCount(0);
 
     const navigation = sidebar.locator('[data-ui="task-navigation"]');
-    const destinations = ['Lessons', 'Learning Materials', 'Library'];
+    const destinations = ['Lessons', materialsLinkName, 'Library'];
     await expect(navigation.getByRole('link', { name: 'Collections', exact: true })).toHaveCount(0);
     for (const name of destinations) await expect(navigation.getByRole('link', { name, exact: true })).toBeVisible();
 

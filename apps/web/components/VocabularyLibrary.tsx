@@ -67,8 +67,10 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const [fileError, setFileError] = useState('');
   const [practiceError, setPracticeError] = useState('');
   const [practiceStarting, setPracticeStarting] = useState(false);
+  const [selecting, setSelecting] = useState(false);
   const online = useOnlineStatus();
   const newCollectionRef = useRef<HTMLButtonElement>(null);
+  const lastSelectedIndex = useRef<number | null>(null);
   const fileIntoNewCollectionRef = useRef<HTMLButtonElement>(null);
 
   const pairIdsKey = useMemo(
@@ -92,7 +94,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
 
   useEffect(() => {
     queueMicrotask(() => {
-      if (searchParams.get('add') === '1') {
+      if (new URLSearchParams(window.location.search).get('add') === '1') {
         setCapturedNotice('');
         setShowForm(true);
         const remaining = new URLSearchParams(window.location.search);
@@ -255,11 +257,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const staleScope = !scopeIsKnown && snapshot.loadedAt !== null && !snapshot.loading && !snapshot.error;
   const selectedCollectionId = scopeIsKnown ? scopeParam : ALL_VOCABULARY_SCOPE;
   const collectedEntryIds = useMemo(() => new Set(memberships.map((membership) => membership.learning_vocabulary_entry_id)), [memberships]);
-  const collectionScopeOptions = useMemo(() => [
-    { id: ALL_VOCABULARY_SCOPE, label: 'All vocabulary' },
-    { id: NO_COLLECTION_SCOPE, label: 'Not in a Collection', detail: entryCountDetail(entries.filter((entry) => !collectedEntryIds.has(entry.learningVocabularyEntryId)).length) },
-    ...collections.map((collection) => ({ id: collection.id, label: collection.name, detail: entryCountDetail(memberships.filter((membership) => membership.collection_id === collection.id).length) })),
-  ], [collectedEntryIds, collections, entries, memberships]);
 
   useEffect(() => {
     if (staleScope) router.replace('/library');
@@ -392,30 +389,87 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
 
   const { heading: emptyHeading, message: noResultsMessage } = emptyStateCopy();
 
+  function toggleSelecting() {
+    setFileNotice('');
+    setFileError('');
+    lastSelectedIndex.current = null;
+    setSelection({ scope: selectedCollectionId, ids: [] });
+    setSelecting((current) => !current);
+  }
+
+  function selectRange(index: number, selected: boolean) {
+    const from = lastSelectedIndex.current;
+    if (from === null) return false;
+    const [start, end] = from < index ? [from, index] : [index, from];
+    const rangeIds = visibleEntries.slice(start, end + 1).map((entry) => entry.learningVocabularyEntryId);
+    setFileNotice('');
+    setFileError('');
+    setSelection({
+      scope: selectedCollectionId,
+      ids: selected
+        ? [...selectedEntryIds, ...rangeIds.filter((id) => !selectedEntryIds.includes(id))]
+        : selectedEntryIds.filter((id) => !rangeIds.includes(id)),
+    });
+    return true;
+  }
+
+  function collectionState(count: number) {
+    if (count >= COLLECTION_PRACTICE_MINIMUM_ENTRIES) return `${entryCountDetail(count)} · ready to practise`;
+    return `${entryCountDetail(count)} · needs ${COLLECTION_PRACTICE_MINIMUM_ENTRIES - count} more`;
+  }
+
   return (
     <section className="vocabulary-library" aria-labelledby="app-heading">
       <div className="library-toolbar">
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <div className="library-toolbar-actions">
           <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
-          <button className="secondary-button" type="button" ref={newCollectionRef} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'create' }); }}>New Collection</button>
           <button className="secondary-button" type="button" disabled={!online || snapshot.loading || snapshot.refreshing} onClick={() => void loadLibrary(language.id, pairIds, { force: true })}>{snapshot.loading || snapshot.refreshing ? 'Refreshing…' : 'Refresh library'}</button>
         </div>
       </div>
       {!online && <p className="form-notice" role="status" id="library-offline-notice">You are offline. Vocabulary and Collection changes require a connection.</p>}
-      {selectedCollection && <div className="library-collection-filter">
-        <span role="status">Filtered by {selectedCollection.name}</span>
-        <span className="library-collection-filter-actions">
-          <span className="library-collection-practice">
-            {practiceShortfall <= 0 && <button className="primary-button" data-ui="practise-collection" type="button" disabled={!online || lessonInProgress || practiceStarting} aria-describedby={practiceDescribedBy} onClick={() => void practiseCollection(selectedCollection.id)}>{practiceStarting ? 'Opening Lesson…' : 'Practise this Collection'}</button>}
-            {practiceReason && <span className="library-collection-practice-reason" role="status" id={practiceReasonId}>{practiceReason}</span>}
-            {practiceError && <span className="form-notice error library-collection-practice-error" role="alert">{practiceError}</span>}
-          </span>
-          <button className="text-button" type="button" onClick={() => router.push('/library')}>Clear Collection filter</button>
+
+      <div className="library-shelf" data-ui="collection-shelf" role="group" aria-label="Collections">
+        <div className="library-shelf-track">
+          <button aria-label="All vocabulary" aria-pressed={selectedCollectionId === ALL_VOCABULARY_SCOPE} className="collection-card" type="button" onClick={() => selectCollectionScope(ALL_VOCABULARY_SCOPE)}>
+            <span className="collection-card-name">All vocabulary</span>
+            <span className="collection-card-state">{entryCountDetail(entries.length)}</span>
+          </button>
+          {collections.length > 0 && <button aria-label="Not in a Collection" aria-pressed={selectedCollectionId === NO_COLLECTION_SCOPE} className="collection-card quiet" type="button" onClick={() => selectCollectionScope(NO_COLLECTION_SCOPE)}>
+            <span className="collection-card-name">Not in a Collection</span>
+            <span className="collection-card-state">{entryCountDetail(entries.filter((entry) => !collectedEntryIds.has(entry.learningVocabularyEntryId)).length)}</span>
+          </button>}
+          {collections.map((collection) => <button
+            aria-label={collection.name}
+            aria-pressed={selectedCollectionId === collection.id}
+            className="collection-card"
+            key={collection.id}
+            type="button"
+            onClick={() => selectCollectionScope(collection.id)}
+          >
+            <span className="collection-card-name">{collection.name}</span>
+            <span className="collection-card-state">{collectionState(memberships.filter((membership) => membership.collection_id === collection.id).length)}</span>
+          </button>)}
+          <button aria-label="New Collection" className="collection-card new" type="button" ref={newCollectionRef} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'create' }); }}>
+            <span aria-hidden="true" className="collection-card-plus">+</span>
+            <span className="collection-card-name">New Collection</span>
+          </button>
+        </div>
+      </div>
+
+      {selectedCollection && <div className="library-scope">
+        <div className="library-scope-identity">
+          <span role="status">Filtered by {selectedCollection.name}</span>
+          {practiceReason && <span className="library-scope-reason" role="status" id={practiceReasonId}>{practiceReason}</span>}
+        </div>
+        <div className="library-scope-actions">
+          {practiceShortfall <= 0 && <button className="primary-button" data-ui="practise-collection" type="button" disabled={!online || lessonInProgress || practiceStarting} aria-describedby={practiceDescribedBy} onClick={() => void practiseCollection(selectedCollection.id)}>{practiceStarting ? 'Opening Lesson…' : 'Practise this Collection'}</button>}
           <button className="text-button" type="button" aria-label={`Rename ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}>Rename</button>
           <button className="text-button danger" type="button" aria-label={`Delete ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection: selectedCollection }); }}>Delete</button>
-        </span>
+        </div>
+        {practiceError && <p className="form-notice error library-scope-error" role="alert">{practiceError}</p>}
       </div>}
+
       <div className="vocabulary-discovery-controls">
         <div className="field">
           <label htmlFor="vocabulary-search">Search vocabulary</label>
@@ -429,8 +483,9 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
             <option value="suspended">Suspended entries</option>
           </select>
         </div>
-        <SearchablePicker id="vocabulary-collection-scope" label="Collection scope" value={selectedCollectionId} options={collectionScopeOptions} onChange={selectCollectionScope} emptyMessage="No Collections match" />
+        <button aria-pressed={selecting} className="secondary-button library-select-toggle" type="button" disabled={filing} onClick={toggleSelecting}>{selecting ? 'Done' : 'Select'}</button>
       </div>
+
       {selectedCollection && <div className="library-entry-add">
         <SearchablePicker id="library-entry-to-add" label="Vocabulary Entry to add" value={entryToAddId} options={addableEntryOptions} onChange={(id) => void addEntryToScopedCollection(id)} emptyMessage="No Vocabulary Entries match" disabled={!online || filing} describedBy={offlineReason} />
       </div>}
@@ -477,27 +532,23 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       {notice && !draft && <p className="form-notice error" role="alert">{notice}</p>}
       {snapshot.error && <p className="form-notice error" role="alert">{snapshot.error}</p>}
       <p className="visually-hidden" role="status">{selectionAnnouncement}</p>
-      {selectedEntries.length > 0 && <div className="library-selection" aria-busy={filing}>
-        <p className="library-selection-count">{selectionAnnouncement}</p>
-        <div className="library-selection-controls">
-          <SearchablePicker id="library-file-target" label="Collection to file into" value={fileTargetId} options={fileTargetOptions} onChange={setFileTargetId} emptyMessage="No Collections match" disabled={!online || filing} describedBy={offlineReason} />
-          <div className="library-selection-actions">
-            <button className="primary-button" type="button" disabled={!online || filing || !fileTarget} aria-describedby={offlineReason} onClick={() => { if (fileTarget) void fileSelectionInto(fileTarget.id, fileTarget.name); }}>File into Collection</button>
-            <button className="secondary-button" type="button" ref={fileIntoNewCollectionRef} disabled={!online || filing} aria-describedby={offlineReason} onClick={() => { setFileNotice(''); setFileError(''); setCollectionNotice(''); setCollectionRequest({ kind: 'create-and-file' }); }}>File into new Collection</button>
-            <button className="text-button" type="button" disabled={filing} onClick={() => { setFileNotice(''); setFileError(''); setSelection({ scope: selectedCollectionId, ids: [] }); }}>Clear selection</button>
-          </div>
-        </div>
-      </div>}
-      <div className="vocabulary-entry-list">
-        {visibleEntries.map((entry) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id} data-selected={selectedEntryIds.includes(entry.learningVocabularyEntryId)}>
-          <label className="vocabulary-entry-select">
-            <input type="checkbox" checked={selectedEntryIds.includes(entry.learningVocabularyEntryId)} disabled={filing} aria-label={`Select ${entry.expression}`} onChange={(event) => toggleEntrySelected(entry, event.target.checked)} />
+      <div className="vocabulary-entry-list" data-selecting={selecting ? 'true' : undefined}>
+        {visibleEntries.map((entry, index) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id} data-selected={selectedEntryIds.includes(entry.learningVocabularyEntryId)}>
+          {selecting && <label className="vocabulary-entry-select">
+            <input
+              type="checkbox"
+              checked={selectedEntryIds.includes(entry.learningVocabularyEntryId)}
+              disabled={filing}
+              aria-label={`Select ${entry.expression}`}
+              onClick={(event) => { if (event.shiftKey && selectRange(index, !selectedEntryIds.includes(entry.learningVocabularyEntryId))) event.preventDefault(); }}
+              onChange={(event) => { lastSelectedIndex.current = index; toggleEntrySelected(entry, event.target.checked); }}
+            />
             <span className="vocabulary-entry-select-mark" aria-hidden="true" />
-          </label>
+          </label>}
           <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>
             <summary>
               <span className="vocabulary-entry-identity">
-                <h3 className="vocabulary-entry-expression">{entry.expression}</h3>
+                <h3 className="vocabulary-entry-expression"><span className="marked">{entry.expression}</span></h3>
                 <span className="vocabulary-entry-gloss">{entry.senses.flatMap((sense) => sense.translations.map((item) => item.text)).join(' · ') || 'No translation yet'}</span>
               </span>
               {entry.suspended ? <span className="vocabulary-status-badge">Suspended</span> : entry.senses.length > 1 && <span className="surface-tally">{entry.senses.length}</span>}
@@ -559,6 +610,17 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
           </details>
         </article>)}
       </div>
+      {selectedEntries.length > 0 && <div className="library-selection" data-ui="bulk-actions" aria-busy={filing}>
+        <p className="library-selection-count">{selectionAnnouncement}</p>
+        <div className="library-selection-controls">
+          <SearchablePicker id="library-file-target" label="Collection to file into" value={fileTargetId} options={fileTargetOptions} onChange={setFileTargetId} emptyMessage="No Collections match" disabled={!online || filing} describedBy={offlineReason} />
+          <div className="library-selection-actions">
+            <button className="primary-button" type="button" disabled={!online || filing || !fileTarget} aria-describedby={offlineReason} onClick={() => { if (fileTarget) void fileSelectionInto(fileTarget.id, fileTarget.name); }}>File into Collection</button>
+            <button className="secondary-button" type="button" ref={fileIntoNewCollectionRef} disabled={!online || filing} aria-describedby={offlineReason} onClick={() => { setFileNotice(''); setFileError(''); setCollectionNotice(''); setCollectionRequest({ kind: 'create-and-file' }); }}>File into new Collection</button>
+            <button className="text-button" type="button" disabled={filing} onClick={() => { setFileNotice(''); setFileError(''); lastSelectedIndex.current = null; setSelection({ scope: selectedCollectionId, ids: [] }); }}>Clear selection</button>
+          </div>
+        </div>
+      </div>}
     </section>
   );
 }

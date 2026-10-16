@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { connection } from 'next/server';
 import readingDesk from '../public/brand/reading-desk.png';
 import { AuthenticatedApp } from '../components/AuthenticatedApp';
-import { BrandArtwork } from '../components/BrandArtwork';
+import { BrandArtwork, BrandMark } from '../components/BrandArtwork';
 import { getChromeExtensionId } from '../lib/extensionRecommendation';
 import { readNavigationCollapsed } from '../lib/navigationPreference';
 
@@ -34,7 +34,7 @@ function PublicHome() {
 
         <div className="hero-artwork">
           <Image alt="A quiet reading desk with an open book, laptop, and plant" preload src={readingDesk} sizes="(max-width: 960px) 100vw, 56vw" />
-          <Image alt="Lexync fox mark" className="hero-mark" height={1254} src="/brand/mark-dark-on-light.png" width={1254} />
+          <BrandMark alt="Lexync fox mark" className="hero-mark" size={72} />
         </div>
       </section>
 

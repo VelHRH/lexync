@@ -1,30 +1,15 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Atkinson_Hyperlegible, Courier_Prime, Plus_Jakarta_Sans } from 'next/font/google';
+import { Atkinson_Hyperlegible_Next } from 'next/font/google';
 import './globals.css';
+import { themeCookie } from '../lib/themePreference';
 
-const display = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const lexyncSans = Atkinson_Hyperlegible_Next({
+  subsets: ['latin', 'latin-ext'],
+  weight: 'variable',
   style: ['normal', 'italic'],
   display: 'swap',
-  variable: '--web-font-display',
-});
-
-const learnerMaterial = Courier_Prime({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  style: ['normal', 'italic'],
-  display: 'swap',
-  variable: '--web-font-material',
-});
-
-const body = Atkinson_Hyperlegible({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  style: ['normal', 'italic'],
-  display: 'swap',
-  variable: '--web-font-body',
+  variable: '--web-font',
 });
 
 export const metadata: Metadata = {
@@ -55,9 +40,12 @@ export const metadata: Metadata = {
   },
 };
 
+const stampTheme = `(function(){try{var m=document.cookie.match(/(?:^|; )${themeCookie}=([^;]*)/);var t=m?decodeURIComponent(m[1]):'';if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()`;
+
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${learnerMaterial.variable}`}>
+    <html lang="en" className={lexyncSans.variable} suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: stampTheme }} /></head>
       <body>{children}</body>
     </html>
   );

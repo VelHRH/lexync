@@ -178,6 +178,15 @@ function pickerListbox(page: Page, label: string) {
   return page.getByRole('listbox', { name: label });
 }
 
+function collectionCard(page: Page, name: string | RegExp) {
+  return page.locator('[data-ui="collection-shelf"]').getByRole('button', { name });
+}
+
+async function chooseCollection(page: Page, name: string | RegExp) {
+  await collectionCard(page, name).click();
+  await expect(collectionCard(page, name)).toHaveAttribute('aria-pressed', 'true');
+}
+
 async function choosePickerOption(page: Page, label: string, option: string | RegExp) {
   await picker(page, label).click();
   await expect(picker(page, label)).toHaveAttribute('aria-expanded', 'true');
@@ -186,7 +195,7 @@ async function choosePickerOption(page: Page, label: string, option: string | Re
 }
 
 function collectionFilter(page: Page) {
-  return page.locator('.library-collection-filter');
+  return page.locator('.library-scope');
 }
 
 function practiseButton(page: Page) {
@@ -215,7 +224,7 @@ async function assertWithinViewportUnscrolled(page: Page, locator: Locator) {
 async function openCollectionThroughPicker(page: Page, collectionId: string) {
   await page.goto('/library');
   await expect(entrySummary(page, 'maleta')).toBeVisible();
-  await choosePickerOption(page, 'Collection scope', /Travel/);
+  await chooseCollection(page, /Travel/);
   await expect(page).toHaveURL(`/library?collection=${collectionId}`);
 }
 
@@ -419,18 +428,18 @@ test.describe('web Collection Lesson', () => {
     await signIn(page, fixture.account);
     await page.goto('/library');
     await expect(entrySummary(page, 'maleta')).toBeVisible();
-    await expect(picker(page, 'Collection scope')).toHaveValue('All vocabulary');
+    await expect(collectionCard(page, 'All vocabulary')).toHaveAttribute('aria-pressed', 'true');
     await expect(collectionFilter(page)).toHaveCount(0);
     await expect(page.locator('[data-ui="practise-collection"]')).toHaveCount(0);
     await expect(practiceReason(page)).toHaveCount(0);
 
-    await choosePickerOption(page, 'Collection scope', 'Not in a Collection');
+    await chooseCollection(page, 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(collectionFilter(page)).toHaveCount(0);
     await expect(page.locator('[data-ui="practise-collection"]')).toHaveCount(0);
     await expect(practiceReason(page)).toHaveCount(0);
 
-    await choosePickerOption(page, 'Collection scope', /Travel/);
+    await chooseCollection(page, /Travel/);
     await expect(page).toHaveURL(`/library?collection=${fixture.collectionId}`);
     await expect(practiseButton(page)).toBeEnabled();
   });
