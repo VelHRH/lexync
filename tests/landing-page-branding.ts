@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 export async function expectBrandArtwork(link: Locator, assetName: string) {
-  const image = link.locator('img').locator('visible=true');
+  const image = link.locator('img');
 
   await expect(image).toBeVisible();
   await expect(image).toHaveAttribute('alt', '');

@@ -383,7 +383,7 @@ test.describe('web Library data lifetime', () => {
     const libraryRequests = trackLibraryRequests(page);
     libraryRequests.reset();
 
-    await page.getByRole('button', { name: 'Clear Collection filter' }).click();
+    await page.locator('[data-ui="collection-shelf"]').getByRole('button', { name: 'All vocabulary' }).click();
     await expect(page).toHaveURL('/library');
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
     await expect(page.locator('summary').filter({ hasText: 'perro' })).toBeVisible();

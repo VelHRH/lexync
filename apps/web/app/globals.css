@@ -727,14 +727,19 @@ h1, h2, h3, h4,
 .panel-lede { max-width: 62ch; margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }
 
 
-[data-theme-artwork='dark'] { display: none; }
-:root[data-theme='dark'] [data-theme-artwork='light'] { display: none; }
-:root[data-theme='dark'] [data-theme-artwork='dark'] { display: block; }
+.brand-mark { display: contents; }
 :root[data-theme='dark'] .hero-artwork > img:not(.hero-mark) { mix-blend-mode: normal; }
+:root[data-theme='dark'] .brand-artwork:not(.brand-artwork-fixed) img { content: url('/brand/wordmark-light-on-dark.png'); }
+:root[data-theme='light'] .brand-artwork:not(.brand-artwork-fixed) img { content: url('/brand/wordmark-dark-on-light.png'); }
+:root[data-theme='dark'] .brand-mark img { content: url('/brand/mark-light-on-dark.png'); }
+:root[data-theme='light'] .brand-mark img { content: url('/brand/mark-dark-on-light.png'); }
+
+@media (max-width: 560px) {
+  :root[data-theme='dark'] .brand-artwork:not(.brand-artwork-fixed) img { content: url('/brand/mark-light-on-dark.png'); }
+  :root[data-theme='light'] .brand-artwork:not(.brand-artwork-fixed) img { content: url('/brand/mark-dark-on-light.png'); }
+}
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) [data-theme-artwork='light'] { display: none; }
-  :root:not([data-theme='light']) [data-theme-artwork='dark'] { display: block; }
   :root:not([data-theme='light']) .hero-artwork > img:not(.hero-mark) { mix-blend-mode: normal; }
 }
 
@@ -786,3 +791,16 @@ h1, h2, h3, h4,
 .collection-card.new { display: flex; flex-basis: auto; align-items: center; gap: .4rem; padding-inline: 1rem; white-space: nowrap; }
 
 .library-shelf-track { scrollbar-width: thin; scrollbar-color: var(--web-line-strong) transparent; }
+
+.lesson-history-sense-list li > strong { justify-self: start; }
+
+@media (max-width: 56rem) {
+  .app-navigation { min-width: 0; }
+  .app-navigation a { white-space: normal; overflow: hidden; }
+  .app-navigation-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .app-sidebar-bottom .profile-button { padding-inline: .35rem; }
+}
+
+@media (max-width: 44rem) {
+  .lesson-history-session summary { display: grid; align-items: center; }
+}

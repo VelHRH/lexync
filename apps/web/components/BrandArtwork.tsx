@@ -1,37 +1,28 @@
-import Image from 'next/image';
+export function BrandArtwork({ background }: { background: 'dark' | 'light' }) {
+  if (background === 'dark') {
+    return (
+      <picture className="brand-artwork brand-artwork-fixed" data-ui="visual-primitive">
+        <source media="(max-width: 560px)" srcSet="/brand/mark-light-on-dark.png" />
+        <img alt="" height="724" src="/brand/wordmark-light-on-dark.png" width="2172" />
+      </picture>
+    );
+  }
 
-type Variant = 'dark-on-light' | 'light-on-dark';
-
-function Wordmark({ variant, themed }: { variant: Variant; themed?: 'light' | 'dark' }) {
   return (
-    <picture className="brand-artwork" data-theme-artwork={themed} data-ui="visual-primitive">
-      <source media="(max-width: 560px)" srcSet={`/brand/mark-${variant}.png`} />
-      <img alt="" height="724" src={`/brand/wordmark-${variant}.png`} width="2172" />
+    <picture className="brand-artwork" data-ui="visual-primitive">
+      <source media="(max-width: 560px) and (prefers-color-scheme: dark)" srcSet="/brand/mark-light-on-dark.png" />
+      <source media="(max-width: 560px)" srcSet="/brand/mark-dark-on-light.png" />
+      <source media="(prefers-color-scheme: dark)" srcSet="/brand/wordmark-light-on-dark.png" />
+      <img alt="" height="724" src="/brand/wordmark-dark-on-light.png" width="2172" />
     </picture>
   );
 }
 
-export function BrandArtwork({ background }: { background: 'dark' | 'light' }) {
-  if (background === 'dark') return <Wordmark variant="light-on-dark" />;
-
-  return <>
-    <Wordmark themed="light" variant="dark-on-light" />
-    <Wordmark themed="dark" variant="light-on-dark" />
-  </>;
-}
-
 export function BrandMark({ alt = '', className, size }: { alt?: string; className?: string; size: number }) {
-  return <>
-    {(['light', 'dark'] as const).map((themed) => <Image
-      alt={themed === 'light' ? alt : ''}
-      className={className}
-      data-theme-artwork={themed}
-      height={1254}
-      key={themed}
-      src={themed === 'light' ? '/brand/mark-dark-on-light.png' : '/brand/mark-light-on-dark.png'}
-      style={{ width: `${size}px`, height: `${size}px` }}
-      unoptimized
-      width={1254}
-    />)}
-  </>;
+  return (
+    <picture className="brand-mark">
+      <source media="(prefers-color-scheme: dark)" srcSet="/brand/mark-light-on-dark.png" />
+      <img alt={alt} className={className} height={size} src="/brand/mark-dark-on-light.png" width={size} />
+    </picture>
+  );
 }

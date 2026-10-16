@@ -44,7 +44,7 @@ const stampTheme = `(function(){try{var m=document.cookie.match(/(?:^|; )${theme
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" className={lexyncSans.variable}>
+    <html lang="en" className={lexyncSans.variable} suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: stampTheme }} /></head>
       <body>{children}</body>
     </html>
