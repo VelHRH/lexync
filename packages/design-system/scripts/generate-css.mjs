@@ -42,14 +42,33 @@ function tokenValue(category, key, value) {
   return value;
 }
 
-const lines = [':root {', '  color-scheme: light;'];
-for (const [category, values] of Object.entries(source)) {
-  lines.push('');
-  for (const [key, value] of Object.entries(values)) {
-    lines.push(`  ${tokenName(category, key)}: ${tokenValue(category, key, value)};`);
+const { dark, ...light } = source;
+
+function declarations(entries, indent) {
+  const lines = [];
+  for (const [category, values] of Object.entries(entries)) {
+    lines.push('');
+    for (const [key, value] of Object.entries(values)) {
+      lines.push(`${indent}${tokenName(category, key)}: ${tokenValue(category, key, value)};`);
+    }
   }
+  return lines;
 }
-lines.push('}', '', ':where(button, input, select, textarea, a):focus-visible {');
+
+const lines = [':root {', '  color-scheme: light;'];
+lines.push(...declarations(light, '  '));
+lines.push('}', '');
+
+lines.push(':root[data-theme="dark"] {', '  color-scheme: dark;');
+lines.push(...declarations(dark, '  '));
+lines.push('}', '');
+
+lines.push('@media (prefers-color-scheme: dark) {');
+lines.push('  :root:not([data-theme="light"]) {', '    color-scheme: dark;');
+lines.push(...declarations(dark, '    '));
+lines.push('  }', '}', '');
+
+lines.push('', ':where(button, input, select, textarea, a):focus-visible {');
 lines.push('  outline: var(--lexync-focus-width) solid var(--lexync-focus-color);');
 lines.push('  outline-offset: var(--lexync-focus-offset);');
 lines.push('  box-shadow: var(--lexync-focus-ring);');

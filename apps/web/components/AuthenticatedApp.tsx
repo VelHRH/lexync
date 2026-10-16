@@ -5,13 +5,12 @@ import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { Suspense, type ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { clearLibraryStore } from '../lib/libraryStore';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { LearningLanguageOnboarding, type LearningLanguage } from './LearningLanguageOnboarding';
-import { BrandArtwork } from './BrandArtwork';
+import { BrandArtwork, BrandMark } from './BrandArtwork';
 import { NavigationIcon } from './NavigationIcon';
 import { VocabularyLibrary } from './VocabularyLibrary';
 import { ExtensionRecommendation } from './ExtensionRecommendation';
@@ -20,6 +19,7 @@ import { LearningMaterials } from './LearningMaterials';
 import { DynamicLessonRequest } from './DynamicLessonRequest';
 import { LessonInProgressActions } from './LessonInProgressActions';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 const destinations = [
   ['Lessons', '/lessons'],
@@ -85,8 +85,7 @@ function AppNavigation({ activeSection }: { activeSection: string }) {
   return <nav className="app-navigation app-navigation-rail" data-ui="task-navigation" aria-label="Main navigation">
     {destinations.map(([label, href]) => <Link aria-current={current === label ? 'page' : undefined} className={current === label ? 'active' : ''} href={href} key={href} title={label}>
       <NavigationIcon name={label} />
-      <span className="app-navigation-label">{label}</span>
-      <span className="app-navigation-label-short">{navigationShortLabels[label] ?? label}</span>
+      <span className="app-navigation-label">{navigationShortLabels[label] ?? label}</span>
     </Link>)}
   </nav>;
 }
@@ -96,7 +95,7 @@ function AppSidebar({ activeSection, collapsed, onToggle, children }: { activeSe
     <div className="app-sidebar-top">
       <Link className="auth-brand" data-ui="header-brand" href="/" aria-label="Lexync home">
         {collapsed
-          ? <Image alt="" className="app-sidebar-mark" height={1254} src="/brand/mark-dark-on-light.png" width={1254} unoptimized />
+          ? <BrandMark className="app-sidebar-mark" size={36} />
           : <BrandArtwork background="light" />}
       </Link>
       {onToggle && <button aria-expanded={!collapsed} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} className="app-sidebar-toggle" type="button" onClick={onToggle}>
@@ -445,6 +444,13 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
                 <Link className="secondary-button" href="/settings">Settings</Link>
                 <button className="secondary-button danger" type="button" onClick={signOut}>Sign out</button>
               </div>
+            </div>
+          </section>}
+          {activeSection === 'Profile' && <section className="panel" aria-labelledby="appearance-heading">
+            <div className="panel-header"><h2 id="appearance-heading">Appearance</h2></div>
+            <div className="panel-body">
+              <p className="panel-lede">Lexync follows your device by default. Choose a theme to keep it the same everywhere you sign in on this browser.</p>
+              <ThemeSwitcher />
             </div>
           </section>}
           {lessonError && activeSection === 'Lessons' && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}

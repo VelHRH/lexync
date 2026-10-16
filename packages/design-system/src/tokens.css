@@ -6,18 +6,17 @@
   --lexync-color-brand-primary-active: #4413b0;
   --lexync-color-brand-deep: #00207c;
   --lexync-color-brand-soft: #ece5fe;
-  --lexync-color-accent: #df8256;
-  --lexync-color-accent-strong: #9d4a22;
-  --lexync-color-accent-soft: #f6ddcb;
   --lexync-color-ink: #15213f;
   --lexync-color-ink-soft: #2c3a5c;
   --lexync-color-ink-muted: #5a6682;
   --lexync-color-white: #ffffff;
+  --lexync-color-ground: #f4f7fc;
   --lexync-color-surface: #ffffff;
-  --lexync-color-surface-subtle: #f2f6fd;
-  --lexync-color-surface-strong: #e9e4fd;
-  --lexync-color-surface-deep: #d6ccfb;
-  --lexync-color-surface-muted: #f4f6fa;
+  --lexync-color-surface-subtle: #f3f5fa;
+  --lexync-color-surface-muted: #eef1f7;
+  --lexync-color-surface-strong: #e5eaf4;
+  --lexync-color-surface-selected: #ece5fe;
+  --lexync-color-mark: rgba(97, 30, 252, 0.24);
   --lexync-color-border: rgba(0, 32, 124, 0.10);
   --lexync-color-border-strong: rgba(0, 32, 124, 0.18);
   --lexync-color-border-quiet: rgba(0, 32, 124, 0.06);
@@ -31,12 +30,8 @@
   --lexync-color-info-surface: #ece5fe;
   --lexync-color-scrim: rgba(10, 24, 56, 0.45);
 
-  --lexync-gradient-ground-public: radial-gradient(120% 90% at 12% 6%, #dbe6f8 0%, rgba(219, 230, 248, 0) 60%), radial-gradient(100% 80% at 96% 96%, #f6ddcb 0%, rgba(246, 221, 203, 0) 62%), linear-gradient(160deg, #eef4fc 0%, #f7fafd 100%);
-  --lexync-gradient-ground-product: radial-gradient(115% 85% at 6% 0%, #dce7fa 0%, rgba(220, 231, 250, 0) 58%), radial-gradient(95% 75% at 100% 100%, #f8e5d8 0%, rgba(248, 229, 216, 0) 62%), linear-gradient(165deg, #eaf1fb 0%, #f5f9fd 55%, #fdf8f3 100%);
+  --lexync-gradient-ground: radial-gradient(120% 90% at 8% 0%, #d7e3fa 0%, rgba(215, 227, 250, 0) 58%), radial-gradient(90% 70% at 100% 100%, #e6e0fb 0%, rgba(230, 224, 251, 0) 60%);
   --lexync-gradient-brand-sweep: linear-gradient(135deg, #00207c 0%, #611efc 100%);
-  --lexync-gradient-accent-sweep: linear-gradient(120deg, #df8256 0%, #611efc 100%);
-  --lexync-gradient-surface-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
-  --lexync-gradient-brand-sweep-warm: linear-gradient(135deg, #00207c 0%, #611efc 58%, #df8256 100%);
 
   --lexync-glass-fill: rgba(255, 255, 255, 0.62);
   --lexync-glass-fill-strong: rgba(255, 255, 255, 0.78);
@@ -47,9 +42,9 @@
   --lexync-glass-blur: blur(20px) saturate(140%);
   --lexync-glass-blur-strong: blur(28px) saturate(150%);
 
-  --lexync-type-family-display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
-  --lexync-type-family-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --lexync-type-family-mono: "Courier Prime", "Courier New", ui-monospace, monospace;
+  --lexync-type-family-display: "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
+  --lexync-type-family-body: "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
+  --lexync-type-family-material: "Atkinson Hyperlegible Next", "Noto Sans", "Noto Sans JP", "Noto Naskh Arabic", "Noto Sans Devanagari", "Segoe UI", system-ui, sans-serif;
   --lexync-type-size-xs: 0.75rem;
   --lexync-type-size-sm: 0.875rem;
   --lexync-type-size-md: 1rem;
@@ -105,8 +100,11 @@
   --lexync-motion-duration-fast: 120ms;
   --lexync-motion-duration-normal: 180ms;
   --lexync-motion-duration-slow: 280ms;
+  --lexync-motion-duration-deliberate: 420ms;
   --lexync-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
-  --lexync-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
+  --lexync-motion-easing-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --lexync-motion-easing-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --lexync-motion-easing-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   --lexync-focus-color: #611efc;
   --lexync-focus-width: 3px;
@@ -125,6 +123,117 @@
   --lexync-brand-mark-light-on-dark: url("/brand/mark-light-on-dark.png");
   --lexync-brand-wordmark-light-on-dark: url("/brand/wordmark-light-on-dark.png");
 }
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --lexync-color-brand-primary: #7a46ff;
+  --lexync-color-brand-primary-hover: #8d5fff;
+  --lexync-color-brand-primary-active: #bda9ff;
+  --lexync-color-brand-deep: #243a9e;
+  --lexync-color-brand-soft: #231d4a;
+  --lexync-color-ink: #e9ecf7;
+  --lexync-color-ink-soft: #c3cade;
+  --lexync-color-ink-muted: #98a1bd;
+  --lexync-color-ground: #0a0e1c;
+  --lexync-color-surface: #131a2e;
+  --lexync-color-surface-subtle: #0f1526;
+  --lexync-color-surface-muted: #182036;
+  --lexync-color-surface-strong: #1e2740;
+  --lexync-color-surface-selected: #231d4a;
+  --lexync-color-mark: rgba(162, 135, 255, 0.32);
+  --lexync-color-border: rgba(255, 255, 255, 0.10);
+  --lexync-color-border-strong: rgba(255, 255, 255, 0.18);
+  --lexync-color-border-quiet: rgba(255, 255, 255, 0.06);
+  --lexync-color-success: #5fcf9e;
+  --lexync-color-success-surface: #0f2a21;
+  --lexync-color-warning: #e2a862;
+  --lexync-color-warning-surface: #2b2012;
+  --lexync-color-danger: #ff9a90;
+  --lexync-color-danger-surface: #2f1618;
+  --lexync-color-info: #bda9ff;
+  --lexync-color-info-surface: #1d1a3d;
+  --lexync-color-scrim: rgba(2, 5, 14, 0.66);
+
+  --lexync-gradient-ground: radial-gradient(120% 90% at 8% 0%, #16224a 0%, rgba(22, 34, 74, 0) 58%), radial-gradient(90% 70% at 100% 100%, #221c48 0%, rgba(34, 28, 72, 0) 60%);
+  --lexync-gradient-brand-sweep: linear-gradient(135deg, #243a9e 0%, #7a46ff 100%);
+
+  --lexync-glass-fill: rgba(19, 26, 46, 0.66);
+  --lexync-glass-fill-strong: rgba(19, 26, 46, 0.84);
+  --lexync-glass-fill-quiet: rgba(19, 26, 46, 0.48);
+  --lexync-glass-fill-opaque: #131a2e;
+  --lexync-glass-border: rgba(255, 255, 255, 0.10);
+  --lexync-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+  --lexync-elevation-quiet: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --lexync-elevation-low: 0 2px 8px rgba(0, 0, 0, 0.44);
+  --lexync-elevation-medium: 0 8px 24px rgba(0, 0, 0, 0.50);
+  --lexync-elevation-high: 0 16px 40px rgba(0, 0, 0, 0.58);
+  --lexync-elevation-dialog: 0 24px 64px rgba(0, 0, 0, 0.66);
+  --lexync-elevation-edge: 0 1px 0 rgba(0, 0, 0, 0.40);
+  --lexync-elevation-edge-high: 0 2px 12px rgba(0, 0, 0, 0.44);
+  --lexync-elevation-inset: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+  --lexync-focus-color: #a287ff;
+  --lexync-focus-ring: 0 0 0 3px rgba(162, 135, 255, 0.34);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --lexync-color-brand-primary: #7a46ff;
+    --lexync-color-brand-primary-hover: #8d5fff;
+    --lexync-color-brand-primary-active: #bda9ff;
+    --lexync-color-brand-deep: #243a9e;
+    --lexync-color-brand-soft: #231d4a;
+    --lexync-color-ink: #e9ecf7;
+    --lexync-color-ink-soft: #c3cade;
+    --lexync-color-ink-muted: #98a1bd;
+    --lexync-color-ground: #0a0e1c;
+    --lexync-color-surface: #131a2e;
+    --lexync-color-surface-subtle: #0f1526;
+    --lexync-color-surface-muted: #182036;
+    --lexync-color-surface-strong: #1e2740;
+    --lexync-color-surface-selected: #231d4a;
+    --lexync-color-mark: rgba(162, 135, 255, 0.32);
+    --lexync-color-border: rgba(255, 255, 255, 0.10);
+    --lexync-color-border-strong: rgba(255, 255, 255, 0.18);
+    --lexync-color-border-quiet: rgba(255, 255, 255, 0.06);
+    --lexync-color-success: #5fcf9e;
+    --lexync-color-success-surface: #0f2a21;
+    --lexync-color-warning: #e2a862;
+    --lexync-color-warning-surface: #2b2012;
+    --lexync-color-danger: #ff9a90;
+    --lexync-color-danger-surface: #2f1618;
+    --lexync-color-info: #bda9ff;
+    --lexync-color-info-surface: #1d1a3d;
+    --lexync-color-scrim: rgba(2, 5, 14, 0.66);
+
+    --lexync-gradient-ground: radial-gradient(120% 90% at 8% 0%, #16224a 0%, rgba(22, 34, 74, 0) 58%), radial-gradient(90% 70% at 100% 100%, #221c48 0%, rgba(34, 28, 72, 0) 60%);
+    --lexync-gradient-brand-sweep: linear-gradient(135deg, #243a9e 0%, #7a46ff 100%);
+
+    --lexync-glass-fill: rgba(19, 26, 46, 0.66);
+    --lexync-glass-fill-strong: rgba(19, 26, 46, 0.84);
+    --lexync-glass-fill-quiet: rgba(19, 26, 46, 0.48);
+    --lexync-glass-fill-opaque: #131a2e;
+    --lexync-glass-border: rgba(255, 255, 255, 0.10);
+    --lexync-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+    --lexync-elevation-quiet: 0 1px 2px rgba(0, 0, 0, 0.40);
+    --lexync-elevation-low: 0 2px 8px rgba(0, 0, 0, 0.44);
+    --lexync-elevation-medium: 0 8px 24px rgba(0, 0, 0, 0.50);
+    --lexync-elevation-high: 0 16px 40px rgba(0, 0, 0, 0.58);
+    --lexync-elevation-dialog: 0 24px 64px rgba(0, 0, 0, 0.66);
+    --lexync-elevation-edge: 0 1px 0 rgba(0, 0, 0, 0.40);
+    --lexync-elevation-edge-high: 0 2px 12px rgba(0, 0, 0, 0.44);
+    --lexync-elevation-inset: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+    --lexync-focus-color: #a287ff;
+    --lexync-focus-ring: 0 0 0 3px rgba(162, 135, 255, 0.34);
+  }
+}
+
 
 :where(button, input, select, textarea, a):focus-visible {
   outline: var(--lexync-focus-width) solid var(--lexync-focus-color);

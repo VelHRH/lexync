@@ -61,9 +61,9 @@ async function createCollection(page: Page, name: string) {
 }
 
 async function selectCollectionScope(page: Page, name: string | RegExp) {
-  await page.getByRole('combobox', { name: 'Collection scope' }).click();
-  await page.getByRole('listbox', { name: 'Collection scope' }).getByRole('option', { name }).click();
-  await expect(page.getByRole('combobox', { name: 'Collection scope' })).toHaveAttribute('aria-expanded', 'false');
+  const card = page.locator('[data-ui="collection-shelf"]').getByRole('button', { name });
+  await card.click();
+  await expect(card).toHaveAttribute('aria-pressed', 'true');
 }
 
 async function ensureEntryExpanded(page: Page, expression: string) {
