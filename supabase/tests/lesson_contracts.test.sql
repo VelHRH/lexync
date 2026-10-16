@@ -1,6 +1,6 @@
 begin;
 
-select plan(91);
+select plan(104);
 
 select ok((select relkind from pg_class where oid = 'public.lessons'::regclass) = 'r', 'the canonical Lesson relation is a physical table');
 select ok((select relkind from pg_class where oid = 'public.lesson_questions'::regclass) = 'r', 'the canonical Lesson Question relation is a physical table');
@@ -22,9 +22,39 @@ select ok(
   'obsolete Review helpers are removed and canonical Lesson helpers remain'
 );
 select ok(to_regprocedure('public.lesson_overview(uuid)') is not null, 'the canonical Lesson overview RPC exists');
-select ok(to_regprocedure('public.start_or_resume_vocabulary_lesson(uuid)') is not null, 'the canonical vocabulary Lesson start RPC exists');
+select ok(to_regprocedure('public.start_or_resume_vocabulary_lesson(uuid, uuid)') is not null, 'the canonical vocabulary Lesson start RPC exists');
 select ok(to_regprocedure('public.submit_lesson_answer(uuid, uuid, text)') is not null, 'the canonical Lesson answer RPC exists');
 select ok(to_regprocedure('public.continue_lesson_question(uuid, uuid)') is not null, 'the canonical Lesson continue RPC exists');
+
+select ok(to_regprocedure('public.lesson_collection_includes(uuid, uuid)') is not null, 'the Collection scope helper exists');
+select ok(
+  has_function_privilege('authenticated', 'public.start_or_resume_vocabulary_lesson(uuid, uuid)', 'execute'),
+  'authenticated clients can execute the vocabulary Lesson start RPC'
+);
+select ok(
+  not has_function_privilege('anon', 'public.start_or_resume_vocabulary_lesson(uuid, uuid)', 'execute'),
+  'anonymous clients cannot execute the vocabulary Lesson start RPC'
+);
+select ok(
+  not has_function_privilege('authenticated', 'public.lesson_collection_includes(uuid, uuid)', 'execute'),
+  'authenticated clients cannot execute the Collection scope helper'
+);
+select ok(
+  not has_function_privilege('anon', 'public.lesson_collection_includes(uuid, uuid)', 'execute'),
+  'anonymous clients cannot execute the Collection scope helper'
+);
+select has_column('public', 'lessons', 'collection_id', 'a Lesson records the Collection it was scoped to');
+select col_is_null('public', 'lessons', 'collection_id', 'a Lesson without a Collection scope records no Collection');
+select ok(
+  (select pg_get_constraintdef(oid) from pg_constraint where conrelid = 'public.lessons'::regclass and conname = 'lessons_collection_id_source_check')
+    = 'CHECK (((collection_id IS NULL) OR (source = ''vocabulary''::text)))',
+  'only a vocabulary-source Lesson may record a Collection'
+);
+select ok(
+  (select pg_get_constraintdef(oid) from pg_constraint where conrelid = 'public.lessons'::regclass and conname = 'lessons_collection_id_learner_id_learning_language_id_fkey')
+    like '%REFERENCES collections(id, learner_id, learning_language_id) ON DELETE SET NULL (collection_id)',
+  'deleting a Collection clears only the Collection reference on its Lessons'
+);
 
 insert into auth.users (id)
 values
@@ -525,6 +555,32 @@ select is((select correct_answer from public.lesson_questions where id = '117110
 select is((select selected_answer from public.lesson_attempts where id = '11712000-0000-0000-0000-000000000002'), 'connected', 'deleting linked Vocabulary data preserves the Dynamic Attempt selected answer snapshot');
 select is((select correct_answer from public.lesson_attempts where id = '11712000-0000-0000-0000-000000000002'), 'connected', 'deleting linked Vocabulary data preserves the Dynamic Attempt correct answer snapshot');
 select is((select answered_at from public.lesson_attempts where id = '11712000-0000-0000-0000-000000000002'), '2026-09-25T10:00:03Z'::timestamptz, 'deleting linked Vocabulary data preserves the Dynamic Attempt timestamp');
+insert into public.collections (id, learner_id, learning_language_id, name)
+values (
+  '11713000-0000-0000-0000-000000000001',
+  '11700000-0000-0000-0000-000000000001',
+  current_setting('test.lesson_learning_language_id')::uuid,
+  'Travel'
+);
+insert into public.lessons (id, learner_id, learning_language_id, source, status, total_count, correct_count, completed_at, collection_id)
+values (
+  '11714000-0000-0000-0000-000000000001',
+  '11700000-0000-0000-0000-000000000001',
+  current_setting('test.lesson_learning_language_id')::uuid,
+  'vocabulary',
+  'completed',
+  0,
+  0,
+  '2026-10-15T10:00:00Z',
+  '11713000-0000-0000-0000-000000000001'
+);
+delete from public.collections where id = '11713000-0000-0000-0000-000000000001';
+
+select is((select count(*) from public.lessons where id = '11714000-0000-0000-0000-000000000001'), 1::bigint, 'deleting a Collection preserves the Lesson it scoped');
+select is((select collection_id from public.lessons where id = '11714000-0000-0000-0000-000000000001'), null::uuid, 'deleting a Collection clears the Lesson Collection reference');
+select is((select learner_id from public.lessons where id = '11714000-0000-0000-0000-000000000001'), '11700000-0000-0000-0000-000000000001'::uuid, 'deleting a Collection preserves the Lesson Learner');
+select is((select learning_language_id from public.lessons where id = '11714000-0000-0000-0000-000000000001'), current_setting('test.lesson_learning_language_id')::uuid, 'deleting a Collection preserves the Lesson Learning Language');
+
 set local role authenticated;
 
 select is((select source from public.lessons where id = '11710000-0000-0000-0000-000000000001'), 'dynamic', 'Dynamic Lessons retain their source discriminator');
