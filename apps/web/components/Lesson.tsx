@@ -350,7 +350,17 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
       <p className="lesson-language-name">{lessonLanguageTag ? languageName(lessonLanguageTag) : ''}</p>
     </header>
     <div className="lesson-main">
-      {loading && <div className="lesson-state" role="status" aria-live="polite"><span className="lesson-skeleton" aria-hidden="true" />Opening Lesson…</div>}
+      {loading && <><p className="visually-hidden" role="status" aria-live="polite">Opening Lesson…</p>
+      <div className="lesson-loading" aria-hidden="true">
+        <div className="skeleton lesson-loading-direction" />
+        <div className="skeleton lesson-loading-prompt" />
+        <div className="lesson-loading-choices">
+          <div className="skeleton lesson-loading-choice" />
+          <div className="skeleton lesson-loading-choice" />
+          <div className="skeleton lesson-loading-choice" />
+          <div className="skeleton lesson-loading-choice" />
+        </div>
+      </div></>}
       {!loading && error && <div className="lesson-state lesson-error" role="alert"><p>Lesson is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Lessons</button></div>}
       {!loading && !error && lesson && !isComplete && question && <>
         <div className="lesson-progress-row">

@@ -114,8 +114,20 @@ function AppLoadingShell({ section, message, alert = false, collapsed = false }:
     <AppSidebar activeSection={activeSection} collapsed={collapsed} />
     <div className="app-main">
       <section className="app-content app-content-canvas" aria-labelledby="app-heading">
-        <div className="page-heading"><div className="page-heading-text"><h1 id="app-heading">{activeSection}</h1></div></div>
-        <p className={`form-notice${alert ? ' error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
+        <h1 className="visually-hidden" id="app-heading">{activeSection}</h1>
+        {alert ? <p className="form-notice error" role="alert">{message}</p> : <>
+          <p className="visually-hidden" role="status">{message}</p>
+          <div className="page-skeleton" aria-hidden="true">
+            <div className="skeleton page-skeleton-title" />
+            <div className="skeleton page-skeleton-eyebrow" />
+            <div className="page-skeleton-rows">
+              <div className="skeleton page-skeleton-row" />
+              <div className="skeleton page-skeleton-row" />
+              <div className="skeleton page-skeleton-row" />
+              <div className="skeleton page-skeleton-row" />
+            </div>
+          </div>
+        </>}
       </section>
     </div>
   </main>;
@@ -124,12 +136,12 @@ function AppLoadingShell({ section, message, alert = false, collapsed = false }:
 function OnboardingLoadingShell({ message, alert = false }: { message: string; alert?: boolean }) {
   return <main className="pair-onboarding onboarding-loading" aria-label="Learning Language onboarding" aria-busy={!alert}>
     <div className="onboarding-loading-skeleton" aria-hidden="true">
-      <div className="onboarding-loading-label" />
-      <div className="onboarding-loading-heading" />
-      <div className="onboarding-loading-copy" />
-      <div className="onboarding-loading-label" />
-      <div className="onboarding-loading-field" />
-      <div className="onboarding-loading-button" />
+      <div className="skeleton onboarding-loading-label" />
+      <div className="skeleton onboarding-loading-heading" />
+      <div className="skeleton onboarding-loading-copy" />
+      <div className="skeleton onboarding-loading-label" />
+      <div className="skeleton onboarding-loading-field" />
+      <div className="skeleton onboarding-loading-button" />
     </div>
     <p className={`onboarding-loading-message${alert ? ' form-notice error' : ''}`} role={alert ? 'alert' : 'status'}>{message}</p>
   </main>;
@@ -454,7 +466,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
             </div>
           </section>}
           {lessonError && activeSection === 'Lessons' && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}
-          {activeSection === 'Library' && <Suspense fallback={<div className="skeleton-list" aria-hidden="true"><div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line half" /></div><div className="skeleton-card"><div className="skeleton-line strong narrow" /><div className="skeleton-line wide" /></div></div>}><VocabularyLibrary key={activeLanguage.id} lessonInProgress={lessonInProgress} onEntriesChanged={async () => { await loadPairs(); await refreshLessonState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
+          {activeSection === 'Library' && <Suspense fallback={<div className="library-skeleton" aria-hidden="true"><div className="skeleton library-skeleton-row" /><div className="skeleton library-skeleton-row" /><div className="skeleton library-skeleton-row" /></div>}><VocabularyLibrary key={activeLanguage.id} lessonInProgress={lessonInProgress} onEntriesChanged={async () => { await loadPairs(); await refreshLessonState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
           {activeSection === 'Lesson history' && <LessonHistory key={activeLanguage.id} learningLanguageId={activeLanguage.id} learningLanguageTag={activeLanguage.languageTag} />}
           {activeSection === 'Settings' && <section className="panel pair-management" aria-labelledby="learning-languages-heading">
             <div className="panel-header"><h2 id="learning-languages-heading">Learning Languages</h2></div>

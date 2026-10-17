@@ -514,10 +514,12 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       />
       {snapshot.loading && <p className="collections-sr-only" role="status">Loading your vocabulary…</p>}
       {snapshot.refreshing && <p className="collections-sr-only" role="status">Refreshing your vocabulary…</p>}
-      {snapshot.loading && <div className="skeleton-list" aria-hidden="true">
-        <div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line half" /><div className="skeleton-line narrow" /></div>
-        <div className="skeleton-card"><div className="skeleton-line strong narrow" /><div className="skeleton-line wide" /></div>
-        <div className="skeleton-card"><div className="skeleton-line strong half" /><div className="skeleton-line wide" /></div>
+      {snapshot.loading && <div className="library-skeleton" aria-hidden="true">
+        <div className="skeleton library-skeleton-row" />
+        <div className="skeleton library-skeleton-row" />
+        <div className="skeleton library-skeleton-row" />
+        <div className="skeleton library-skeleton-row" />
+        <div className="skeleton library-skeleton-row" />
       </div>}
       {!snapshot.loading && visibleEntries.length === 0 && <div className="empty-state" data-ui="empty-state" role="status">
         <h3>{emptyHeading}</h3>
