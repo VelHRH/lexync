@@ -20,7 +20,6 @@ type EntryDraft = { id: string; expression: string; senses: DraftSense[] };
 
 const ALL_VOCABULARY_SCOPE = '';
 const NO_COLLECTION_SCOPE = 'none';
-const COLLECTION_PRACTICE_MINIMUM_ENTRIES = 8;
 
 function draftKey() {
   return crypto.randomUUID();
@@ -47,7 +46,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const searchParams = useSearchParams();
   const router = useRouter();
   const snapshot = useSyncExternalStore(subscribeLibrary, () => librarySnapshot(language.id), () => EMPTY_LIBRARY_SNAPSHOT);
-  const { entries, collections, memberships } = snapshot;
+  const { entries, collections, memberships, minimumEntries } = snapshot;
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState('');
   const [capturedNotice, setCapturedNotice] = useState('');
@@ -292,9 +291,10 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     .filter((entry) => !selectedCollectionEntryIds.has(entry.learningVocabularyEntryId))
     .map((entry) => ({ id: entry.learningVocabularyEntryId, label: entry.expression, keywords: entry.senses.flatMap((sense) => sense.translations.map((item) => item.text)) }));
   const offlineReason = online ? undefined : 'library-offline-notice';
-  const practiceShortfall = COLLECTION_PRACTICE_MINIMUM_ENTRIES - selectedCollectionEntryIds.size;
+  const practiceShortfall = minimumEntries - (selectedCollection?.entryCount ?? 0);
   const practiceReason = practiceShortfall > 0
     ? `Add ${practiceShortfall} more ${practiceShortfall === 1 ? 'Vocabulary Entry' : 'Vocabulary Entries'} to practise this Collection.`
+    : selectedCollection && !selectedCollection.canPractise ? 'This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Resume suspended Vocabulary Entries or add translations to practise it.'
     : lessonInProgress ? 'Finish the Lesson in progress first.'
     : '';
   const practiceReasonId = 'library-collection-practice-reason';
@@ -413,9 +413,10 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     return true;
   }
 
-  function collectionState(count: number) {
-    if (count >= COLLECTION_PRACTICE_MINIMUM_ENTRIES) return `${entryCountDetail(count)} · ready to practise`;
-    return `${entryCountDetail(count)} · needs ${COLLECTION_PRACTICE_MINIMUM_ENTRIES - count} more`;
+  function collectionState(collection: Collection) {
+    if (collection.canPractise) return `${entryCountDetail(collection.entryCount)} · ready to practise`;
+    if (collection.entryCount < minimumEntries) return `${entryCountDetail(collection.entryCount)} · needs ${minimumEntries - collection.entryCount} more`;
+    return `${entryCountDetail(collection.entryCount)} · not practisable yet`;
   }
 
   return (
@@ -448,7 +449,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
             onClick={() => selectCollectionScope(collection.id)}
           >
             <span className="collection-card-name">{collection.name}</span>
-            <span className="collection-card-state">{collectionState(memberships.filter((membership) => membership.collection_id === collection.id).length)}</span>
+            <span className="collection-card-state">{collectionState(collection)}</span>
           </button>)}
           <button aria-label="New Collection" className="collection-card new" type="button" ref={newCollectionRef} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'create' }); }}>
             <span aria-hidden="true" className="collection-card-plus">+</span>
@@ -463,7 +464,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
           {practiceReason && <span className="library-scope-reason" role="status" id={practiceReasonId}>{practiceReason}</span>}
         </div>
         <div className="library-scope-actions">
-          {practiceShortfall <= 0 && <button className="primary-button" data-ui="practise-collection" type="button" disabled={!online || lessonInProgress || practiceStarting} aria-describedby={practiceDescribedBy} onClick={() => void practiseCollection(selectedCollection.id)}>{practiceStarting ? 'Opening Lesson…' : 'Practise this Collection'}</button>}
+          {selectedCollection.canPractise && <button className="primary-button" data-ui="practise-collection" type="button" disabled={!online || lessonInProgress || practiceStarting} aria-describedby={practiceDescribedBy} onClick={() => void practiseCollection(selectedCollection.id)}>{practiceStarting ? 'Opening Lesson…' : 'Practise this Collection'}</button>}
           <button className="text-button" type="button" aria-label={`Rename ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}>Rename</button>
           <button className="text-button danger" type="button" aria-label={`Delete ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection: selectedCollection }); }}>Delete</button>
         </div>
