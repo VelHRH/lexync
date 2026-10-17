@@ -261,7 +261,7 @@ export function LearningMaterials({ accessToken, learningLanguageId, onMaterials
     {!online && <p className="form-notice" role="status">You are offline. Learning Material uploads require a connection.</p>}
     {notice && <p className="form-notice error" role="alert">{notice}</p>}
     {announcement && <p className="learning-materials-announcement" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>}
-    {loading ? <div className="skeleton-list" aria-hidden="true"><div className="skeleton-card"><div className="skeleton-line strong wide" /><div className="skeleton-line narrow" /></div></div> : materials.length === 0 ? <div className="empty-state"><h3>No reading material yet.</h3><p>No Learning Materials yet. Add a reading text to get started.</p></div> : <ul className="learning-materials-list" aria-label="Learning Material list">
+    {loading ? <div className="materials-skeleton" aria-hidden="true"><div className="skeleton materials-skeleton-row" /><div className="skeleton materials-skeleton-row" /><div className="skeleton materials-skeleton-row" /></div> : materials.length === 0 ? <div className="empty-state"><h3>No reading material yet.</h3><p>No Learning Materials yet. Add a reading text to get started.</p></div> : <ul className="learning-materials-list" aria-label="Learning Material list">
       {materials.map((material) => <li className="learning-material-row" key={material.id}>
         <span className="learning-material-name">{material.fileName}</span>
         <span className="learning-material-row-details">

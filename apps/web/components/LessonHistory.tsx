@@ -164,7 +164,12 @@ export function LessonHistory({ learningLanguageId, learningLanguageTag }: { lea
         <h2 id="completed-lesson-sessions-heading">Completed Lessons</h2>
         <p className="lesson-history-context">All completed Lessons across your Learning Languages.</p>
       </div>
-      {loading && <div className="lesson-history-loading" role="status"><span aria-hidden="true" />Loading Lesson history…</div>}
+      {loading && <><p className="visually-hidden" role="status">Loading Lesson history…</p>
+      <div className="history-skeleton" aria-hidden="true">
+        <div className="skeleton history-skeleton-session" />
+        <div className="skeleton history-skeleton-session" />
+        <div className="skeleton history-skeleton-session" />
+      </div></>}
       {!loading && error && <p className="form-notice error" role="alert">{error}</p>}
       {!loading && !error && lessons.length === 0 && <div className="empty-state"><h3>No Lessons behind you yet.</h3><p>No completed Lessons yet. Start a Lesson from Home to build your history.</p></div>}
       {!loading && !error && lessons.length > 0 && <div className="lesson-history-list">{lessons.map((lesson) => <details className="lesson-history-session" key={lesson.id}>
@@ -178,7 +183,11 @@ export function LessonHistory({ learningLanguageId, learningLanguageTag }: { lea
         <p className="lesson-history-context">Selected Learning Language: <strong>{selectedLanguageName} · {learningLanguageTag}</strong></p>
       </div>
       {!loading && !error && history.senseStatistics.length === 0 && <div className="empty-state"><h3>Nothing to practise yet.</h3><p>No Senses are available in this Learning Language yet. Add vocabulary to begin practising.</p></div>}
-      {loading && <div className="lesson-history-statistics-skeleton" aria-hidden="true"><span /><span /><span /></div>}
+      {loading && <div className="history-skeleton-senses" aria-hidden="true">
+        <div className="skeleton history-skeleton-sense" />
+        <div className="skeleton history-skeleton-sense" />
+        <div className="skeleton history-skeleton-sense" />
+      </div>}
       {!loading && !error && history.senseStatistics.length > 0 && <ul className="lesson-history-sense-list">{history.senseStatistics.map((statistic) => <li key={statistic.sense_id}>
         <strong>{statistic.expression}</strong>
         <span><span>Practice count</span> <b>{statistic.practice_count}</b></span>

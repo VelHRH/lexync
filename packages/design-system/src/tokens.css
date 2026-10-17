@@ -15,6 +15,7 @@
   --lexync-color-surface-subtle: #f3f5fa;
   --lexync-color-surface-muted: #eef1f7;
   --lexync-color-surface-strong: #e5eaf4;
+  --lexync-color-surface-skeleton: #dde4f1;
   --lexync-color-surface-selected: #ece5fe;
   --lexync-color-mark: rgba(97, 30, 252, 0.24);
   --lexync-color-border: rgba(0, 32, 124, 0.10);
@@ -140,6 +141,7 @@
   --lexync-color-surface-subtle: #0f1526;
   --lexync-color-surface-muted: #182036;
   --lexync-color-surface-strong: #1e2740;
+  --lexync-color-surface-skeleton: #1c2644;
   --lexync-color-surface-selected: #231d4a;
   --lexync-color-mark: rgba(162, 135, 255, 0.32);
   --lexync-color-border: rgba(255, 255, 255, 0.10);
@@ -195,6 +197,7 @@
     --lexync-color-surface-subtle: #0f1526;
     --lexync-color-surface-muted: #182036;
     --lexync-color-surface-strong: #1e2740;
+    --lexync-color-surface-skeleton: #1c2644;
     --lexync-color-surface-selected: #231d4a;
     --lexync-color-mark: rgba(162, 135, 255, 0.32);
     --lexync-color-border: rgba(255, 255, 255, 0.10);

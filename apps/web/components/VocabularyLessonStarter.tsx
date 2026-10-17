@@ -71,7 +71,17 @@ export function VocabularyLessonStarter() {
 
   return <main className="lesson-shell" aria-label="Vocabulary Lesson" aria-busy="true">
     <div className="lesson-main">
-      <div className="lesson-state" role="status" aria-live="polite"><span className="lesson-skeleton" aria-hidden="true" />Opening Lesson…</div>
+      <><p className="visually-hidden" role="status" aria-live="polite">Opening Lesson…</p>
+      <div className="lesson-loading" aria-hidden="true">
+        <div className="skeleton lesson-loading-direction" />
+        <div className="skeleton lesson-loading-prompt" />
+        <div className="lesson-loading-choices">
+          <div className="skeleton lesson-loading-choice" />
+          <div className="skeleton lesson-loading-choice" />
+          <div className="skeleton lesson-loading-choice" />
+          <div className="skeleton lesson-loading-choice" />
+        </div>
+      </div></>
     </div>
   </main>;
 }

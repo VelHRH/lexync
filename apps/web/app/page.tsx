@@ -1,9 +1,7 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { connection } from 'next/server';
-import readingDesk from '../public/brand/reading-desk.png';
 import { AuthenticatedApp } from '../components/AuthenticatedApp';
-import { BrandArtwork, BrandMark } from '../components/BrandArtwork';
+import { BrandArtwork } from '../components/BrandArtwork';
 import { getChromeExtensionId } from '../lib/extensionRecommendation';
 import { readNavigationCollapsed } from '../lib/navigationPreference';
 
@@ -32,10 +30,15 @@ function PublicHome() {
           </div>
         </div>
 
-        <div className="hero-artwork">
-          <Image alt="A quiet reading desk with an open book, laptop, and plant" preload src={readingDesk} sizes="(max-width: 960px) 100vw, 56vw" />
-          <BrandMark alt="Lexync fox mark" className="hero-mark" size={72} />
-        </div>
+        <figure className="hero-demo">
+          <figcaption className="hero-demo-caption">What one capture leaves behind</figcaption>
+          <p className="hero-demo-source">Il <span className="marked">déchiffrait</span> la carte à la lumière d’une lampe de poche.</p>
+          <div className="hero-demo-entry">
+            <p className="hero-demo-expression"><span className="marked">déchiffrer</span></p>
+            <p className="hero-demo-gloss">to decipher · to work out</p>
+            <p className="hero-demo-meta">French · kept with the sentence it came from</p>
+          </div>
+        </figure>
       </section>
 
       <section className="learning-loop" id="how-it-works" data-ui="learning-loop">
