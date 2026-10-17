@@ -489,6 +489,8 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .lesson-mark { display: block; width: 2.75rem; height: 2.75rem; object-fit: contain; }
 .lesson-language-name { justify-self: end; margin: 0; color: var(--web-ink); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
 .lesson-main { flex: 1; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(100%, 58rem); margin: 0 auto; padding: clamp(1.5rem, 5vw, 4rem) var(--web-gutter) 0; }
+.lesson-progress-block { display: grid; gap: .4rem; }
+.lesson-scope { margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-regular); }
 .lesson-progress-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: var(--web-muted); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
 .lesson-progress-row progress { width: min(16rem, 42vw); height: .5rem; accent-color: var(--web-primary); }
 .lesson-question { align-self: center; width: min(100%, 48rem); padding: clamp(2rem, 7vw, 5rem) 0; }

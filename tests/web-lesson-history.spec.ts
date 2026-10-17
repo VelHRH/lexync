@@ -16,6 +16,17 @@ const vocabulary = [
   ['mesa', 'table'],
 ] as const;
 
+const travelVocabulary = [
+  ['maleta', 'suitcase'],
+  ['vuelo', 'flight'],
+  ['billete', 'ticket'],
+  ['frontera', 'border'],
+  ['equipaje', 'luggage'],
+  ['aduana', 'customs'],
+  ['pasaporte', 'passport'],
+  ['andén', 'platform'],
+] as const;
+
 function credentials(prefix: string) {
   return { email: `${prefix}-${Date.now()}-${crypto.randomUUID()}@example.test`, password: `Lexync-${crypto.randomUUID()}-test` };
 }
@@ -221,5 +232,81 @@ test.describe('web Lesson history', () => {
     } finally {
       await secondContext.close();
     }
+  });
+
+  test('names a completed Collection Lesson in history, distinct from whole-library practice', async ({ page }) => {
+    const fixture = await registerLearner('lesson-history-collection-name');
+    const filed: Array<CapturedEntry & { senseId: string }> = [];
+    for (const [expression, translation] of travelVocabulary) {
+      filed.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, { example: `Preparo ${expression} antes del viaje.` }));
+    }
+    const { data: collection, error: collectionError } = await fixture.client.rpc('create_collection', { p_learning_language_id: fixture.learningLanguageId, p_name: 'Travel' });
+    if (collectionError) throw collectionError;
+    const collectionId = (collection as { id: string }).id;
+    for (const entry of filed) {
+      const { error } = await fixture.client.rpc('add_collection_membership', { p_collection_id: collectionId, p_learning_vocabulary_entry_id: entry.vocabularyEntryId });
+      if (error) throw error;
+    }
+
+    const { data: collectionLesson, error: collectionLessonError } = await fixture.client.rpc('start_or_resume_vocabulary_lesson', { p_collection_id: collectionId, p_learning_language_id: fixture.learningLanguageId });
+    if (collectionLessonError) throw collectionLessonError;
+
+    await signIn(page, fixture.account);
+    await page.goto(`/lessons/${(collectionLesson as { id: string }).id}`);
+    await expect(lessonQuestion(page)).toBeVisible();
+    await completeLesson(page);
+    await lessonShell(page).getByRole('button', { name: 'Back to Lessons' }).click();
+
+    await startLesson(page);
+    await completeLesson(page);
+    await lessonShell(page).getByRole('button', { name: 'Back to Lessons' }).click();
+
+    await openHistory(page);
+    const lessons = lessonDetails(page);
+    await expect(lessons).toHaveCount(2);
+    await expect(lessons.locator('summary').filter({ hasText: 'From the Collection “Travel”' })).toHaveCount(1);
+    await expect(lessons.locator('summary').filter({ hasText: 'From your vocabulary' })).toHaveCount(1);
+  });
+
+  test('keeps a completed Lesson readable in history after its Collection is deleted, as whole-library practice', async ({ page }) => {
+    const fixture = await registerLearner('lesson-history-deleted-collection');
+    const filed: Array<CapturedEntry & { senseId: string }> = [];
+    for (const [expression, translation] of travelVocabulary) {
+      filed.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, { example: `Preparo ${expression} antes del viaje.` }));
+    }
+    const { data: collection, error: collectionError } = await fixture.client.rpc('create_collection', { p_learning_language_id: fixture.learningLanguageId, p_name: 'Travel' });
+    if (collectionError) throw collectionError;
+    const collectionId = (collection as { id: string }).id;
+    for (const entry of filed) {
+      const { error } = await fixture.client.rpc('add_collection_membership', { p_collection_id: collectionId, p_learning_vocabulary_entry_id: entry.vocabularyEntryId });
+      if (error) throw error;
+    }
+
+    const { data: lesson, error: lessonError } = await fixture.client.rpc('start_or_resume_vocabulary_lesson', { p_collection_id: collectionId, p_learning_language_id: fixture.learningLanguageId });
+    if (lessonError) throw lessonError;
+
+    await signIn(page, fixture.account);
+    await page.goto(`/lessons/${(lesson as { id: string }).id}`);
+    await expect(lessonQuestion(page)).toBeVisible();
+    await completeLesson(page);
+    await lessonShell(page).getByRole('button', { name: 'Back to Lessons' }).click();
+
+    const { error: deleteError } = await fixture.client.rpc('delete_collection', { p_collection_id: collectionId });
+    if (deleteError) throw deleteError;
+
+    await openHistory(page);
+    const lessons = lessonDetails(page);
+    await expect(lessons).toHaveCount(1);
+    const summary = lessons.first().locator('summary');
+    await expect(summary).toContainText('From your vocabulary');
+    await expect(summary).toContainText(/\d+\/\d+/);
+    await expect(summary).toContainText(/\d+%/);
+    await summary.click();
+    const expanded = lessons.first();
+    await expect(expanded).toHaveAttribute('open', '');
+    await expect(expanded).toContainText(/Translation|Cloze/);
+    await expect(expanded).toContainText(/Recognition|Recall/);
+    await expect(expanded).toContainText(/Correct answer/i);
+    await expect(expanded).toContainText(/Correct|Incorrect/);
   });
 });

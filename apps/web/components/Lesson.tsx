@@ -30,6 +30,8 @@ type LessonState = {
   learning_language_id: string;
   status: 'active' | 'completed';
   source: 'vocabulary' | 'dynamic';
+  collection_id: string | null;
+  collection_name: string | null;
   created_at: string;
   completed_at: string | null;
   correct_count: number | null;
@@ -97,6 +99,8 @@ function parseLesson(value: unknown): LessonState | null {
     learning_language_id: candidate.learning_language_id,
     status: candidate.status,
     source: candidate.source === 'dynamic' ? 'dynamic' : 'vocabulary',
+    collection_id: typeof candidate.collection_id === 'string' ? candidate.collection_id : null,
+    collection_name: typeof candidate.collection_name === 'string' ? candidate.collection_name : null,
     created_at: typeof candidate.created_at === 'string' ? candidate.created_at : '',
     completed_at: typeof candidate.completed_at === 'string' ? candidate.completed_at : null,
     correct_count: typeof candidate.correct_count === 'number' ? candidate.correct_count : null,
@@ -363,9 +367,12 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
       </div></>}
       {!loading && error && <div className="lesson-state lesson-error" role="alert"><p>Lesson is unavailable right now.</p><p>{error}</p><button className="secondary-button" type="button" onClick={onExit}>Back to Lessons</button></div>}
       {!loading && !error && lesson && !isComplete && question && <>
-        <div className="lesson-progress-row">
-          <span>Lesson question {questionPosition} of {total}</span>
-          <progress aria-label="Lesson progress" max={total} value={progress} />
+        <div className="lesson-progress-block">
+          {lesson.collection_name && <p className="lesson-scope">Collection · {lesson.collection_name}</p>}
+          <div className="lesson-progress-row">
+            <span>Lesson question {questionPosition} of {total}</span>
+            <progress aria-label="Lesson progress" max={total} value={progress} />
+          </div>
         </div>
         <section className="lesson-question" role="region" aria-label="Lesson question" ref={lesson.source === 'dynamic' ? captureContainerRef : undefined}>
           <p className="lesson-direction">{question.question_type === 'cloze' ? 'Cloze' : question.direction === 'recall' ? 'Recall' : 'Recognition'}{question.question_type === 'translation' && question.answer_language_tag ? ` · ${question.answer_language_tag}` : ''}</p>

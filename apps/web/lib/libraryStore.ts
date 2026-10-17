@@ -7,13 +7,14 @@ import { supabase } from './supabase';
 export type Example = { id: string; text: string };
 export type Sense = { id: string; translations: Translation[]; examples: Example[] };
 export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean };
-export type Collection = { id: string; name: string };
+export type Collection = { id: string; name: string; entryCount: number; eligibleSenseCount: number; canPractise: boolean };
 export type Membership = { collection_id: string; learning_vocabulary_entry_id: string };
 
 export type LibrarySnapshot = {
   entries: LibraryEntry[];
   collections: Collection[];
   memberships: Membership[];
+  minimumEntries: number;
   loadedAt: number | null;
   loading: boolean;
   refreshing: boolean;
@@ -26,6 +27,7 @@ export const EMPTY_LIBRARY_SNAPSHOT: LibrarySnapshot = Object.freeze({
   entries: [],
   collections: [],
   memberships: [],
+  minimumEntries: 8,
   loadedAt: null,
   loading: false,
   refreshing: false,
@@ -82,6 +84,26 @@ function pairIdsKey(pairIds: string[]) {
   return [...pairIds].sort().join(',');
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseReadiness(value: unknown): { minimumEntries: number; byCollectionId: Map<string, { entryCount: number; eligibleSenseCount: number; canPractise: boolean }> } {
+  const record = isRecord(value) ? value : {};
+  const minimumEntries = typeof record.minimum_entries === 'number' ? record.minimum_entries : 8;
+  const rows = Array.isArray(record.collections) ? record.collections : [];
+  const byCollectionId = new Map<string, { entryCount: number; eligibleSenseCount: number; canPractise: boolean }>();
+  for (const row of rows) {
+    if (!isRecord(row) || typeof row.collection_id !== 'string') continue;
+    byCollectionId.set(row.collection_id, {
+      entryCount: typeof row.entry_count === 'number' ? row.entry_count : 0,
+      eligibleSenseCount: typeof row.eligible_sense_count === 'number' ? row.eligible_sense_count : 0,
+      canPractise: row.can_practise === true,
+    });
+  }
+  return { minimumEntries, byCollectionId };
+}
+
 async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[] } | { error: string }> {
   if (!pairIds.length) return { entries: [] };
   const { data, error } = await supabase.from('vocabulary_entries').select('id,learning_vocabulary_entry_id,expression,suspended,study_pair_id').in('study_pair_id', pairIds).order('created_at');
@@ -118,16 +140,31 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
   return { entries: [...merged.values()] };
 }
 
-async function fetchCollections(languageId: string): Promise<{ collections: Collection[]; memberships: Membership[] } | { error: string }> {
+async function fetchCollections(languageId: string): Promise<{ collections: Collection[]; memberships: Membership[]; minimumEntries: number } | { error: string }> {
   const { data: collectionData, error: collectionError } = await supabase.from('collections').select('id,name').eq('learning_language_id', languageId).order('created_at');
   if (collectionError) return { error: collectionError.message };
-  const nextCollections = (collectionData ?? []) as Collection[];
-  const collectionIds = nextCollections.map((collection) => collection.id);
-  const { data: membershipData, error: membershipError } = collectionIds.length
-    ? await supabase.from('collection_memberships').select('collection_id,learning_vocabulary_entry_id').in('collection_id', collectionIds)
-    : { data: [], error: null };
+  const collectionRows = (collectionData ?? []) as { id: string; name: string }[];
+  const collectionIds = collectionRows.map((collection) => collection.id);
+  const [{ data: membershipData, error: membershipError }, { data: readinessData, error: readinessError }] = await Promise.all([
+    collectionIds.length
+      ? supabase.from('collection_memberships').select('collection_id,learning_vocabulary_entry_id').in('collection_id', collectionIds)
+      : Promise.resolve({ data: [], error: null }),
+    supabase.rpc('collection_practice_readiness', { p_learning_language_id: languageId }),
+  ]);
   if (membershipError) return { error: membershipError.message };
-  return { collections: nextCollections, memberships: (membershipData ?? []) as Membership[] };
+  if (readinessError) return { error: readinessError.message };
+  const { minimumEntries, byCollectionId } = parseReadiness(readinessData);
+  const nextCollections: Collection[] = collectionRows.map((collection) => {
+    const readiness = byCollectionId.get(collection.id);
+    return {
+      id: collection.id,
+      name: collection.name,
+      entryCount: readiness?.entryCount ?? 0,
+      eligibleSenseCount: readiness?.eligibleSenseCount ?? 0,
+      canPractise: readiness?.canPractise ?? false,
+    };
+  });
+  return { collections: nextCollections, memberships: (membershipData ?? []) as Membership[], minimumEntries };
 }
 
 function commitError(languageId: string, version: number, message: string) {
@@ -136,9 +173,9 @@ function commitError(languageId: string, version: number, message: string) {
   setSnapshot(languageId, { ...current, loading: false, refreshing: false, error: message });
 }
 
-function commitSuccess(languageId: string, version: number, key: string, entries: LibraryEntry[], collections: Collection[], memberships: Membership[]) {
+function commitSuccess(languageId: string, version: number, key: string, entries: LibraryEntry[], collections: Collection[], memberships: Membership[], minimumEntries: number) {
   if (versions.get(languageId) !== version) return;
-  setSnapshot(languageId, { entries, collections, memberships, loadedAt: Date.now(), loading: false, refreshing: false, error: '', pairIdsKey: key });
+  setSnapshot(languageId, { entries, collections, memberships, minimumEntries, loadedAt: Date.now(), loading: false, refreshing: false, error: '', pairIdsKey: key });
 }
 
 async function fetchLibrary(languageId: string, pairIds: string[], key: string, version: number) {
@@ -152,7 +189,7 @@ async function fetchLibrary(languageId: string, pairIds: string[], key: string, 
     commitError(languageId, version, collectionsResult.error);
     return;
   }
-  commitSuccess(languageId, version, key, entriesResult.entries, collectionsResult.collections, collectionsResult.memberships);
+  commitSuccess(languageId, version, key, entriesResult.entries, collectionsResult.collections, collectionsResult.memberships, collectionsResult.minimumEntries);
 }
 
 export async function loadLibrary(languageId: string, pairIds: string[], options: { force?: boolean } = {}): Promise<void> {

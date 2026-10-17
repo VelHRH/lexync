@@ -56,12 +56,27 @@ const kitchenVocabulary = [
   ['fregadero', 'sink'],
 ] as const;
 
+const officeVocabulary = [
+  ['bolígrafo', 'pen'],
+  ['grapadora', 'stapler'],
+  ['carpeta', 'folder'],
+  ['impresora', 'printer'],
+  ['teclado', 'keyboard'],
+  ['pantalla', 'screen'],
+  ['escritorio', 'desk'],
+  ['calculadora', 'calculator'],
+] as const;
+
 function travelExample(expression: string) {
   return `Preparo ${expression} antes del viaje.`;
 }
 
 function kitchenExample(expression: string) {
   return `Uso ${expression} en la cocina.`;
+}
+
+function officeExample(expression: string) {
+  return `Dejo ${expression} en la oficina.`;
 }
 
 function credentials(prefix: string) {
@@ -154,6 +169,10 @@ function lessonQuestion(page: Page) {
 
 function answerChoices(page: Page) {
   return lessonQuestion(page).getByRole('radio');
+}
+
+function lessonScope(page: Page) {
+  return page.locator('.lesson-scope');
 }
 
 const runnerUrl = /\/lessons\/[0-9a-f-]{36}$/;
@@ -593,5 +612,78 @@ test.describe('web Collection Lesson', () => {
     await expect(practiseButton(page)).toBeEnabled();
     await expect(collectionFilter(page).getByText('Filtered by Travel')).toBeVisible();
     await assertNoHorizontalOverflow(page);
+  });
+
+  test('labels the Lesson runner with the practised Collection, read fresh on reload', async ({ page }) => {
+    const fixture = await seedTravelCollection('collection-lesson-runner-label');
+    await signIn(page, fixture.account);
+    await openCollectionByUrl(page, fixture.collectionId);
+    await startFromLibrary(page);
+    await expect(lessonScope(page)).toHaveText('Collection · Travel');
+    const runnerLocation = page.url();
+    await page.goto(runnerLocation);
+    await expect(lessonQuestion(page)).toBeVisible();
+    await expect(lessonScope(page)).toHaveText('Collection · Travel');
+  });
+
+  test('states a Collection with enough Entries but too few eligible Senses as not practisable', async ({ page }) => {
+    const fixture = await seedTravelCollection('collection-lesson-ineligible', travelVocabulary.slice(0, 8));
+    for (const entry of fixture.captured.slice(0, 7)) {
+      const { error } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: await bridgeEntryId(fixture.client, entry.vocabularyEntryId) });
+      if (error) throw error;
+    }
+    await signIn(page, fixture.account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'maleta')).toBeVisible();
+    await expect(collectionCard(page, 'Travel')).toContainText('8 entries · not practisable yet');
+    await openCollectionByUrl(page, fixture.collectionId);
+    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Resume suspended Vocabulary Entries or add translations to practise it.');
+    await expect(practiseButton(page)).toHaveCount(0);
+  });
+
+  test('states every Collection’s practice availability on the Library before any interaction', async ({ page }) => {
+    const fixture = await registerLearner('collection-lesson-availability');
+
+    const ready: CapturedEntry[] = [];
+    for (const [expression, translation] of travelVocabulary.slice(0, 8)) {
+      ready.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: travelExample(expression) }));
+    }
+    const readyCollectionId = await seedCollection(fixture.client, fixture.learningLanguageId, 'Travel');
+    for (const entry of ready) await fileEntry(fixture.client, readyCollectionId, entry.vocabularyEntryId);
+
+    const short: CapturedEntry[] = [];
+    for (const [expression, translation] of kitchenVocabulary.slice(0, 3)) {
+      short.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: kitchenExample(expression) }));
+    }
+    const shortCollectionId = await seedCollection(fixture.client, fixture.learningLanguageId, 'Kitchen');
+    for (const entry of short) await fileEntry(fixture.client, shortCollectionId, entry.vocabularyEntryId);
+
+    const ineligible: CapturedEntry[] = [];
+    for (const [expression, translation] of officeVocabulary) {
+      ineligible.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: officeExample(expression) }));
+    }
+    const ineligibleCollectionId = await seedCollection(fixture.client, fixture.learningLanguageId, 'Office');
+    for (const entry of ineligible) await fileEntry(fixture.client, ineligibleCollectionId, entry.vocabularyEntryId);
+    for (const entry of ineligible.slice(0, 7)) {
+      const { error } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: await bridgeEntryId(fixture.client, entry.vocabularyEntryId) });
+      if (error) throw error;
+    }
+
+    await signIn(page, fixture.account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'maleta')).toBeVisible();
+    await expect(collectionCard(page, 'Travel')).toContainText('8 entries · ready to practise');
+    await expect(collectionCard(page, 'Kitchen')).toContainText('3 entries · needs 5 more');
+    await expect(collectionCard(page, 'Office')).toContainText('8 entries · not practisable yet');
+  });
+
+  test('shows no Collection scope label for a whole-library Lesson', async ({ page }) => {
+    const fixture = await seedTravelCollection('collection-lesson-whole-library-unscoped');
+    await signIn(page, fixture.account);
+    await openLessons(page);
+    await vocabularyTile(page).click();
+    await expect(page).toHaveURL(runnerUrl);
+    await expect(lessonQuestion(page)).toBeVisible();
+    await expect(lessonScope(page)).toHaveCount(0);
   });
 });

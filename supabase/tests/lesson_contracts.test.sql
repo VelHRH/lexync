@@ -1,6 +1,6 @@
 begin;
 
-select plan(104);
+select plan(111);
 
 select ok((select relkind from pg_class where oid = 'public.lessons'::regclass) = 'r', 'the canonical Lesson relation is a physical table');
 select ok((select relkind from pg_class where oid = 'public.lesson_questions'::regclass) = 'r', 'the canonical Lesson Question relation is a physical table');
@@ -574,12 +574,58 @@ values (
   '2026-10-15T10:00:00Z',
   '11713000-0000-0000-0000-000000000001'
 );
+insert into public.lesson_questions (id, lesson_id, learner_id, ordinal, prompt, question_type, direction, answer_language_tag, choices, correct_answer)
+values (
+  '11715000-0000-0000-0000-000000000001',
+  '11714000-0000-0000-0000-000000000001',
+  '11700000-0000-0000-0000-000000000001',
+  1,
+  'collection lesson prompt',
+  'translation',
+  'recognition',
+  'en',
+  array['casa', 'libro'],
+  'casa'
+);
+
+select is(
+  (public.lesson_payload('11714000-0000-0000-0000-000000000001'::uuid, '11700000-0000-0000-0000-000000000001'::uuid)->>'collection_id'),
+  '11713000-0000-0000-0000-000000000001',
+  'a Collection-scoped Lesson payload carries the Collection ID'
+);
+select is(
+  (public.lesson_payload('11714000-0000-0000-0000-000000000001'::uuid, '11700000-0000-0000-0000-000000000001'::uuid)->>'collection_name'),
+  'Travel',
+  'a Collection-scoped Lesson payload carries the Collection name'
+);
+
 delete from public.collections where id = '11713000-0000-0000-0000-000000000001';
 
 select is((select count(*) from public.lessons where id = '11714000-0000-0000-0000-000000000001'), 1::bigint, 'deleting a Collection preserves the Lesson it scoped');
 select is((select collection_id from public.lessons where id = '11714000-0000-0000-0000-000000000001'), null::uuid, 'deleting a Collection clears the Lesson Collection reference');
 select is((select learner_id from public.lessons where id = '11714000-0000-0000-0000-000000000001'), '11700000-0000-0000-0000-000000000001'::uuid, 'deleting a Collection preserves the Lesson Learner');
 select is((select learning_language_id from public.lessons where id = '11714000-0000-0000-0000-000000000001'), current_setting('test.lesson_learning_language_id')::uuid, 'deleting a Collection preserves the Lesson Learning Language');
+select is((select count(*) from public.lesson_questions where lesson_id = '11714000-0000-0000-0000-000000000001'), 1::bigint, 'deleting a Collection preserves the scoped Lesson Questions');
+select is(
+  (public.lesson_payload('11714000-0000-0000-0000-000000000001'::uuid, '11700000-0000-0000-0000-000000000001'::uuid)->>'collection_id'),
+  null,
+  'deleting a Collection nulls the Lesson payload Collection ID'
+);
+select is(
+  (public.lesson_payload('11714000-0000-0000-0000-000000000001'::uuid, '11700000-0000-0000-0000-000000000001'::uuid)->>'collection_name'),
+  null,
+  'deleting a Collection nulls the Lesson payload Collection name'
+);
+select is(
+  (public.lesson_payload(current_setting('test.lesson_id')::uuid, '11700000-0000-0000-0000-000000000001'::uuid)->>'collection_id'),
+  null,
+  'a whole-library Lesson payload carries no Collection ID'
+);
+select is(
+  (public.lesson_payload(current_setting('test.lesson_id')::uuid, '11700000-0000-0000-0000-000000000001'::uuid)->>'collection_name'),
+  null,
+  'a whole-library Lesson payload carries no Collection name'
+);
 
 set local role authenticated;
 
