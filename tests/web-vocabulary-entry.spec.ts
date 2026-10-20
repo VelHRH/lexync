@@ -421,4 +421,91 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(page.getByText('borrar', { exact: true })).toHaveCount(0);
     await expect(page.locator('summary').filter({ hasText: 'guardar' })).toBeVisible();
   });
+
+  test('writes a translation for an Example and sees it after saving and reloading', async ({ page }) => {
+    const account = credentials('web-example-translation');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'descubrir', 'to discover', 'Quiero descubrir la ciudad.');
+    await signIn(page, account);
+    await page.goto('/library');
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await page.getByLabel('Example 1 translation', { exact: true }).fill('I want to discover the city.');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await page.reload();
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    const entry = page.locator('summary').filter({ hasText: 'descubrir' }).locator('..');
+    await expect(entry.getByText(/^I want to discover the city\. en$/)).toBeVisible();
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await expect(page.getByLabel('Example 1 translation', { exact: true })).toHaveValue('I want to discover the city.');
+  });
+
+  test('edits an existing Example Translation', async ({ page }) => {
+    const account = credentials('web-example-translation-edit');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'descubrir', 'to discover', 'Quiero descubrir la ciudad.');
+    await signIn(page, account);
+    await page.goto('/library');
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await page.getByLabel('Example 1 translation', { exact: true }).fill('I want to discover the city.');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await page.reload();
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await page.getByLabel('Example 1 translation', { exact: true }).fill('I wish to explore the city.');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await page.reload();
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    const entry = page.locator('summary').filter({ hasText: 'descubrir' }).locator('..');
+    await expect(entry.getByText(/^I wish to explore the city\. en$/)).toBeVisible();
+    await expect(entry.getByText(/^I want to discover the city\. en$/)).toHaveCount(0);
+  });
+
+  test('clearing the field removes the translation and keeps the Example', async ({ page }) => {
+    const account = credentials('web-example-translation-clear');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'descubrir', 'to discover', 'Quiero descubrir la ciudad.');
+    await signIn(page, account);
+    await page.goto('/library');
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await page.getByLabel('Example 1 translation', { exact: true }).fill('I want to discover the city.');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await page.reload();
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await page.getByLabel('Example 1 translation', { exact: true }).fill('');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await page.reload();
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    const entry = page.locator('summary').filter({ hasText: 'descubrir' }).locator('..');
+    await expect(entry.getByText(/^I want to discover the city\. en$/)).toHaveCount(0);
+    await expect(entry.getByText('Quiero descubrir la ciudad.')).toBeVisible();
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await expect(page.getByLabel('Example 1 translation', { exact: true })).toHaveValue('');
+  });
+
+  test('saves an Example that has no translation', async ({ page }) => {
+    const account = credentials('web-example-translation-none');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'descubrir', 'to discover', 'Quiero descubrir la ciudad.');
+    await signIn(page, account);
+    await page.goto('/library');
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await page.getByLabel('Example 1 text').fill('Quiero descubrir algo nuevo.');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await expect(page.getByText(/Changes could not be saved/)).toHaveCount(0);
+    await page.reload();
+    await page.locator('summary').filter({ hasText: 'descubrir' }).click();
+    const entry = page.locator('summary').filter({ hasText: 'descubrir' }).locator('..');
+    await expect(entry.getByText('Quiero descubrir algo nuevo.')).toBeVisible();
+  });
 });

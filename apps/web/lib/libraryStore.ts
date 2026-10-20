@@ -4,7 +4,8 @@ import type { Translation } from '../components/VocabularyCaptureDialog';
 import { normalizeSearchText } from './searchText';
 import { supabase } from './supabase';
 
-export type Example = { id: string; text: string };
+export type ExampleTranslation = { id: string; text: string; answer_language_tag: string };
+export type Example = { id: string; text: string; translations: ExampleTranslation[] };
 export type Sense = { id: string; translations: Translation[]; examples: Example[] };
 export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean };
 export type Collection = { id: string; name: string; entryCount: number; eligibleSenseCount: number; canPractise: boolean };
@@ -121,13 +122,21 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
     ])
     : [{ data: [], error: null }, { data: [], error: null }];
   if (translationsError || examplesError) return { error: translationsError?.message ?? examplesError?.message ?? 'Vocabulary details could not be loaded.' };
+  const exampleIds = (examples ?? []).map((example) => example.id);
+  const { data: exampleTranslations, error: exampleTranslationsError } = exampleIds.length
+    ? await supabase.from('example_translations').select('id,example_id,text,answer_language_tag').in('example_id', exampleIds).order('created_at')
+    : { data: [], error: null };
+  if (exampleTranslationsError) return { error: exampleTranslationsError.message };
   const merged = new Map<string, LibraryEntry>();
   for (const entry of data ?? []) {
     const key = normalizeSearchText(entry.expression);
     const nextSenses = (senses ?? []).filter((sense) => sense.vocabulary_entry_id === entry.id).map((sense) => ({
       id: sense.id,
       translations: (translations ?? []).filter((item) => item.sense_id === sense.id),
-      examples: (examples ?? []).filter((item) => item.sense_id === sense.id),
+      examples: (examples ?? []).filter((item) => item.sense_id === sense.id).map((example) => ({
+        ...example,
+        translations: (exampleTranslations ?? []).filter((item) => item.example_id === example.id),
+      })),
     }));
     const existing = merged.get(key);
     if (existing) {

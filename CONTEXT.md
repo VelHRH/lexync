@@ -42,7 +42,7 @@ A word or phrase in a Learning Language. Capitalization, Unicode representation,
 
 ## Vocabulary Entry
 
-A Learner's private record of an Expression within one Learning Language. It owns the Learner's Senses, Examples, Collection memberships, suspension state, and learning progress.
+A Learner's private record of an Expression within one Learning Language. It owns the Learner's Senses, Collection memberships, suspension state, and learning progress. Examples belong to a Sense rather than directly to the Vocabulary Entry.
 
 ## Sense
 
@@ -55,6 +55,10 @@ A Learner's expression of one Sense's meaning in exactly one Answer Language.
 ## Example
 
 A sentence showing an Expression in context. An Example is private unless it is explicitly published in a later sharing workflow.
+
+## Example Translation
+
+A Learner's rendering of one Example's sentence in exactly one Answer Language. An Example has at most one Example Translation per Answer Language, and may have none. An Example Translation expresses a whole sentence and is therefore distinct from a Translation, which expresses one Sense's meaning.
 
 ## Audio Clip
 
