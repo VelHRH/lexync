@@ -382,11 +382,11 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
             {question.choices.map((choice) => {
               const isSelected = selectedChoice === choice || question.selected_answer === choice;
               const isCorrect = question.correct_answer === choice;
-              const choiceState = question.is_correct === false && isCorrect ? ' correct' : question.is_correct === false && isSelected ? ' incorrect' : question.is_correct === true && isSelected ? ' correct' : '';
-              return <label className={`lesson-choice${isSelected ? ' selected' : ''}${choiceState}`} key={choice}>
+              const choiceState = question.is_correct === false && isCorrect ? 'correct' : question.is_correct === false && isSelected ? 'incorrect' : question.is_correct === true && isSelected ? 'correct' : '';
+              return <label className={`lesson-choice${isSelected ? ' selected' : ''}${choiceState ? ` ${choiceState}` : ''}`} key={choice}>
                 <input checked={isSelected} disabled={Boolean(question.selected_answer || selectedChoice || submitting)} name={`lesson-answer-${question.id}`} onChange={() => void submitAnswer(choice)} type="radio" value={choice} />
                 <span>{choice}</span>
-                {choiceState && <span className="lesson-choice-icon" aria-hidden="true">{choiceState.includes('correct') ? '✓' : '×'}</span>}
+                {choiceState && <span className="lesson-choice-icon" aria-hidden="true">{choiceState === 'correct' ? '✓' : '×'}</span>}
               </label>;
             })}
           </fieldset>

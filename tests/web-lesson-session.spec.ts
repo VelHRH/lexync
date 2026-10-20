@@ -110,6 +110,14 @@ function continueButton(page: Page) {
   return lessonShell(page).getByRole('button', { name: 'Continue' });
 }
 
+function choiceLabel(page: Page, value: string) {
+  return lessonQuestion(page).locator('label.lesson-choice').filter({ has: page.getByRole('radio', { name: value, exact: true }) });
+}
+
+function choiceIcons(page: Page) {
+  return lessonQuestion(page).locator('.lesson-choice-icon');
+}
+
 async function openLessons(page: Page) {
   if (new URL(page.url()).pathname !== '/lessons') await page.goto('/lessons');
 }
@@ -164,6 +172,14 @@ async function selectAnswer(page: Page, choice: Locator) {
   await expect(answerChoices(page).first()).toBeDisabled();
   await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
   await expect(continueButton(page)).toBeEnabled();
+}
+
+async function expectChoiceMarks(correct: Locator, wrong: Locator, unmarked: Locator) {
+  await expect(correct.locator('.lesson-choice-icon')).toHaveText('✓');
+  await expect(correct.locator('.lesson-choice-icon')).toHaveAttribute('aria-hidden', 'true');
+  await expect(wrong.locator('.lesson-choice-icon')).toHaveText('×');
+  await expect(wrong.locator('.lesson-choice-icon')).toHaveAttribute('aria-hidden', 'true');
+  await expect(unmarked.locator('.lesson-choice-icon')).toHaveCount(0);
 }
 
 async function answerCurrentQuestion(page: Page, preferredAnswer?: string) {
@@ -499,6 +515,85 @@ test.describe('web Lesson', () => {
     expect(colorAfter).not.toBe(colorBefore);
     await advance(page);
     expect((await questionSnapshot(page)).prompt).not.toBe(before.prompt);
+  });
+
+  test('marks only the correct choice with a tick and the chosen wrong choice with a cross on an incorrect translation Question, then marks solely the chosen choice on a correct one', async ({ page }) => {
+    const fixture = await seedEntries('lesson-feedback-icons');
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const answers = answerMap();
+
+    const first = await questionSnapshot(page);
+    const correctFirst = answers.get(first.prompt);
+    if (!correctFirst) throw new Error('The icon fixture prompt is unknown.');
+    const wrongFirst = first.choices.find((choice) => choice !== correctFirst);
+    const unmarkedFirst = first.choices.find((choice) => choice !== correctFirst && choice !== wrongFirst);
+    if (!wrongFirst || !unmarkedFirst) throw new Error('The icon fixture needs at least three choices.');
+    await answerCurrentQuestion(page, wrongFirst);
+
+    await expect(choiceIcons(page)).toHaveCount(2);
+    const correctChoice = choiceLabel(page, correctFirst);
+    const wrongChoice = choiceLabel(page, wrongFirst);
+    const unmarkedChoice = choiceLabel(page, unmarkedFirst);
+    await expectChoiceMarks(correctChoice, wrongChoice, unmarkedChoice);
+
+    const [correctColor, wrongColor, unmarkedColor] = await Promise.all([
+      correctChoice.evaluate((element) => getComputedStyle(element).borderColor),
+      wrongChoice.evaluate((element) => getComputedStyle(element).borderColor),
+      unmarkedChoice.evaluate((element) => getComputedStyle(element).borderColor),
+    ]);
+    expect(correctColor).not.toBe(wrongColor);
+    expect(correctColor).not.toBe(unmarkedColor);
+    expect(wrongColor).not.toBe(unmarkedColor);
+
+    const status = lessonShell(page).getByRole('status');
+    await expect(status).toContainText('Incorrect');
+    await expect(status).toContainText('Correct answer');
+    await expect(status).toContainText(correctFirst);
+
+    await advance(page);
+
+    const second = await questionSnapshot(page);
+    const correctSecond = answers.get(second.prompt);
+    if (!correctSecond) throw new Error('The icon fixture prompt is unknown.');
+    await answerCurrentQuestion(page, correctSecond);
+    await expect(choiceIcons(page)).toHaveCount(1);
+    await expect(choiceLabel(page, correctSecond).locator('.lesson-choice-icon')).toHaveText('✓');
+    await expect(status).toContainText('Correct');
+  });
+
+  test('marks only the correct choice with a tick and the chosen wrong choice with a cross on an incorrect Cloze Question', async ({ page }) => {
+    const fixture = await registerLearner('lesson-feedback-icons-cloze');
+    const entries = vocabulary.slice(0, 8);
+    for (const [index, [expression, translation]] of entries.entries()) await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: `Oración ${index} contiene ${expression}.` });
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    while ((await questionSnapshot(page)).type !== 'cloze') {
+      await answerCurrentQuestion(page);
+      await continueToNextQuestion(page);
+      if (!(await lessonQuestion(page).count())) throw new Error('The Cloze fixture did not produce a Cloze Question.');
+    }
+
+    const snapshot = await questionSnapshot(page);
+    const promptIndex = snapshot.prompt.match(/Oración (\d+) contiene/);
+    if (!promptIndex) throw new Error('The Cloze icon fixture prompt does not carry its index marker.');
+    const correctChoiceValue = entries[Number(promptIndex[1])]?.[0];
+    if (!correctChoiceValue) throw new Error('The Cloze icon fixture could not resolve the correct Expression.');
+    const wrongChoiceValue = snapshot.choices.find((choice) => choice !== correctChoiceValue);
+    const unmarkedChoiceValue = snapshot.choices.find((choice) => choice !== correctChoiceValue && choice !== wrongChoiceValue);
+    if (!wrongChoiceValue || !unmarkedChoiceValue) throw new Error('The Cloze icon fixture needs at least three choices.');
+    await answerCurrentQuestion(page, wrongChoiceValue);
+
+    await expect(choiceIcons(page)).toHaveCount(2);
+    const correctChoice = choiceLabel(page, correctChoiceValue);
+    const wrongChoice = choiceLabel(page, wrongChoiceValue);
+    const unmarkedChoice = choiceLabel(page, unmarkedChoiceValue);
+    await expectChoiceMarks(correctChoice, wrongChoice, unmarkedChoice);
+
+    const status = lessonShell(page).getByRole('status');
+    await expect(status).toContainText('Incorrect');
+    await expect(status).toContainText('Correct answer');
+    await expect(status).toContainText(correctChoiceValue);
   });
 
   test('resumes stable server state after exit, reload, tabs, and a fresh browser context and converges concurrent answers', async ({ page, browser }) => {
