@@ -15,7 +15,9 @@ import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 type LearningLanguage = { id: string; languageTag: string };
 type VocabularyStatus = 'active' | 'all' | 'suspended';
 type DraftItem = { id: string | null; key: string; text: string };
-type DraftSense = { id: string | null; key: string; translations: DraftItem[]; examples: DraftItem[] };
+type DraftExampleTranslation = { id: string | null; key: string; text: string; answerLanguageTag: string | null };
+type DraftExample = DraftItem & { translations: DraftExampleTranslation[] };
+type DraftSense = { id: string | null; key: string; translations: DraftItem[]; examples: DraftExample[] };
 type EntryDraft = { id: string; expression: string; senses: DraftSense[] };
 
 const ALL_VOCABULARY_SCOPE = '';
@@ -37,7 +39,7 @@ function toDraft(entry: LibraryEntry): EntryDraft {
       id: sense.id,
       key: sense.id,
       translations: sense.translations.map((translation) => ({ ...translation, key: translation.id })),
-      examples: sense.examples.map((example) => ({ ...example, key: example.id })),
+      examples: sense.examples.map((example) => ({ ...example, key: example.id, translations: example.translations.map((translation) => ({ ...translation, key: translation.id, answerLanguageTag: translation.answer_language_tag })) })),
     })),
   };
 }
@@ -124,8 +126,20 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     updateSense(senseIndex, (sense) => ({ ...sense, examples: sense.examples.map((item) => item.key === key ? { ...item, text } : item) }));
   }
 
+  function updateExampleTranslationText(senseIndex: number, key: string, text: string) {
+    updateSense(senseIndex, (sense) => ({
+      ...sense,
+      examples: sense.examples.map((item) => item.key !== key ? item : {
+        ...item,
+        translations: item.translations.length
+          ? item.translations.map((translation, index) => index === 0 ? { ...translation, text } : translation)
+          : [{ id: null, key: draftKey(), text, answerLanguageTag: null }],
+      }),
+    }));
+  }
+
   function addExample(senseIndex: number) {
-    updateSense(senseIndex, (sense) => ({ ...sense, examples: [...sense.examples, { id: null, key: draftKey(), text: '' }] }));
+    updateSense(senseIndex, (sense) => ({ ...sense, examples: [...sense.examples, { id: null, key: draftKey(), text: '', translations: [] }] }));
   }
 
   function removeExample(senseIndex: number, key: string) {
@@ -187,7 +201,11 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       p_senses: draft.senses.map((sense) => ({
         id: sense.id,
         translations: sense.translations.map(({ id, text }) => ({ id, text })),
-        examples: sense.examples.map(({ id, text }) => ({ id, text })),
+        examples: sense.examples.map(({ id, text, translations }) => ({
+          id,
+          text,
+          translations: translations.filter((item) => item.text.trim()).map(({ id, text, answerLanguageTag }) => ({ id, text, answer_language_tag: answerLanguageTag })),
+        })),
       })),
       p_vocabulary_entry_id: draft.id,
     });
@@ -563,20 +581,30 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
               {draft.senses.map((sense, senseIndex) => <fieldset key={sense.key}>
                 <legend>Sense {senseIndex + 1}</legend>
                 {sense.translations.map((item, translationIndex) => <div className="vocabulary-editor-row" key={item.key}>
-                  <label htmlFor={`translation-${item.key}`}>Sense {senseIndex + 1} translation {translationIndex + 1}</label>
-                  <input id={`translation-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateTranslationText(senseIndex, item.key, event.target.value)} />
+                  <div className="field">
+                    <label htmlFor={`translation-${item.key}`}>Sense {senseIndex + 1} translation {translationIndex + 1}</label>
+                    <input id={`translation-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateTranslationText(senseIndex, item.key, event.target.value)} />
+                  </div>
                   <button className="text-button danger" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Remove translation ${translationIndex + 1} from Sense ${senseIndex + 1}`} onClick={() => removeTranslation(senseIndex, item.key)}>Remove</button>
                 </div>)}
                 <button className="text-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => addTranslation(senseIndex)}>Add translation to Sense {senseIndex + 1}</button>
                 {sense.examples.map((item) => {
                   const exampleIndex = draftExamples.findIndex((exampleItem) => exampleItem.key === item.key);
                   return <div className="vocabulary-example-editor" key={item.key}>
-                    <label htmlFor={`example-text-${item.key}`}>Example {exampleIndex + 1} text</label>
-                    <textarea id={`example-text-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateExampleText(senseIndex, item.key, event.target.value)} />
-                    <label htmlFor={`example-sense-${item.key}`}>Example {exampleIndex + 1} Sense</label>
-                    <select id={`example-sense-${item.key}`} value={sense.key} disabled={!online} onChange={(event) => moveExample(item.key, event.target.value)}>
-                      {draft.senses.map((option, optionIndex) => <option key={option.key} value={option.key}>Sense {optionIndex + 1} · {option.translations[0]?.text || 'New Sense'}</option>)}
-                    </select>
+                    <div className="field">
+                      <label htmlFor={`example-text-${item.key}`}>Example {exampleIndex + 1} text</label>
+                      <textarea id={`example-text-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateExampleText(senseIndex, item.key, event.target.value)} />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`example-translation-${item.key}`}>Example {exampleIndex + 1} translation</label>
+                      <textarea id={`example-translation-${item.key}`} value={item.translations[0]?.text ?? ''} disabled={!online} onChange={(event) => updateExampleTranslationText(senseIndex, item.key, event.target.value)} />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`example-sense-${item.key}`}>Example {exampleIndex + 1} Sense</label>
+                      <select id={`example-sense-${item.key}`} value={sense.key} disabled={!online} onChange={(event) => moveExample(item.key, event.target.value)}>
+                        {draft.senses.map((option, optionIndex) => <option key={option.key} value={option.key}>Sense {optionIndex + 1} · {option.translations[0]?.text || 'New Sense'}</option>)}
+                      </select>
+                    </div>
                     <button className="text-button danger" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => removeExample(senseIndex, item.key)}>Remove Example {exampleIndex + 1}</button>
                   </div>;
                 })}
@@ -593,7 +621,10 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
               {entry.senses.map((sense, index) => <div className="vocabulary-sense" key={sense.id}>
                 <h4>Sense {index + 1}</h4>
                 {sense.translations.map((item) => <p key={item.id}>{item.text} <span>{item.answer_language_tag}</span></p>)}
-                {sense.examples.map((item) => <p className="vocabulary-example" key={item.id}>{item.text}</p>)}
+                {sense.examples.map((item) => <div key={item.id}>
+                  <p className="vocabulary-example">{item.text}</p>
+                  {item.translations.map((translation) => <p className="vocabulary-example-translation" key={translation.id}>{translation.text} <span>{translation.answer_language_tag}</span></p>)}
+                </div>)}
               </div>)}
               {collections.length > 0 && <fieldset className="library-collections" aria-labelledby={`entry-collections-${entry.id}`}>
                 <legend id={`entry-collections-${entry.id}`}>Collections</legend>
