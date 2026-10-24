@@ -62,7 +62,7 @@ A Learner's rendering of one Example's sentence in exactly one Answer Language. 
 
 ## Audio Clip
 
-Optional private audio saved with learning material. A Vocabulary Entry has at most one pronunciation Audio Clip, and an Example has at most one sentence Audio Clip. Later captures do not add or replace audio that already exists, but the Learner may explicitly remove or replace it. Missing audio does not prevent saving or learning the material.
+Optional private audio a Learner records for one Vocabulary Entry, saying how its Expression is pronounced. A Vocabulary Entry has at most one Audio Clip, and may have none. The Learner may replace or remove it at any time; nothing else creates, replaces, or removes it. A missing Audio Clip does not prevent saving or learning the material.
 
 ## Card
 
@@ -103,6 +103,26 @@ An extension mode enabled by the Learner for a website. It exposes saved Express
 ## Historical Review Participation
 
 Review participation describes legacy Card-based practice records that may remain in historical data. It is not the canonical model for current practice; current practice uses Lesson, Lesson Question, and Lesson Attempt.
+
+## Practice Streak
+
+The number of consecutive correct Lesson Attempts a Sense has accumulated since its most recent incorrect Lesson Attempt. An incorrect Lesson Attempt returns the Practice Streak to zero. A Sense that has never been attempted has a Practice Streak of zero.
+
+## Learned Sense
+
+A Sense whose Practice Streak has reached two. A Sense stops being a Learned Sense when a later incorrect Lesson Attempt returns its Practice Streak to zero.
+
+## Learned Vocabulary Entry
+
+A Vocabulary Entry all of whose Senses are Learned Senses. A Vocabulary Entry with no Sense is never a Learned Vocabulary Entry.
+
+## Vocabulary Progress
+
+The share of a Learner's Vocabulary Entries that are Learned Vocabulary Entries, within one Learning Language. Suspended Vocabulary Entries are counted by neither side of the share. Vocabulary Progress may also be read for a single Collection, counting only the Vocabulary Entries in it.
+
+## Vocabulary Progress State
+
+The one state each unsuspended Vocabulary Entry occupies. It is `learned` while it is a Learned Vocabulary Entry, `in practice` while at least one of its Senses has a Lesson Attempt but it is not a Learned Vocabulary Entry, and `new` while none of its Senses has ever been attempted.
 
 ## Suspended Vocabulary Entry
 
