@@ -508,7 +508,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .lesson-choice input { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; margin: 0; accent-color: var(--web-primary); }
 .lesson-choice > span:nth-child(2) { min-width: 0; }
 .lesson-choice-icon { margin-left: auto; font-size: var(--lexync-type-size-lg); font-weight: var(--lexync-type-weight-bold); }
-.lesson-feedback { min-height: 2rem; display: flex; align-items: center; gap: .5rem; margin-top: 1rem; color: var(--web-muted); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
+.lesson-feedback { min-height: 2rem; display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; color: var(--web-muted); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
 .lesson-feedback.correct { color: var(--lexync-color-success); }
 .lesson-feedback.incorrect { color: var(--lexync-color-danger); }
 .lesson-feedback-icon { display: inline-grid; width: 1.35rem; height: 1.35rem; place-items: center; border-radius: 50%; background: currentColor; font-size: var(--lexync-type-size-xs); }
