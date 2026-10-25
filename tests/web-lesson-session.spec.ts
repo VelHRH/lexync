@@ -239,6 +239,22 @@ async function bridgeEntryId(client: SupabaseClient, learningVocabularyEntryId: 
   return data.id as string;
 }
 
+async function driveToClozeQuestion(page: Page, client: SupabaseClient, learningLanguageId: string, captured: CapturedEntry[]) {
+  while ((await questionSnapshot(page)).type !== 'cloze') {
+    await answerCurrentQuestion(page);
+    await continueToNextQuestion(page);
+    if (!(await lessonQuestion(page).count())) throw new Error('The Cloze meaning fixture did not produce a Cloze Question.');
+  }
+  const { data: overview, error: overviewError } = await client.rpc('lesson_overview', { p_learning_language_id: learningLanguageId });
+  if (overviewError) throw overviewError;
+  const lesson = overview as { questions: Array<{ continued_at: string | null; revealed_meaning: string | null; revealed_meaning_answer_language_tag: string | null; sense_id: string }> };
+  const pendingQuestion = lesson.questions.find((question) => !question.continued_at);
+  if (!pendingQuestion) throw new Error('The Cloze meaning fixture did not identify its pending question.');
+  const questionEntry = captured.find((entry) => entry.senseId === pendingQuestion.sense_id);
+  if (!questionEntry) throw new Error('The Cloze meaning fixture did not identify its question Sense.');
+  return { pendingQuestion, questionEntry };
+}
+
 test.describe('web Lesson', () => {
   test('starts and resumes Lesson from Home for the Active Learning Language without exposing it in navigation', async ({ page }) => {
     const fixture = await seedEntries('lesson-home', vocabulary.slice(0, 3));
@@ -493,6 +509,119 @@ test.describe('web Lesson', () => {
       await concurrentPage.close();
       await restartedContext.close();
     }
+  });
+
+  test('withholds the revealed meaning until a cloze answer is submitted and then shows every Translation in the Preferred Answer Language', async ({ page }) => {
+    const fixture = await registerLearner('lesson-cloze-meaning');
+    const entries = vocabulary.slice(0, 10);
+    const captured: CapturedEntry[] = [];
+    const secondTranslations = new Map<string, string>();
+    for (const [expression, translation] of entries) {
+      const entry = await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: `Esta frase contiene ${expression}.` });
+      captured.push(entry);
+      const secondTranslation = `${translation} too`;
+      await captureEntry(fixture.client, fixture.learningLanguageId, expression, secondTranslation, 'en', { senseId: entry.senseId });
+      secondTranslations.set(entry.senseId, secondTranslation);
+    }
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const { pendingQuestion, questionEntry } = await driveToClozeQuestion(page, fixture.client, fixture.learningLanguageId, captured);
+    await expect(lessonQuestion(page).locator('.lesson-correction-meaning')).toHaveCount(0);
+    expect(pendingQuestion.revealed_meaning).toBeNull();
+    expect(pendingQuestion.revealed_meaning_answer_language_tag).toBeNull();
+    const secondTranslation = secondTranslations.get(questionEntry.senseId);
+    if (!secondTranslation) throw new Error('The Cloze meaning fixture lost its second Translation.');
+    await answerCurrentQuestion(page, questionEntry.expression);
+    await expect(lessonShell(page).getByRole('status')).toContainText('Correct');
+    await expect(lessonQuestion(page).getByText('Meaning', { exact: true })).toBeVisible();
+    const meaning = lessonQuestion(page).locator('.lesson-correction-meaning');
+    await expect(meaning).toBeVisible();
+    await expect(meaning).toContainText(questionEntry.translation);
+    await expect(meaning).toContainText(secondTranslation);
+    await expect(meaning).toHaveAttribute('lang', 'en');
+    const { data: answeredOverview, error: answeredOverviewError } = await fixture.client.rpc('lesson_overview', { p_learning_language_id: fixture.learningLanguageId });
+    if (answeredOverviewError) throw answeredOverviewError;
+    const answeredLesson = answeredOverview as { questions: Array<{ revealed_meaning: string | null; sense_id: string }> };
+    const answeredQuestion = answeredLesson.questions.find((question) => question.sense_id === pendingQuestion.sense_id);
+    if (!answeredQuestion) throw new Error('The Cloze meaning fixture lost its answered question.');
+    expect(answeredQuestion.revealed_meaning).not.toBeNull();
+  });
+
+  test('reveals the meaning beside the correct answer after an incorrect cloze answer', async ({ page }) => {
+    const fixture = await registerLearner('lesson-cloze-meaning-incorrect');
+    const entries = vocabulary.slice(0, 10);
+    const captured: CapturedEntry[] = [];
+    for (const [expression, translation] of entries) {
+      captured.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: `Esta frase contiene ${expression}.` }));
+    }
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const { questionEntry } = await driveToClozeQuestion(page, fixture.client, fixture.learningLanguageId, captured);
+    const snapshot = await questionSnapshot(page);
+    const wrongChoice = snapshot.choices.find((choice) => choice !== questionEntry.expression);
+    if (!wrongChoice) throw new Error('The Cloze meaning fixture needs at least two choices.');
+    await answerCurrentQuestion(page, wrongChoice);
+    const status = lessonShell(page).getByRole('status');
+    await expect(status).toContainText('Incorrect');
+    await expect(lessonQuestion(page).getByText('Correct answer', { exact: true })).toBeVisible();
+    await expect(lessonQuestion(page).locator('.lesson-correction-answer')).toHaveText(questionEntry.expression);
+    const meaning = lessonQuestion(page).locator('.lesson-correction-meaning');
+    await expect(meaning).toBeVisible();
+    await expect(meaning).toContainText(questionEntry.translation);
+  });
+
+  test('shows no meaning when the asked Sense has no Translation in the Preferred Answer Language', async ({ page }) => {
+    const fixture = await registerLearner('lesson-cloze-meaning-fallback');
+    const dominant = vocabulary.slice(0, 9);
+    for (const [expression, translation] of dominant) {
+      await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en');
+    }
+    const clozeEligible = vocabulary.slice(9, 13);
+    const captured: CapturedEntry[] = [];
+    for (const [expression, translation] of clozeEligible) {
+      captured.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'uk', { example: `Esta frase contiene ${expression}.` }));
+    }
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const { pendingQuestion, questionEntry } = await driveToClozeQuestion(page, fixture.client, fixture.learningLanguageId, captured);
+    await answerCurrentQuestion(page, questionEntry.expression);
+    await expect(lessonShell(page).getByRole('status')).toContainText('Correct');
+    await expect(lessonQuestion(page).locator('.lesson-correction-meaning')).toHaveCount(0);
+    await expect(lessonQuestion(page).getByText(questionEntry.translation, { exact: true })).toHaveCount(0);
+    const { data: answeredOverview, error: answeredOverviewError } = await fixture.client.rpc('lesson_overview', { p_learning_language_id: fixture.learningLanguageId });
+    if (answeredOverviewError) throw answeredOverviewError;
+    const answeredLesson = answeredOverview as { questions: Array<{ revealed_meaning: string | null; sense_id: string }> };
+    const answeredQuestion = answeredLesson.questions.find((question) => question.sense_id === pendingQuestion.sense_id);
+    expect(answeredQuestion?.revealed_meaning).toBeNull();
+  });
+
+  test('keeps a revealed cloze meaning stable when the word is edited afterwards', async ({ page }) => {
+    const fixture = await registerLearner('lesson-cloze-meaning-stable');
+    const entries = vocabulary.slice(0, 10);
+    const captured: CapturedEntry[] = [];
+    for (const [expression, translation] of entries) {
+      captured.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: `Esta frase contiene ${expression}.` }));
+    }
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const { questionEntry } = await driveToClozeQuestion(page, fixture.client, fixture.learningLanguageId, captured);
+    await answerCurrentQuestion(page, questionEntry.expression);
+    await expect(lessonShell(page).getByRole('status')).toContainText('Correct');
+    const meaning = lessonQuestion(page).locator('.lesson-correction-meaning');
+    await expect(meaning).toBeVisible();
+    await expect(meaning).toContainText(questionEntry.translation);
+    const editedBridgeId = await bridgeEntryId(fixture.client, questionEntry.vocabularyEntryId);
+    const { error: editError } = await fixture.client.rpc('update_vocabulary_entry', {
+      p_expression: questionEntry.expression,
+      p_senses: [{ examples: [], id: questionEntry.senseId, translations: [{ id: questionEntry.translationId, text: `${questionEntry.translation}-edited` }] }],
+      p_vocabulary_entry_id: editedBridgeId,
+    });
+    if (editError) throw editError;
+    await page.reload();
+    await expect(continueButton(page)).toBeEnabled();
+    await expect(meaning).toBeVisible();
+    await expect(meaning).toContainText(questionEntry.translation);
+    await expect(meaning).not.toContainText(`${questionEntry.translation}-edited`);
   });
 
   test('records and locks one answer, announces semantic feedback, reveals the correction, and advances only on Continue', async ({ page }) => {

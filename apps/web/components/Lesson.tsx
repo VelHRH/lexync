@@ -23,6 +23,8 @@ type LessonQuestion = {
   is_correct: boolean | null;
   answered_at: string | null;
   continued_at: string | null;
+  revealed_meaning: string | null;
+  revealed_meaning_answer_language_tag: string | null;
 };
 
 type LessonState = {
@@ -80,6 +82,8 @@ function parseQuestion(value: unknown): LessonQuestion | null {
     is_correct: typeof value.is_correct === 'boolean' ? value.is_correct : null,
     answered_at: typeof value.answered_at === 'string' ? value.answered_at : null,
     continued_at: typeof value.continued_at === 'string' ? value.continued_at : null,
+    revealed_meaning: typeof value.revealed_meaning === 'string' ? value.revealed_meaning : null,
+    revealed_meaning_answer_language_tag: typeof value.revealed_meaning_answer_language_tag === 'string' ? value.revealed_meaning_answer_language_tag : null,
   };
 }
 
@@ -391,7 +395,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
             })}
           </fieldset>
           <div className={`lesson-feedback${feedback ? ` ${feedback.toLowerCase()}` : ''}`} aria-live="polite" role="status">
-            {feedback && <><span className="lesson-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'Correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span><span>{feedback}</span>{feedback === 'Incorrect' && question.correct_answer && <><span className="lesson-correction-label">Correct answer</span><span className="lesson-correction-answer">{question.correct_answer}</span></>}</>}
+            {feedback && <><span className="lesson-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'Correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span><span>{feedback}</span>{feedback === 'Incorrect' && question.correct_answer && <><span className="lesson-correction-label">Correct answer</span><span className="lesson-correction-answer">{question.correct_answer}</span></>}{question.revealed_meaning && <><span className="lesson-correction-label">Meaning</span><span className="lesson-correction-meaning" lang={question.revealed_meaning_answer_language_tag ?? undefined}>{question.revealed_meaning}</span></>}</>}
           </div>
         </section>
         {lesson.source === 'dynamic' && <section className="lesson-capture" role="region" aria-label="Save to vocabulary" data-ui="lesson-capture" tabIndex={-1} ref={captureRegionRef}>
