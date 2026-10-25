@@ -277,14 +277,19 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .lesson-progress-banner + .lesson-tiles { margin-top: 1.25rem; }
 
 .lesson-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: clamp(1rem, 2vw, 1.5rem); margin-top: 2rem; }
-.lesson-tile { display: flex; min-height: 12rem; flex-direction: column; gap: .55rem; padding: 1.5rem; border: var(--lexync-border-hairline) solid var(--web-glass-border); border-radius: var(--lexync-radius-xl); background: var(--web-glass-strong); color: var(--web-ink); text-decoration: none; box-shadow: var(--web-lift-low), var(--web-glass-highlight); transition: box-shadow var(--web-state), background var(--web-state); }
-.lesson-tile:hover { background: var(--web-surface); box-shadow: var(--web-lift), var(--web-glass-highlight); }
-.lesson-tile:active { box-shadow: var(--lexync-elevation-quiet); filter: brightness(0.97); }
-.lesson-tile h2 { margin: 0; font-family: var(--lexync-type-family-display); font-size: var(--lexync-type-size-xl); font-weight: var(--lexync-type-weight-bold); letter-spacing: var(--lexync-type-tracking-tight); }
-.lesson-tile p { margin: 0; max-width: 34ch; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }
+.lesson-tile, .progress-plaque { display: flex; flex-direction: column; gap: .55rem; padding: 1.5rem; border: var(--lexync-border-hairline) solid var(--web-glass-border); border-radius: var(--lexync-radius-xl); background: var(--web-glass-strong); color: var(--web-ink); text-decoration: none; box-shadow: var(--web-lift-low), var(--web-glass-highlight); transition: box-shadow var(--web-state), background var(--web-state); }
+.lesson-tile { min-height: 12rem; }
+.lesson-tile:hover, .progress-plaque:hover { background: var(--web-surface); box-shadow: var(--web-lift), var(--web-glass-highlight); }
+.lesson-tile:active, .progress-plaque:active { box-shadow: var(--lexync-elevation-quiet); filter: brightness(0.97); }
+.lesson-tile h2, .progress-plaque h2 { margin: 0; font-family: var(--lexync-type-family-display); font-size: var(--lexync-type-size-xl); font-weight: var(--lexync-type-weight-bold); letter-spacing: var(--lexync-type-tracking-tight); }
+.lesson-tile p, .progress-plaque p { margin: 0; max-width: 34ch; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-relaxed); }
 .lesson-tile .lesson-tile-state { margin-top: auto; color: var(--web-primary-active); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); }
 .lesson-tile[aria-disabled='true'] { pointer-events: none; background: var(--web-dim); box-shadow: var(--lexync-elevation-none); }
 .lesson-tile[aria-disabled='true'] .lesson-tile-state { color: var(--web-muted); }
+.progress-plaque { margin-top: 2rem; }
+.progress-plaque .progress-plaque-headline { color: var(--web-ink); font-size: var(--lexync-type-size-lg); font-weight: var(--lexync-type-weight-bold); }
+.progress-plaque .progress-plaque-detail { color: var(--web-primary-active); font-weight: var(--lexync-type-weight-bold); }
+.progress-plaque progress { width: 100%; height: .5rem; accent-color: var(--web-primary); }
 
 .dynamic-lesson-request { display: grid; gap: 1.25rem; width: min(100%, 44rem); margin: 0 auto; }
 .dynamic-lesson-request-heading { display: grid; gap: .6rem; text-align: center; }
