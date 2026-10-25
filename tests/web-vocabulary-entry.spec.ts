@@ -38,6 +38,35 @@ async function createEntry(client: Awaited<ReturnType<typeof registerWithPair>>[
   return data as { vocabularyEntryId: string };
 }
 
+async function storedClipPath(client: Awaited<ReturnType<typeof registerWithPair>>['client']) {
+  const { data, error } = await client.from('learning_vocabulary_entries').select('audio_clip_path').limit(1).single();
+  if (error) throw error;
+  return (data as { audio_clip_path: string | null }).audio_clip_path;
+}
+
+function audioClipControls(page: Page) {
+  return page.getByRole('group', { name: 'Audio Clip' });
+}
+
+async function recordClip(page: Page) {
+  await audioClipControls(page).getByRole('button', { name: 'Record pronunciation' }).click();
+  const stop = audioClipControls(page).getByRole('button', { name: 'Stop recording' });
+  await expect(stop).toBeEnabled();
+  await stop.click();
+}
+
+async function expandEntry(page: Page, expression: string) {
+  const summary = page.locator('summary').filter({ hasText: expression });
+  await expect(summary).toBeVisible();
+  await summary.click();
+}
+
+async function openEditor(page: Page, expression: string) {
+  await expandEntry(page, expression);
+  await page.getByRole('button', { name: `Edit ${expression}` }).click();
+  await expect(audioClipControls(page)).toBeVisible();
+}
+
 test.describe('web Vocabulary Entry library', () => {
   test('searches and filters only the active Learning Language', async ({ page }) => {
     const account = credentials('web-discovery');
@@ -507,5 +536,219 @@ test.describe('web Vocabulary Entry library', () => {
     await page.locator('summary').filter({ hasText: 'descubrir' }).click();
     const entry = page.locator('summary').filter({ hasText: 'descubrir' }).locator('..');
     await expect(entry.getByText('Quiero descubrir algo nuevo.')).toBeVisible();
+  });
+
+  test('records an Audio Clip for a word, plays it back before keeping it, and keeps it reachable from the Library', async ({ page }) => {
+    const account = credentials('web-audio-record');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await expect(audioClipControls(page).locator('[data-ui="vocabulary-audio-clip"]')).toHaveCount(0);
+
+    await recordClip(page);
+    const preview = audioClipControls(page).locator('[data-ui="vocabulary-audio-clip-preview"]');
+    await expect(preview).toBeVisible();
+    expect(await preview.evaluate((element) => (element as HTMLAudioElement).paused)).toBe(true);
+    expect(await preview.evaluate((element) => (element as HTMLAudioElement).hasAttribute('autoplay'))).toBe(false);
+
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    const kept = audioClipControls(page).locator('[data-ui="vocabulary-audio-clip"]');
+    await expect(kept).toBeVisible();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Remove recording' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.reload();
+    await expandEntry(page, 'casa');
+    const player = page.locator('[data-ui="vocabulary-audio-clip"]');
+    await expect(player).toBeVisible();
+    expect(await player.evaluate((element) => (element as HTMLAudioElement).paused)).toBe(true);
+    expect(await player.evaluate((element) => (element as HTMLAudioElement).hasAttribute('autoplay'))).toBe(false);
+    expect(await player.evaluate((element) => (element as HTMLAudioElement).controls)).toBe(true);
+  });
+
+  test('replaces an Audio Clip so the earlier recording stops being reachable, then removes it entirely', async ({ page }) => {
+    const account = credentials('web-audio-replace');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await recordClip(page);
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Replace recording' })).toBeVisible();
+    const firstPath = await storedClipPath(client);
+    expect(firstPath).not.toBeNull();
+
+    await audioClipControls(page).getByRole('button', { name: 'Replace recording' }).click();
+    const stop = audioClipControls(page).getByRole('button', { name: 'Stop recording' });
+    await expect(stop).toBeEnabled();
+    await stop.click();
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect.poll(async () => storedClipPath(client)).not.toBe(firstPath);
+    const secondPath = await storedClipPath(client);
+    expect(secondPath).not.toBeNull();
+
+    const { error: staleError } = await client.storage.from('vocabulary-audio-clips').download(firstPath as string);
+    expect(staleError).not.toBeNull();
+    const { error: currentError } = await client.storage.from('vocabulary-audio-clips').download(secondPath as string);
+    expect(currentError).toBeNull();
+
+    await audioClipControls(page).getByRole('button', { name: 'Remove recording' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeVisible();
+    await expect.poll(async () => storedClipPath(client)).toBeNull();
+    await expect(audioClipControls(page).locator('[data-ui="vocabulary-audio-clip"]')).toHaveCount(0);
+  });
+
+  test('keeps the editor usable and the word saveable when the Learner declines the microphone', async ({ page }) => {
+    const account = credentials('web-audio-declined');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+        configurable: true,
+        value: () => Promise.reject(new DOMException('Denied', 'NotAllowedError')),
+      });
+    });
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await audioClipControls(page).getByRole('button', { name: 'Record pronunciation' }).click();
+    await expect(audioClipControls(page).getByText(/could not use your microphone/i)).toBeVisible();
+    await expect(audioClipControls(page).locator('[data-ui="vocabulary-audio-clip-preview"]')).toHaveCount(0);
+
+    await page.getByLabel('Sense 1 translation 1').fill('home');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0);
+    await expandEntry(page, 'casa');
+    await expect(page.getByText(/^home en$/)).toBeVisible();
+  });
+
+  test('explains that a pronunciation cannot be recorded when the browser offers no microphone', async ({ page }) => {
+    const account = credentials('web-audio-unsupported');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined });
+    });
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await expect(audioClipControls(page).getByText(/cannot record audio/i)).toBeVisible();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeDisabled();
+  });
+
+  test('removes the Audio Clip from storage when the word itself is deleted', async ({ page }) => {
+    const account = credentials('web-audio-delete');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await recordClip(page);
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Remove recording' })).toBeVisible();
+    const path = await storedClipPath(client);
+    expect(path).not.toBeNull();
+    expect((await client.storage.from('vocabulary-audio-clips').download(path as string)).error).toBeNull();
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expandEntry(page, 'casa');
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.getByRole('button', { name: 'Delete casa' }).click();
+    await expect(page.getByText('No vocabulary entries yet. Add your first one.')).toBeVisible();
+    await expect.poll(async () => (await client.storage.from('vocabulary-audio-clips').download(path as string)).error !== null).toBe(true);
+  });
+
+  test('releases the microphone when the Learner leaves the editor while still recording', async ({ page }) => {
+    const account = credentials('web-audio-release');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.addInitScript(() => {
+      const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      (window as unknown as { openedStreams: MediaStream[] }).openedStreams = [];
+      navigator.mediaDevices.getUserMedia = async (constraints?: MediaStreamConstraints) => {
+        const stream = await original(constraints);
+        (window as unknown as { openedStreams: MediaStream[] }).openedStreams.push(stream);
+        return stream;
+      };
+    });
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await audioClipControls(page).getByRole('button', { name: 'Record pronunciation' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Stop recording' })).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { openedStreams: MediaStream[] }).openedStreams.flatMap((stream) => stream.getTracks()).some((track) => track.readyState === 'live'))).toBe(true);
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(audioClipControls(page)).toHaveCount(0);
+    await expect.poll(async () => page.evaluate(() => (window as unknown as { openedStreams: MediaStream[] }).openedStreams.flatMap((stream) => stream.getTracks()).every((track) => track.readyState === 'ended'))).toBe(true);
+  });
+
+  test('never leaves a Vocabulary Entry pointing at an Audio Clip that is no longer stored', async ({ page }) => {
+    const account = credentials('web-audio-strand');
+    const { client } = await registerWithPair(account);
+    const { data: languages, error: languagesError } = await client.from('learning_languages').select('id').limit(1);
+    if (languagesError) throw languagesError;
+    const learningLanguageId = (languages ?? [])[0]?.id as string;
+    for (const [answerLanguageTag, translation, createNewSense] of [['en', 'house', false], ['uk', 'budynok', true]] as const) {
+      const { error } = await client.rpc('capture_learning_language_entry', {
+        p_answer_language_tag: answerLanguageTag,
+        p_create_new_sense: createNewSense,
+        p_example: null,
+        p_expression: 'casa',
+        p_learning_language_id: learningLanguageId,
+        p_sense_id: null,
+        p_translation: translation,
+      });
+      if (error) throw error;
+    }
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await recordClip(page);
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Remove recording' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expandEntry(page, 'casa');
+
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.getByRole('button', { name: 'Delete casa' }).click();
+    await expect.poll(async () => {
+      const { count } = await client.from('vocabulary_entries').select('id', { count: 'exact', head: true });
+      return count ?? 0;
+    }).toBeLessThan(2);
+
+    const remainingPath = await storedClipPath(client).catch(() => null);
+    if (remainingPath) {
+      const { error } = await client.storage.from('vocabulary-audio-clips').download(remainingPath);
+      expect(error, 'a surviving Vocabulary Entry must still reach the Audio Clip it points at').toBeNull();
+    }
+  });
+
+  test('explains that a pronunciation cannot be recorded once the Learner goes offline mid-edit', async ({ page, context }) => {
+    const account = credentials('web-audio-offline');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeEnabled();
+
+    await context.setOffline(true);
+    await expect(audioClipControls(page).getByText(/needs a connection/i)).toBeVisible();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeDisabled();
+
+    await context.setOffline(false);
+    await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeEnabled();
   });
 });
