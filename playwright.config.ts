@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
 import { unpackedExtensionId } from './tests/support/extension-id';
 
+const fakeMediaDeviceArgs = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'];
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -72,12 +74,12 @@ export default defineConfig({
     {
       name: 'web-vocabulary',
       testMatch: /web-vocabulary-entry\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], launchOptions: { args: fakeMediaDeviceArgs } },
     },
     {
       name: 'web-vocabulary-mobile',
       testMatch: /web-vocabulary-entry\.spec\.ts/,
-      use: { ...devices['Pixel 7'] },
+      use: { ...devices['Pixel 7'], launchOptions: { args: fakeMediaDeviceArgs } },
     },
     {
       name: 'web-vocabulary-progress',

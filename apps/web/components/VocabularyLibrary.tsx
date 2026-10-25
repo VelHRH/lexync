@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
+import { VocabularyAudioClipPlayer, VocabularyAudioClipRecorder } from './VocabularyAudioClip';
 import { normalizeSearchText } from '../lib/searchText';
 import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
@@ -222,6 +223,20 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     const confirmed = window.confirm(`Delete ${entry.expression}? Senses, translations, Examples, and learning progress owned by this Vocabulary Entry will also be removed. This cannot be undone.`);
     if (!confirmed) return;
     setNotice('');
+    if (entry.audioClipPath) {
+      const { count, error: countError } = await supabase.from('vocabulary_entries').select('id', { count: 'exact', head: true }).eq('learning_vocabulary_entry_id', entry.learningVocabularyEntryId);
+      if (countError) {
+        setNotice(`Vocabulary Entry could not be deleted. ${countError.message}`);
+        return;
+      }
+      if ((count ?? 0) <= 1) {
+        const { error: clipError } = await supabase.storage.from('vocabulary-audio-clips').remove([entry.audioClipPath]);
+        if (clipError) {
+          setNotice(`Vocabulary Entry could not be deleted. ${clipError.message}`);
+          return;
+        }
+      }
+    }
     const { error } = await supabase.rpc('delete_vocabulary_entry', { p_vocabulary_entry_id: entry.id });
     if (error) {
       setNotice(`Vocabulary Entry could not be deleted. ${error.message}`);
@@ -612,12 +627,14 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
                 <button className="text-button danger" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => setDraft({ ...draft, senses: draft.senses.filter((item) => item.key !== sense.key) })}>Remove Sense {senseIndex + 1}</button>
               </fieldset>)}
               <button className="secondary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => setDraft({ ...draft, senses: [...draft.senses, { id: null, key: draftKey(), translations: [{ id: null, key: draftKey(), text: '' }], examples: [] }] })}>Add Sense</button>
+              <VocabularyAudioClipRecorder entry={entry} languageId={language.id} online={online} onChanged={() => void reload()} />
               {notice && <p className="form-notice error" role="alert">{notice}</p>}
               <div className="vocabulary-editor-actions">
                 <button className="primary-button" type="submit" disabled={saving || !online} aria-describedby={offlineReason}>{saving ? 'Saving…' : 'Save changes'}</button>
                 <button className="secondary-button" type="button" disabled={saving} onClick={() => { setDraft(null); setNotice(''); }}>Cancel</button>
               </div>
             </form> : <>
+              <VocabularyAudioClipPlayer entry={entry} />
               {entry.senses.map((sense, index) => <div className="vocabulary-sense" key={sense.id}>
                 <h4>Sense {index + 1}</h4>
                 {sense.translations.map((item) => <p key={item.id}>{item.text} <span>{item.answer_language_tag}</span></p>)}

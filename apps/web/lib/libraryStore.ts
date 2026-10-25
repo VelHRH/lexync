@@ -7,7 +7,7 @@ import { supabase } from './supabase';
 export type ExampleTranslation = { id: string; text: string; answer_language_tag: string };
 export type Example = { id: string; text: string; translations: ExampleTranslation[] };
 export type Sense = { id: string; translations: Translation[]; examples: Example[] };
-export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean };
+export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean; audioClipPath: string | null };
 export type Collection = { id: string; name: string; entryCount: number; eligibleSenseCount: number; canPractise: boolean };
 export type Membership = { collection_id: string; learning_vocabulary_entry_id: string };
 
@@ -127,6 +127,12 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
     ? await supabase.from('example_translations').select('id,example_id,text,answer_language_tag').in('example_id', exampleIds).order('created_at')
     : { data: [], error: null };
   if (exampleTranslationsError) return { error: exampleTranslationsError.message };
+  const learningEntryIds = [...new Set((data ?? []).map((entry) => entry.learning_vocabulary_entry_id))];
+  const { data: learningEntries, error: learningEntriesError } = learningEntryIds.length
+    ? await supabase.from('learning_vocabulary_entries').select('id,audio_clip_path').in('id', learningEntryIds)
+    : { data: [], error: null };
+  if (learningEntriesError) return { error: learningEntriesError.message };
+  const audioClips = new Map((learningEntries ?? []).map((item) => [item.id as string, item]));
   const merged = new Map<string, LibraryEntry>();
   for (const entry of data ?? []) {
     const key = normalizeSearchText(entry.expression);
@@ -143,7 +149,15 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
       existing.senses = [...existing.senses, ...nextSenses];
       existing.suspended = existing.suspended && entry.suspended;
     } else {
-      merged.set(key, { id: entry.id, learningVocabularyEntryId: entry.learning_vocabulary_entry_id, expression: entry.expression.trim(), suspended: entry.suspended, senses: nextSenses });
+      const clip = audioClips.get(entry.learning_vocabulary_entry_id);
+      merged.set(key, {
+        id: entry.id,
+        learningVocabularyEntryId: entry.learning_vocabulary_entry_id,
+        expression: entry.expression.trim(),
+        suspended: entry.suspended,
+        senses: nextSenses,
+        audioClipPath: typeof clip?.audio_clip_path === 'string' ? clip.audio_clip_path : null,
+      });
     }
   }
   return { entries: [...merged.values()] };
