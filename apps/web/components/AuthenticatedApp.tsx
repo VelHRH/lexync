@@ -17,6 +17,7 @@ import { ExtensionRecommendation } from './ExtensionRecommendation';
 import { LessonHistory } from './LessonHistory';
 import { LearningMaterials } from './LearningMaterials';
 import { DynamicLessonRequest } from './DynamicLessonRequest';
+import { VocabularyProgressPlaque } from './VocabularyProgressPlaque';
 import { LessonInProgressActions } from './LessonInProgressActions';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -415,6 +416,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
           </div>}
           {activeSection === 'Dynamic Lesson' && <>
             <DynamicLessonRequest key={`dynamic-lesson-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} readyMaterialCount={readyMaterialCount} activeLessonId={activeLesson?.id ?? null} onLessonCreated={() => void refreshLessonState(activeLanguage.id)} onLessonDiscarded={() => void refreshLessonState(activeLanguage.id)} />
+            <VocabularyProgressPlaque key={`vocabulary-progress-${activeLanguage.id}`} learningLanguageId={activeLanguage.id} />
             <ExtensionRecommendation extensionId={extensionId} />
           </>}
           {activeSection === 'Lessons' && activeLesson && <section className="lesson-progress-banner" data-ui="lesson-in-progress" aria-labelledby="lesson-in-progress-heading">
