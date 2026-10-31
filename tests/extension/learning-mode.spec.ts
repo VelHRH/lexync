@@ -234,7 +234,7 @@ test.describe('Learning Mode', () => {
     await expect(page.getByRole('tooltip')).toHaveText('Click to add "meraviglia"');
     await page.locator('#unknown').click();
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
-    await capture.getByLabel('Translation').fill('wonder');
+    await capture.getByLabel('Translation', { exact: true }).fill('wonder');
     const confirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
     await expect(confirmation).toBeVisible();
     await confirmation.check();

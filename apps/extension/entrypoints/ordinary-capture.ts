@@ -146,6 +146,7 @@ export default defineUnlistedScript(() => {
         <label class="answer-language-confirmation" hidden><input name="confirmAnswerLanguage" type="checkbox"> Confirm this Answer Language</label>
         <fieldset class="sense-choice" hidden><legend>Choose a Sense</legend><div class="sense-options"></div><label><input name="createNewSense" type="radio" value="new"> Create a new Sense</label></fieldset>
         <label>Example <span>Optional</span><textarea name="example"></textarea></label>
+        <label>Example translation <span>Optional</span><textarea name="exampleTranslation"></textarea></label>
         <p class="validation-error" role="alert" hidden>Please complete the highlighted fields.</p>
         <div class="actions sheet-actions">
           <button type="submit">Save Vocabulary Entry</button>
@@ -163,6 +164,7 @@ export default defineUnlistedScript(() => {
   const languageSelect = root.querySelector<HTMLSelectElement>('[name="learningLanguage"]')!;
   const translationInput = root.querySelector<HTMLInputElement>('[name="translation"]')!;
   const exampleInput = root.querySelector<HTMLTextAreaElement>('[name="example"]')!;
+  const exampleTranslationInput = root.querySelector<HTMLTextAreaElement>('[name="exampleTranslation"]')!;
   const pairError = root.querySelector<HTMLElement>('.pair-error')!;
   const translationError = root.querySelector<HTMLElement>('.translation-error')!;
   const answerLanguageInput = root.querySelector<HTMLInputElement>('[name="answerLanguage"]')!;
@@ -266,6 +268,10 @@ export default defineUnlistedScript(() => {
     preferredAnswerLanguageTag = response.answerLanguageTag ?? '';
   }
 
+  function updateExampleTranslationState() {
+    exampleTranslationInput.disabled = !exampleInput.value.trim();
+  }
+
   function updateSubmitState() {
     const submitButton = root.querySelector<HTMLButtonElement>('button[type="submit"]');
     if (!submitButton) return;
@@ -286,6 +292,8 @@ export default defineUnlistedScript(() => {
     translationInput.value = '';
     answerLanguageInput.value = '';
     exampleInput.value = example;
+    exampleTranslationInput.value = '';
+    updateExampleTranslationState();
     senseId = undefined;
     createNewSense = false;
     answerLanguageConfirmed = false;
@@ -375,6 +383,10 @@ export default defineUnlistedScript(() => {
     }
   }, true);
 
+  exampleInput.addEventListener('input', () => {
+    updateExampleTranslationState();
+  });
+
   translationInput.addEventListener('input', () => {
     const detectionRevision = ++answerLanguageDetectionRevision;
     void browser.runtime.sendMessage({
@@ -436,6 +448,7 @@ export default defineUnlistedScript(() => {
     submitButton.disabled = true;
     const response = await browser.runtime.sendMessage({
       example: exampleInput.value || null,
+      exampleTranslation: exampleTranslationInput.value || null,
       expression: currentExpression,
       answerLanguageTag,
       createNewSense,

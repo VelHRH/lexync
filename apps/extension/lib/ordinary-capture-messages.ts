@@ -6,6 +6,7 @@ export type SaveOrdinaryCaptureMessage = {
   answerLanguageTag: string;
   createNewSense?: boolean;
   example: string | null;
+  exampleTranslation?: string | null;
   expression: string;
   learningLanguageId: string;
   origin: string;
@@ -29,6 +30,7 @@ export function isOrdinaryCaptureMessage(value: unknown): value is OrdinaryCaptu
   return value.type === 'ordinary-capture:save'
     && 'answerLanguageTag' in value && typeof value.answerLanguageTag === 'string'
     && 'example' in value && (value.example === null || typeof value.example === 'string')
+    && (!('exampleTranslation' in value) || value.exampleTranslation === null || value.exampleTranslation === undefined || typeof value.exampleTranslation === 'string')
     && 'expression' in value && typeof value.expression === 'string'
     && 'learningLanguageId' in value && typeof value.learningLanguageId === 'string'
     && 'origin' in value && typeof value.origin === 'string'

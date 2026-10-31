@@ -42,12 +42,16 @@ async function setLanguage(field: Locator, value: string) {
   await field.fill(value);
 }
 
-async function saveCapture(page: Page, expression: string, answerLanguage: string, translation: string) {
+async function saveCapture(page: Page, expression: string, answerLanguage: string, translation: string, example?: { text: string; translation?: string }) {
   await page.getByRole('button', { name: /Add vocabulary/i }).click();
   const form = page.locator('form').filter({ has: page.getByLabel('Expression', { exact: true }) }).last();
   await form.getByLabel('Expression', { exact: true }).fill(expression);
   await setLanguage(form.getByLabel('Answer Language', { exact: true }), answerLanguage);
   await form.getByLabel('Translation', { exact: true }).fill(translation);
+  if (example) {
+    await form.getByLabel('Example (optional)', { exact: true }).fill(example.text);
+    if (example.translation !== undefined) await form.getByLabel('Example translation (optional)', { exact: true }).fill(example.translation);
+  }
   await form.getByRole('button', { name: /Save Vocabulary Entry|Save/i }).click();
 }
 
@@ -132,6 +136,69 @@ test.describe('web multilingual manual capture', () => {
     await saveCapture(page, 'banco', 'uk', 'банк');
     await expect(page.getByText('Choose an existing Sense or create a new Sense', { exact: true })).toBeVisible();
     await expect(page.getByText('банк', { exact: true })).toHaveCount(0);
+  });
+
+  test('stores an Example Translation written at capture and keeps it editable in the Library editor', async ({ page }) => {
+    const account = credentials('web-capture-example-translation');
+    await register(account, [['es', 'en']]);
+    await signIn(page, account);
+    await page.goto('/library');
+
+    await saveCapture(page, 'descubrir', 'pt-BR', 'descobrir', { text: 'Quiero descubrir la ciudad.', translation: 'Quero descobrir a cidade.' });
+
+    const summary = page.locator('.vocabulary-entry summary').filter({ has: page.getByRole('heading', { name: 'descubrir', exact: true }) });
+    await expect(summary).toHaveCount(1);
+    await summary.click();
+    const entry = summary.locator('..');
+    await expect(entry.getByText('Quiero descubrir la ciudad.')).toBeVisible();
+    await expect(entry.getByText(/^Quero descobrir a cidade\. pt-BR$/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Edit descubrir' }).click();
+    await expect(page.getByLabel('Example 1 translation', { exact: true })).toHaveValue('Quero descobrir a cidade.');
+  });
+
+  test('captures an Example without a translation and leaves the Example Translation field optional', async ({ page }) => {
+    const account = credentials('web-capture-example-untranslated');
+    await register(account, [['es', 'en']]);
+    await signIn(page, account);
+    await page.goto('/library');
+
+    await saveCapture(page, 'guardar', 'en', 'to keep', { text: 'Voy a guardar esto.' });
+
+    const summary = page.locator('.vocabulary-entry summary').filter({ has: page.getByRole('heading', { name: 'guardar', exact: true }) });
+    await expect(summary).toHaveCount(1);
+    await summary.click();
+    const entry = summary.locator('..');
+    await expect(entry.getByText('Voy a guardar esto.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Edit guardar' }).click();
+    await expect(page.getByLabel('Example 1 translation', { exact: true })).toHaveValue('');
+  });
+
+  test('saves a capture with no Example at all while the Example Translation field is left blank', async ({ page }) => {
+    const account = credentials('web-capture-no-example');
+    await register(account, [['es', 'en']]);
+    await signIn(page, account);
+    await page.goto('/library');
+
+    await page.getByRole('button', { name: /Add vocabulary/i }).click();
+    const form = page.locator('form').filter({ has: page.getByLabel('Expression', { exact: true }) }).last();
+    await form.getByLabel('Expression', { exact: true }).fill('silla');
+    await setLanguage(form.getByLabel('Answer Language', { exact: true }), 'en');
+    await form.getByLabel('Translation', { exact: true }).fill('chair');
+    const exampleTranslation = form.getByLabel('Example translation (optional)', { exact: true });
+    await expect(exampleTranslation).toHaveValue('');
+    await expect(exampleTranslation).toBeDisabled();
+    await form.getByLabel('Example (optional)', { exact: true }).fill('Una silla de madera.');
+    await expect(exampleTranslation).toBeEnabled();
+    await form.getByLabel('Example (optional)', { exact: true }).fill('');
+    await expect(exampleTranslation).toBeDisabled();
+    await form.getByRole('button', { name: /Save Vocabulary Entry|Save/i }).click();
+
+    const summary = page.locator('.vocabulary-entry summary').filter({ has: page.getByRole('heading', { name: 'silla', exact: true }) });
+    await expect(summary).toHaveCount(1);
+    await summary.click();
+    await expect(summary.locator('..').getByText(/^chair en$/)).toBeVisible();
   });
 
 });

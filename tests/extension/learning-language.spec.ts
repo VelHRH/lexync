@@ -227,11 +227,11 @@ test.describe('Learning Language extension journeys', () => {
 
     const confidentCapture = await openCapture(page);
     const confidentTranslation = 'The discovery of a new path changes the way we understand the world and helps us remember what we learned.';
-    await confidentCapture.getByLabel('Translation').fill(confidentTranslation);
+    await confidentCapture.getByLabel('Translation', { exact: true }).fill(confidentTranslation);
     const confidentLanguage = confidentCapture.getByRole('textbox', { name: 'Answer Language', exact: true });
     await expect(confidentLanguage).toHaveValue('en');
     const persistedTranslation = `${confidentTranslation} The surrounding context remains clear and useful.`;
-    await confidentCapture.getByLabel('Translation').fill(persistedTranslation);
+    await confidentCapture.getByLabel('Translation', { exact: true }).fill(persistedTranslation);
     await confidentLanguage.fill('en-GB');
     await page.waitForTimeout(100);
     await expect(confidentLanguage).toHaveValue('en-GB');
@@ -247,7 +247,7 @@ test.describe('Learning Language extension journeys', () => {
     }).toEqual(['en-GB']);
 
     const uncertainCapture = await openSavedTranslation(page, 'scoperta');
-    await uncertainCapture.getByLabel('Translation').fill('xqz');
+    await uncertainCapture.getByLabel('Translation', { exact: true }).fill('xqz');
     const uncertainLanguage = uncertainCapture.getByRole('textbox', { name: 'Answer Language', exact: true });
     await expect(uncertainLanguage).toHaveValue('en-GB');
     await uncertainLanguage.fill('en');
@@ -286,7 +286,7 @@ test.describe('Learning Language extension journeys', () => {
 
     const soleSenseCapture = await openSavedTranslation(page, 'casa');
     await expect(soleSenseCapture.getByLabel('Expression')).toHaveValue('casa');
-    await soleSenseCapture.getByLabel('Translation').fill('дім');
+    await soleSenseCapture.getByLabel('Translation', { exact: true }).fill('дім');
     await soleSenseCapture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('uk');
     const soleSenseConfirmation = soleSenseCapture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
     await expect(soleSenseConfirmation).toBeVisible();
@@ -304,7 +304,7 @@ test.describe('Learning Language extension journeys', () => {
     );
     await enableLearningMode(multipleSensePage);
     const multipleSenseCapture = await openSavedTranslation(multipleSensePage, 'puerta');
-    await multipleSenseCapture.getByLabel('Translation').fill('двері');
+    await multipleSenseCapture.getByLabel('Translation', { exact: true }).fill('двері');
     await multipleSenseCapture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('uk');
     const multipleSenseConfirmation = multipleSenseCapture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
     await expect(multipleSenseConfirmation).toBeVisible();

@@ -191,7 +191,7 @@ test.describe('web Library data lifetime', () => {
     await page.getByRole('button', { name: 'Add vocabulary' }).click();
     await page.getByLabel('Expression').fill('perro');
     await page.getByLabel('Answer Language').fill('en');
-    await page.getByLabel('Translation').fill('dog');
+    await page.getByLabel('Translation', { exact: true }).fill('dog');
     await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.locator('summary').filter({ hasText: 'perro' })).toBeVisible();
 
