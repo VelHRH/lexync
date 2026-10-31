@@ -110,6 +110,7 @@ async function saveCapture(
     answerLanguageTag: string;
     createNewSense?: boolean;
     example: string | null;
+    exampleTranslation?: string | null;
     expression: string;
     learningLanguageId: string;
     senseId?: string;
@@ -121,6 +122,7 @@ async function saveCapture(
     p_answer_language_tag: message.answerLanguageTag,
     p_create_new_sense: message.createNewSense ?? false,
     p_example: message.example,
+    p_example_translation: message.exampleTranslation ?? null,
     p_expression: message.expression,
     p_learning_language_id: message.learningLanguageId,
     p_sense_id: message.senseId ?? null,

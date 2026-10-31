@@ -66,12 +66,12 @@ test.describe('Learning Mode capture', () => {
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await expect(capture.getByLabel('Expression')).toHaveValue('scoperta');
     await expect(capture.getByLabel('Learning Language')).toHaveValue(learningLanguage.id);
-    await capture.getByLabel('Translation').fill('відкриття');
+    await capture.getByLabel('Translation', { exact: true }).fill('відкриття');
     await capture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('uk');
     const firstConfirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
     if (await firstConfirmation.isVisible()) await firstConfirmation.check();
-    await expect(capture.getByLabel('Example')).toHaveValue('Ogni scoperta cambia il viaggio. Never upload this neighboring sentence.');
-    await capture.getByLabel('Example').fill('Una scoperta cambia il viaggio.');
+    await expect(capture.getByLabel('Example Optional', { exact: true })).toHaveValue('Ogni scoperta cambia il viaggio. Never upload this neighboring sentence.');
+    await capture.getByLabel('Example Optional', { exact: true }).fill('Una scoperta cambia il viaggio.');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 
     await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
@@ -80,11 +80,11 @@ test.describe('Learning Mode capture', () => {
     await page.locator('#second-word').click();
     await expect(capture.getByLabel('Expression')).toHaveValue('viaggio');
     await expect(capture.getByLabel('Learning Language')).toHaveValue(learningLanguage.id);
-    await capture.getByLabel('Translation').fill('подорож');
+    await capture.getByLabel('Translation', { exact: true }).fill('подорож');
     await capture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('uk');
     const secondConfirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
     if (await secondConfirmation.isVisible()) await secondConfirmation.check();
-    await capture.getByLabel('Example').fill('');
+    await capture.getByLabel('Example Optional', { exact: true }).fill('');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
     const { data } = await learnerClient
@@ -111,6 +111,7 @@ test.describe('Learning Mode capture', () => {
       'p_answer_language_tag',
       'p_create_new_sense',
       'p_example',
+      'p_example_translation',
       'p_expression',
       'p_learning_language_id',
       'p_sense_id',
@@ -138,12 +139,12 @@ test.describe('Learning Mode capture', () => {
 
     const capture = page.getByRole('dialog', { name: 'Capture Expression' });
     await expect(capture.getByLabel('Expression')).toHaveValue('strada maestra');
-    await expect(capture.getByLabel('Example')).toHaveValue('La strada maestra attraversa il borgo.');
-    await capture.getByLabel('Translation').fill('main road');
+    await expect(capture.getByLabel('Example Optional', { exact: true })).toHaveValue('La strada maestra attraversa il borgo.');
+    await capture.getByLabel('Translation', { exact: true }).fill('main road');
     await capture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('en');
     const confirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
     if (await confirmation.isVisible()) await confirmation.check();
-    await capture.getByLabel('Example').fill('');
+    await capture.getByLabel('Example Optional', { exact: true }).fill('');
     await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 
     await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
@@ -197,5 +198,40 @@ test.describe('Learning Mode capture', () => {
     await expect(capture.getByText('Translation is required.')).toBeVisible();
     const { count } = await learnerClient.from('vocabulary_entries').select('*', { count: 'exact', head: true });
     expect(count).toBe(0);
+  });
+  test('writes an optional Example Translation alongside the Example it is captured with', async ({
+    extensionContext,
+    extensionPage,
+    learnerClient,
+  }) => {
+    await createLearningLanguage(learnerClient, 'it');
+    await extensionPage.close();
+    const page = await openControlledPage(extensionContext);
+
+    await startCaptureFromLearningMode(page);
+    const capture = page.getByRole('dialog', { name: 'Capture Expression' });
+    await capture.getByLabel('Translation', { exact: true }).fill('discovery');
+    await capture.getByRole('textbox', { name: 'Answer Language', exact: true }).fill('en');
+    const confirmation = capture.getByRole('checkbox', { name: 'Confirm this Answer Language', exact: true });
+    if (await confirmation.isVisible()) await confirmation.check();
+    const exampleTranslation = capture.getByLabel('Example translation Optional', { exact: true });
+    await capture.getByLabel('Example Optional', { exact: true }).fill('');
+    await expect(exampleTranslation).toBeDisabled();
+    await capture.getByLabel('Example Optional', { exact: true }).fill('Ogni scoperta cambia il viaggio.');
+    await expect(exampleTranslation).toBeEnabled();
+    await exampleTranslation.fill('Every discovery changes the journey.');
+    await capture.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    await expect(page.getByText('Vocabulary Entry saved. Click another word or select a phrase.', { exact: true })).toBeVisible();
+
+    const { data, error } = await learnerClient
+      .from('examples')
+      .select('text, example_translations(text, answer_language_tag)')
+      .eq('text', 'Ogni scoperta cambia il viaggio.')
+      .single();
+    if (error) throw error;
+    expect(data).toEqual({
+      text: 'Ogni scoperta cambia il viaggio.',
+      example_translations: [{ text: 'Every discovery changes the journey.', answer_language_tag: 'en' }],
+    });
   });
 });

@@ -54,19 +54,19 @@ test.describe('Study Pair and Expression identity', () => {
   test('reuses NFC, case, trimming, and whitespace-equivalent Expressions', async ({ extensionPage }) => {
     await createStudyPair(extensionPage, 'fr', 'en');
     await extensionPage.getByLabel('Expression').fill('  CAFÉ\t AU   LAIT  ');
-    await extensionPage.getByLabel('Translation').fill('coffee with milk');
+    await extensionPage.getByLabel('Translation', { exact: true }).fill('coffee with milk');
     await extensionPage.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(extensionPage.getByText('Vocabulary Entry saved')).toBeVisible();
 
     await extensionPage.getByRole('button', { name: 'Add another entry' }).click();
     await extensionPage.getByLabel('Expression').fill('cafe\u0301 au lait');
-    await extensionPage.getByLabel('Translation').fill('coffee with milk');
+    await extensionPage.getByLabel('Translation', { exact: true }).fill('coffee with milk');
     await extensionPage.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(extensionPage.getByText('Existing Vocabulary Entry used')).toBeVisible();
 
     await extensionPage.getByRole('button', { name: 'Add another entry' }).click();
     await extensionPage.getByLabel('Expression').fill('cafés au lait');
-    await extensionPage.getByLabel('Translation').fill('coffees with milk');
+    await extensionPage.getByLabel('Translation', { exact: true }).fill('coffees with milk');
     await extensionPage.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
     await expect(extensionPage.getByText('Vocabulary Entry saved')).toBeVisible();
   });

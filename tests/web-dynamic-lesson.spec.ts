@@ -319,7 +319,7 @@ test.describe('web Dynamic Lesson', () => {
     const dialog = vocabularyCaptureDialog(page);
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue(capturedWord);
-    await expect(dialog.getByLabel('Example')).toHaveValue(promptText);
+    await expect(dialog.getByLabel('Example (optional)', { exact: true })).toHaveValue(promptText);
     await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
     await expect(dialog.getByLabel('Answer Language', { exact: true })).toHaveValue(expectedAnswerLanguageFromDirectionText(directionText));
     const capturedTranslation = 'a passing shower';
@@ -608,7 +608,7 @@ test.describe('web Dynamic Lesson', () => {
     const dialog = vocabularyCaptureDialog(page);
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue(choiceValue);
-    await expect(dialog.getByLabel('Example')).toHaveValue(choiceValue);
+    await expect(dialog.getByLabel('Example (optional)', { exact: true })).toHaveValue(choiceValue);
     await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toHaveCount(0);
@@ -656,7 +656,7 @@ test.describe('web Dynamic Lesson', () => {
     const dialog = vocabularyCaptureDialog(page);
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue(capturedWord);
-    await expect(dialog.getByLabel('Example')).toHaveValue(correctAnswerText);
+    await expect(dialog.getByLabel('Example (optional)', { exact: true })).toHaveValue(correctAnswerText);
     expect(correctAnswerText).not.toContain('Incorrect');
     expect(correctAnswerText).not.toContain('Correct answer');
     await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
@@ -709,7 +709,7 @@ test.describe('web Dynamic Lesson', () => {
     const dialog = vocabularyCaptureDialog(page);
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue('banco');
-    await expect(dialog.getByLabel('Example')).toHaveValue(promptText);
+    await expect(dialog.getByLabel('Example (optional)', { exact: true })).toHaveValue(promptText);
     await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
     await fillCaptureForm(dialog, 'bank note', 'en');
     await submitCaptureForm(dialog);

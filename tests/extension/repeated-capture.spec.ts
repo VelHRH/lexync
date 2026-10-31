@@ -15,9 +15,9 @@ async function capture(
   answerLanguage = 'en',
 ) {
   await page.getByLabel('Expression').fill(expression);
-  await page.getByLabel('Translation').fill(translation);
+  await page.getByLabel('Translation', { exact: true }).fill(translation);
   await page.getByLabel('Answer Language').fill(answerLanguage);
-  await page.getByLabel('Example').fill(example);
+  await page.getByLabel('Example Optional', { exact: true }).fill(example);
   await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
 }
 

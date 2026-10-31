@@ -18,6 +18,7 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
   const [answerLanguage, setAnswerLanguage] = useState('');
   const [translation, setTranslation] = useState('');
   const [example, setExample] = useState('');
+  const [exampleTranslation, setExampleTranslation] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
   const [pendingSenses, setPendingSenses] = useState<PendingSense[]>([]);
@@ -28,6 +29,7 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
     setExpression(draft?.expression ?? '');
     setAnswerLanguage(draft?.answerLanguage ?? '');
     setExample(draft?.example ?? '');
+    setExampleTranslation('');
     setTranslation('');
     setNotice('');
     setPendingSenses([]);
@@ -49,6 +51,7 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
     setAnswerLanguage('');
     setTranslation('');
     setExample('');
+    setExampleTranslation('');
     setPendingSenses([]);
   }
 
@@ -63,6 +66,7 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
     setSaving(true);
     const { data, error } = await supabase.rpc('capture_learning_language_entry', {
       p_example: example,
+      p_example_translation: exampleTranslation,
       p_expression: expression,
       p_translation: translation,
       p_answer_language_tag: answerTag,
@@ -110,6 +114,8 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
         <input id="translation" value={translation} disabled={!online} onChange={(event) => setTranslation(event.target.value)} />
         <label htmlFor="example">Example <span>(optional)</span></label>
         <textarea id="example" value={example} disabled={!online} onChange={(event) => setExample(event.target.value)} />
+        <label htmlFor="example-translation">Example translation <span>(optional)</span></label>
+        <textarea id="example-translation" value={exampleTranslation} disabled={!online || !example.trim()} onChange={(event) => setExampleTranslation(event.target.value)} />
         {notice && <p className="form-notice error" role="alert">{notice}</p>}
         <div className="vocabulary-editor-actions">
           <button className="primary-button" type="submit" disabled={saving || !online}>{saving ? 'Saving…' : 'Save Vocabulary Entry'}</button>
