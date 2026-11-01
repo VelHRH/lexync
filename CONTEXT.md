@@ -90,7 +90,7 @@ The Learner's own description of what they want to practise, written in free tex
 
 ## Lesson Question
 
-A persisted question in a Lesson whose content, choices, answer, direction, and relevant language metadata are part of the Lesson snapshot. Translation questions retain their Sense and translation metadata; cloze questions retain their Vocabulary Entry and cloze metadata. Dynamic questions may have null Vocabulary Entry and Sense references.
+A persisted question in a Lesson whose content, choices, answer, direction, and relevant language metadata are part of the Lesson snapshot. Translation questions retain their Sense and translation metadata; cloze questions retain their Vocabulary Entry and cloze metadata. A question also snapshots what is revealed once it is answered: the meaning of the asked Sense, and one of that Sense's Examples with its Example Translation. Revealed material is withheld from the Learner until the question is answered, and does not change when the Library is edited afterwards. Dynamic questions may have null Vocabulary Entry and Sense references, and snapshot no revealed material.
 
 ## Lesson Attempt
 

@@ -524,6 +524,10 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .lesson-feedback-icon { display: inline-grid; width: 1.35rem; height: 1.35rem; place-items: center; border-radius: 50%; background: currentColor; font-size: var(--lexync-type-size-xs); }
 .lesson-feedback-icon svg { width: .9rem; height: .9rem; stroke: var(--web-surface); }
 .lesson-correction-label { margin-left: .5rem; }
+.lesson-correction-example { flex-basis: 100%; display: grid; gap: .2rem; padding: .6rem .75rem; border-radius: var(--lexync-radius-md); background: var(--web-subtle); color: var(--lexync-color-ink-soft); line-height: var(--lexync-type-line-normal); }
+.lesson-correction-example .lesson-correction-label { margin-left: 0; }
+.lesson-correction-example-sentence { font-family: var(--lexync-type-family-material); font-weight: var(--lexync-type-weight-regular); font-style: italic; overflow-wrap: anywhere; }
+.lesson-correction-example-translation { color: var(--web-muted); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-regular); overflow-wrap: anywhere; }
 .lesson-footer { min-height: 6rem; display: flex; align-items: center; justify-content: flex-end; border-top: var(--web-outline); }
 .lesson-continue { min-width: 8rem; }
 .lesson-capture { min-height: calc(2.75rem + 1.5rem + 1px); display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; padding: .75rem 0; border-top: var(--web-outline); }
