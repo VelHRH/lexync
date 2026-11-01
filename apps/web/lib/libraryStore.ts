@@ -7,7 +7,7 @@ import { supabase } from './supabase';
 export type ExampleTranslation = { id: string; text: string; answer_language_tag: string };
 export type Example = { id: string; text: string; translations: ExampleTranslation[] };
 export type Sense = { id: string; translations: Translation[]; examples: Example[] };
-export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean; audioClipPath: string | null };
+export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean; audioClipPath: string | null; audioClipDurationMs: number | null };
 export type Collection = { id: string; name: string; entryCount: number; eligibleSenseCount: number; canPractise: boolean };
 export type Membership = { collection_id: string; learning_vocabulary_entry_id: string };
 
@@ -129,7 +129,7 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
   if (exampleTranslationsError) return { error: exampleTranslationsError.message };
   const learningEntryIds = [...new Set((data ?? []).map((entry) => entry.learning_vocabulary_entry_id))];
   const { data: learningEntries, error: learningEntriesError } = learningEntryIds.length
-    ? await supabase.from('learning_vocabulary_entries').select('id,audio_clip_path').in('id', learningEntryIds)
+    ? await supabase.from('learning_vocabulary_entries').select('id,audio_clip_path,audio_clip_duration_ms').in('id', learningEntryIds)
     : { data: [], error: null };
   if (learningEntriesError) return { error: learningEntriesError.message };
   const audioClips = new Map((learningEntries ?? []).map((item) => [item.id as string, item]));
@@ -157,6 +157,7 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
         suspended: entry.suspended,
         senses: nextSenses,
         audioClipPath: typeof clip?.audio_clip_path === 'string' ? clip.audio_clip_path : null,
+        audioClipDurationMs: typeof clip?.audio_clip_duration_ms === 'number' ? clip.audio_clip_duration_ms : null,
       });
     }
   }

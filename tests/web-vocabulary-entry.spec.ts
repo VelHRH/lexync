@@ -48,6 +48,10 @@ function audioClipControls(page: Page) {
   return page.getByRole('group', { name: 'Audio Clip' });
 }
 
+function playControl(page: Page, expression: string) {
+  return page.getByRole('button', { name: `Play the pronunciation of ${expression}` });
+}
+
 async function recordClip(page: Page) {
   await audioClipControls(page).getByRole('button', { name: 'Record pronunciation' }).click();
   const stop = audioClipControls(page).getByRole('button', { name: 'Stop recording' });
@@ -550,23 +554,46 @@ test.describe('web Vocabulary Entry library', () => {
 
     await recordClip(page);
     const preview = audioClipControls(page).locator('[data-ui="vocabulary-audio-clip-preview"]');
-    await expect(preview).toBeVisible();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Play the recording to listen back' })).toBeVisible();
     expect(await preview.evaluate((element) => (element as HTMLAudioElement).paused)).toBe(true);
     expect(await preview.evaluate((element) => (element as HTMLAudioElement).hasAttribute('autoplay'))).toBe(false);
 
     await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
-    const kept = audioClipControls(page).locator('[data-ui="vocabulary-audio-clip"]');
-    await expect(kept).toBeVisible();
+    await expect(audioClipControls(page).locator('[data-ui="vocabulary-audio-clip"]')).toHaveCount(1);
     await expect(audioClipControls(page).getByRole('button', { name: 'Remove recording' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Cancel' }).click();
     await page.reload();
-    await expandEntry(page, 'casa');
     const player = page.locator('[data-ui="vocabulary-audio-clip"]');
-    await expect(player).toBeVisible();
+    await expect(playControl(page, 'casa')).toBeVisible();
     expect(await player.evaluate((element) => (element as HTMLAudioElement).paused)).toBe(true);
     expect(await player.evaluate((element) => (element as HTMLAudioElement).hasAttribute('autoplay'))).toBe(false);
-    expect(await player.evaluate((element) => (element as HTMLAudioElement).controls)).toBe(true);
+    expect(await player.evaluate((element) => (element as HTMLAudioElement).controls)).toBe(false);
+  });
+
+  test('plays a recorded word from its Library row, and offers nothing for a word without a recording', async ({ page }) => {
+    const account = credentials('web-audio-row');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+    await createEntry(client, pair.id, 'nube', 'cloud');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+    await recordClip(page);
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Remove recording' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.reload();
+
+    const entry = page.locator('details.vocabulary-entry').filter({ has: page.locator('summary').filter({ hasText: 'casa' }) });
+    await expect(playControl(page, 'casa')).toBeVisible();
+    await expect(playControl(page, 'nube')).toHaveCount(0);
+    await expect(entry).not.toHaveAttribute('open', '');
+
+    await playControl(page, 'casa').click();
+    await expect(page.getByRole('button', { name: 'Stop the pronunciation of casa' })).toBeVisible();
+    await expect(entry).not.toHaveAttribute('open', '');
   });
 
   test('replaces an Audio Clip so the earlier recording stops being reachable, then removes it entirely', async ({ page }) => {

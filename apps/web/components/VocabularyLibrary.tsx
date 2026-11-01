@@ -569,7 +569,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       {snapshot.error && <p className="form-notice error" role="alert">{snapshot.error}</p>}
       <p className="visually-hidden" role="status">{selectionAnnouncement}</p>
       <div className="vocabulary-entry-list" data-selecting={selecting ? 'true' : undefined}>
-        {visibleEntries.map((entry, index) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id} data-selected={selectedEntryIds.includes(entry.learningVocabularyEntryId)}>
+        {visibleEntries.map((entry, index) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id} data-selected={selectedEntryIds.includes(entry.learningVocabularyEntryId)} data-has-clip={entry.audioClipPath ? 'true' : undefined}>
           {selecting && <label className="vocabulary-entry-select">
             <input
               type="checkbox"
@@ -581,6 +581,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
             />
             <span className="vocabulary-entry-select-mark" aria-hidden="true" />
           </label>}
+          {entry.audioClipPath && <span className="vocabulary-entry-audio"><VocabularyAudioClipPlayer entry={entry} /></span>}
           <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>
             <summary>
               <span className="vocabulary-entry-identity">
@@ -634,7 +635,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
                 <button className="secondary-button" type="button" disabled={saving} onClick={() => { setDraft(null); setNotice(''); }}>Cancel</button>
               </div>
             </form> : <>
-              <VocabularyAudioClipPlayer entry={entry} />
               {entry.senses.map((sense, index) => <div className="vocabulary-sense" key={sense.id}>
                 <h4>Sense {index + 1}</h4>
                 {sense.translations.map((item) => <p key={item.id}>{item.text} <span>{item.answer_language_tag}</span></p>)}
