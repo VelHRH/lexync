@@ -548,6 +548,8 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .lesson-feedback-icon { display: inline-grid; width: 1.35rem; height: 1.35rem; place-items: center; border-radius: 50%; background: currentColor; font-size: var(--lexync-type-size-xs); }
 .lesson-feedback-icon svg { width: .9rem; height: .9rem; stroke: var(--web-surface); }
 .lesson-correction-label { margin-left: .5rem; }
+.lesson-correction-audio { display: flex; align-items: center; gap: .5rem; margin-top: .75rem; color: var(--web-muted); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-semibold); }
+.lesson-correction-audio .lesson-correction-label { margin-left: 0; }
 .lesson-correction-example { flex-basis: 100%; display: grid; gap: .2rem; padding: .6rem .75rem; border-radius: var(--lexync-radius-md); background: var(--web-subtle); color: var(--lexync-color-ink-soft); line-height: var(--lexync-type-line-normal); }
 .lesson-correction-example .lesson-correction-label { margin-left: 0; }
 .lesson-correction-example-sentence { font-family: var(--lexync-type-family-material); font-weight: var(--lexync-type-weight-regular); font-style: italic; overflow-wrap: anywhere; }

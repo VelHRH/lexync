@@ -124,12 +124,12 @@ export default defineConfig({
     {
       name: 'web-lesson-session',
       testMatch: /web-lesson-session\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], launchOptions: { args: fakeMediaDeviceArgs } },
     },
     {
       name: 'web-lesson-session-mobile',
       testMatch: /web-lesson-session\.spec\.ts/,
-      use: { ...devices['Pixel 7'] },
+      use: { ...devices['Pixel 7'], launchOptions: { args: fakeMediaDeviceArgs } },
     },
     {
       name: 'web-collection-lesson',

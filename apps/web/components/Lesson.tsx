@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 import { BrandMark } from './BrandArtwork';
+import { AudioClipPlayer } from './VocabularyAudioClip';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 
 type LessonQuestionType = 'translation' | 'cloze';
@@ -28,6 +29,9 @@ type LessonQuestion = {
   revealed_example: string | null;
   revealed_example_translation: string | null;
   revealed_example_translation_answer_language_tag: string | null;
+  audio_clip_path: string | null;
+  audio_clip_duration_ms: number | null;
+  audio_clip_expression: string | null;
 };
 
 type LessonState = {
@@ -90,6 +94,9 @@ function parseQuestion(value: unknown): LessonQuestion | null {
     revealed_example: typeof value.revealed_example === 'string' ? value.revealed_example : null,
     revealed_example_translation: typeof value.revealed_example_translation === 'string' ? value.revealed_example_translation : null,
     revealed_example_translation_answer_language_tag: typeof value.revealed_example_translation_answer_language_tag === 'string' ? value.revealed_example_translation_answer_language_tag : null,
+    audio_clip_path: typeof value.audio_clip_path === 'string' ? value.audio_clip_path : null,
+    audio_clip_duration_ms: typeof value.audio_clip_duration_ms === 'number' ? value.audio_clip_duration_ms : null,
+    audio_clip_expression: typeof value.audio_clip_expression === 'string' ? value.audio_clip_expression : null,
   };
 }
 
@@ -403,6 +410,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
           <div className={`lesson-feedback${feedback ? ` ${feedback.toLowerCase()}` : ''}`} aria-live="polite" role="status">
             {feedback && <><span className="lesson-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'Correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span><span>{feedback}</span>{feedback === 'Incorrect' && question.correct_answer && <><span className="lesson-correction-label">Correct answer</span><span className="lesson-correction-answer">{question.correct_answer}</span></>}{question.revealed_meaning && <><span className="lesson-correction-label">Meaning</span><span className="lesson-correction-meaning" lang={question.revealed_meaning_answer_language_tag ?? undefined}>{question.revealed_meaning}</span></>}{question.revealed_example && <span className="lesson-correction-example"><span className="lesson-correction-label">Example</span><span className="lesson-correction-example-sentence" lang={lessonLanguageTag || undefined}>{question.revealed_example}</span>{question.revealed_example_translation && <span className="lesson-correction-example-translation" lang={question.revealed_example_translation_answer_language_tag ?? undefined}>{question.revealed_example_translation}</span>}</span>}</>}
           </div>
+          {question.audio_clip_path && question.audio_clip_expression && <div className="lesson-correction-audio"><span className="lesson-correction-label">Pronunciation</span><AudioClipPlayer dataUi="lesson-audio-clip" durationMs={question.audio_clip_duration_ms} expression={question.audio_clip_expression} path={question.audio_clip_path} /></div>}
         </section>
         {lesson.source === 'dynamic' && <section className="lesson-capture" role="region" aria-label="Save to vocabulary" data-ui="lesson-capture" tabIndex={-1} ref={captureRegionRef}>
           {capturedSelection ? <>
