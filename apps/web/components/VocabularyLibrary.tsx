@@ -592,42 +592,52 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
             </summary>
             <div>
             {draft?.id === entry.id ? <form className="vocabulary-editor" onSubmit={saveDraft}>
-              <label htmlFor={`edit-expression-${entry.id}`}>Expression</label>
-              <input id={`edit-expression-${entry.id}`} value={draft.expression} disabled={!online} onChange={(event) => setDraft({ ...draft, expression: event.target.value })} />
-              {draft.senses.map((sense, senseIndex) => <fieldset key={sense.key}>
-                <legend>Sense {senseIndex + 1}</legend>
+              <div className="field vocabulary-editor-expression">
+                <label htmlFor={`edit-expression-${entry.id}`}>Expression</label>
+                <input id={`edit-expression-${entry.id}`} value={draft.expression} disabled={!online} onChange={(event) => setDraft({ ...draft, expression: event.target.value })} />
+              </div>
+              {draft.senses.map((sense, senseIndex) => <section className="vocabulary-sense-editor" key={sense.key} role="group" aria-labelledby={`sense-heading-${sense.key}`}>
+                <div className="vocabulary-editor-head">
+                  <h4 className="surface-meta" id={`sense-heading-${sense.key}`}>Sense {senseIndex + 1}</h4>
+                  <button className="inline-button danger" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Remove Sense ${senseIndex + 1}`} onClick={() => setDraft({ ...draft, senses: draft.senses.filter((item) => item.key !== sense.key) })}>Remove</button>
+                </div>
                 {sense.translations.map((item, translationIndex) => <div className="vocabulary-editor-row" key={item.key}>
                   <div className="field">
                     <label htmlFor={`translation-${item.key}`}>Sense {senseIndex + 1} translation {translationIndex + 1}</label>
                     <input id={`translation-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateTranslationText(senseIndex, item.key, event.target.value)} />
                   </div>
-                  <button className="text-button danger" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Remove translation ${translationIndex + 1} from Sense ${senseIndex + 1}`} onClick={() => removeTranslation(senseIndex, item.key)}>Remove</button>
+                  <button className="icon-button" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Remove translation ${translationIndex + 1} from Sense ${senseIndex + 1}`} onClick={() => removeTranslation(senseIndex, item.key)}>
+                    <span aria-hidden="true">✕</span>
+                  </button>
                 </div>)}
-                <button className="text-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => addTranslation(senseIndex)}>Add translation to Sense {senseIndex + 1}</button>
+                <button className="inline-button" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Add translation to Sense ${senseIndex + 1}`} onClick={() => addTranslation(senseIndex)}>Add translation</button>
                 {sense.examples.map((item) => {
                   const exampleIndex = draftExamples.findIndex((exampleItem) => exampleItem.key === item.key);
-                  return <div className="vocabulary-example-editor" key={item.key}>
-                    <div className="field">
-                      <label htmlFor={`example-text-${item.key}`}>Example {exampleIndex + 1} text</label>
-                      <textarea id={`example-text-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateExampleText(senseIndex, item.key, event.target.value)} />
+                  return <div className="vocabulary-example-editor" key={item.key} role="group" aria-label={`Example ${exampleIndex + 1}`}>
+                    <button className="icon-button vocabulary-example-remove" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Remove Example ${exampleIndex + 1}`} onClick={() => removeExample(senseIndex, item.key)}>
+                      <span aria-hidden="true">✕</span>
+                    </button>
+                    <div className="vocabulary-example-fields">
+                      <div className="field">
+                        <label htmlFor={`example-text-${item.key}`}>Example {exampleIndex + 1} text</label>
+                        <textarea id={`example-text-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateExampleText(senseIndex, item.key, event.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`example-translation-${item.key}`}>Example {exampleIndex + 1} translation</label>
+                        <textarea id={`example-translation-${item.key}`} value={item.translations[0]?.text ?? ''} disabled={!online} onChange={(event) => updateExampleTranslationText(senseIndex, item.key, event.target.value)} />
+                      </div>
                     </div>
-                    <div className="field">
-                      <label htmlFor={`example-translation-${item.key}`}>Example {exampleIndex + 1} translation</label>
-                      <textarea id={`example-translation-${item.key}`} value={item.translations[0]?.text ?? ''} disabled={!online} onChange={(event) => updateExampleTranslationText(senseIndex, item.key, event.target.value)} />
-                    </div>
-                    <div className="field">
+                    <div className="field vocabulary-example-sense">
                       <label htmlFor={`example-sense-${item.key}`}>Example {exampleIndex + 1} Sense</label>
                       <select id={`example-sense-${item.key}`} value={sense.key} disabled={!online} onChange={(event) => moveExample(item.key, event.target.value)}>
                         {draft.senses.map((option, optionIndex) => <option key={option.key} value={option.key}>Sense {optionIndex + 1} · {option.translations[0]?.text || 'New Sense'}</option>)}
                       </select>
                     </div>
-                    <button className="text-button danger" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => removeExample(senseIndex, item.key)}>Remove Example {exampleIndex + 1}</button>
                   </div>;
                 })}
-                <button className="text-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => addExample(senseIndex)}>Add Example to Sense {senseIndex + 1}</button>
-                <button className="text-button danger" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => setDraft({ ...draft, senses: draft.senses.filter((item) => item.key !== sense.key) })}>Remove Sense {senseIndex + 1}</button>
-              </fieldset>)}
-              <button className="secondary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => setDraft({ ...draft, senses: [...draft.senses, { id: null, key: draftKey(), translations: [{ id: null, key: draftKey(), text: '' }], examples: [] }] })}>Add Sense</button>
+                <button className="inline-button" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Add Example to Sense ${senseIndex + 1}`} onClick={() => addExample(senseIndex)}>Add Example</button>
+              </section>)}
+              <button className="secondary-button vocabulary-add-sense" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => setDraft({ ...draft, senses: [...draft.senses, { id: null, key: draftKey(), translations: [{ id: null, key: draftKey(), text: '' }], examples: [] }] })}>Add Sense</button>
               <VocabularyAudioClipRecorder entry={entry} languageId={language.id} online={online} onChanged={() => void reload()} />
               {notice && <p className="form-notice error" role="alert">{notice}</p>}
               <div className="vocabulary-editor-actions">
