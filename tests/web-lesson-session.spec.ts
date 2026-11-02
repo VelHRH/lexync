@@ -64,7 +64,7 @@ async function registerLearner(prefix: string) {
   if (error || !data.session) throw error ?? new Error('The local learner session is missing.');
   const { data: language, error: languageError } = await client.rpc('create_learning_language', { p_language_tag: 'es' });
   if (languageError) throw languageError;
-  return { account, client, learningLanguageId: (language as { id: string }).id };
+  return { account, client, learnerId: data.session.user.id, learningLanguageId: (language as { id: string }).id };
 }
 
 async function captureEntry(
@@ -280,6 +280,52 @@ function revealedExample(page: Page) {
 
 function revealedExampleTranslation(page: Page) {
   return lessonQuestion(page).locator('.lesson-correction-example-translation');
+}
+
+function pronunciationRegion(page: Page) {
+  return lessonQuestion(page).locator('.lesson-correction-audio');
+}
+
+function pronunciationAudio(page: Page) {
+  return lessonQuestion(page).locator('[data-ui="lesson-audio-clip"]');
+}
+
+function playPronunciation(page: Page, expression: string) {
+  return lessonQuestion(page).getByRole('button', { name: `Play the pronunciation of ${expression}` });
+}
+
+async function recordedClip(page: Page) {
+  return page.evaluate(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    const stopped = new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve();
+    });
+    recorder.start();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    recorder.stop();
+    await stopped;
+    for (const track of stream.getTracks()) track.stop();
+    const buffer = await new Blob(chunks, { type: 'audio/webm' }).arrayBuffer();
+    return [...new Uint8Array(buffer)];
+  });
+}
+
+async function recordPronunciation(page: Page, fixture: { client: SupabaseClient; learnerId: string; learningLanguageId: string }, learningVocabularyEntryId: string) {
+  const bytes = await recordedClip(page);
+  const path = `${fixture.learnerId}/${fixture.learningLanguageId}/${learningVocabularyEntryId}/${crypto.randomUUID()}.webm`;
+  const { error: uploadError } = await fixture.client.storage.from('vocabulary-audio-clips').upload(path, new Blob([new Uint8Array(bytes)], { type: 'audio/webm' }), { contentType: 'audio/webm' });
+  if (uploadError) throw uploadError;
+  const { error } = await fixture.client.rpc('set_vocabulary_entry_audio_clip', {
+    p_audio_clip_duration_ms: 600,
+    p_audio_clip_path: path,
+    p_learning_vocabulary_entry_id: learningVocabularyEntryId,
+  });
+  if (error) throw error;
 }
 
 async function seedExampleEntries(prefix: string, entries: ReadonlyArray<readonly [string, string]>, options: { translateExample?: boolean } = {}) {
@@ -750,6 +796,87 @@ test.describe('web Lesson', () => {
     await expect(continueButton(page)).toBeEnabled();
     await expect(revealedExample(page)).toHaveText(`Esta frase contiene ${questionEntry.expression}.`);
     await expect(revealedExample(page)).not.toHaveText('Una frase completamente distinta.');
+  });
+
+  test('withholds the pronunciation until an answer is submitted and then plays the recorded word on request', async ({ page }) => {
+    const fixture = await seedEntries('lesson-audio');
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const questionEntry = askedEntry(fixture.captured, await pendingLessonQuestion(fixture.client, fixture.learningLanguageId));
+    await recordPronunciation(page, fixture, questionEntry.vocabularyEntryId);
+    await page.reload();
+    await expect(lessonQuestion(page)).toBeVisible();
+    await expect(pronunciationRegion(page)).toHaveCount(0);
+
+    await answerCurrentQuestion(page);
+    await expect(lessonQuestion(page).getByText('Pronunciation', { exact: true })).toBeVisible();
+    const control = playPronunciation(page, questionEntry.expression);
+    await expect(control).toBeVisible();
+    expect(await pronunciationAudio(page).evaluate((element) => (element as HTMLAudioElement).paused)).toBe(true);
+    expect(await pronunciationAudio(page).evaluate((element) => (element as HTMLAudioElement).hasAttribute('autoplay'))).toBe(false);
+
+    await control.focus();
+    await expect(control).toBeFocused();
+    await control.press('Enter');
+    await expect(lessonQuestion(page).getByRole('button', { name: `Stop the pronunciation of ${questionEntry.expression}` })).toBeVisible();
+  });
+
+  test('offers no pronunciation control, and leaves no gap, for a word with no recording', async ({ page }) => {
+    const fixture = await seedEntries('lesson-audio-absent');
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const questionEntry = askedEntry(fixture.captured, await pendingLessonQuestion(fixture.client, fixture.learningLanguageId));
+    await answerCurrentQuestion(page);
+    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+    await expect(pronunciationRegion(page)).toHaveCount(0);
+    await expect(pronunciationAudio(page)).toHaveCount(0);
+    await expect(playPronunciation(page, questionEntry.expression)).toHaveCount(0);
+    await expect(lessonQuestion(page).getByText('Pronunciation', { exact: true })).toHaveCount(0);
+  });
+
+  test('plays the recorded word on a cloze question as well as a translation question', async ({ page }) => {
+    const fixture = await seedExampleEntries('lesson-audio-cloze', vocabulary.slice(0, 10), { translateExample: true });
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    const { questionEntry } = await driveToClozeQuestion(page, fixture.client, fixture.learningLanguageId, fixture.captured);
+    await recordPronunciation(page, fixture, questionEntry.vocabularyEntryId);
+    await page.reload();
+    await expect(lessonQuestion(page)).toBeVisible();
+    expect((await questionSnapshot(page)).type).toBe('cloze');
+    await expect(pronunciationRegion(page)).toHaveCount(0);
+
+    await answerCurrentQuestion(page, questionEntry.expression);
+    const control = playPronunciation(page, questionEntry.expression);
+    await expect(control).toBeVisible();
+    await control.press('Enter');
+    await expect(lessonQuestion(page).getByRole('button', { name: `Stop the pronunciation of ${questionEntry.expression}` })).toBeVisible();
+  });
+
+  test('offers no pronunciation control on a Dynamic Lesson question, which stands behind no recorded word', async ({ page }) => {
+    const fixture = await registerLearner('lesson-audio-dynamic');
+    const entry = await captureEntry(fixture.client, fixture.learningLanguageId, 'casa', 'house');
+    await signIn(page, fixture.account);
+    await recordPronunciation(page, fixture, entry.vocabularyEntryId);
+    const { data, error } = await fixture.client.rpc('create_dynamic_lesson', {
+      p_learning_language_id: fixture.learningLanguageId,
+      p_questions: Array.from({ length: 8 }, (_unused, index) => ({
+        answer_language_tag: 'en',
+        choices: ['casa', 'house'],
+        correct_answer: 'house',
+        direction: 'recognition',
+        passages: [{ material_id: crypto.randomUUID(), passage_id: crypto.randomUUID(), passage_ordinal: index, passage_text: `Dynamic pronunciation passage ${index}.`, similarity: 0.9 }],
+        prompt: `dynamic pronunciation prompt ${index}`,
+        question_type: 'translation',
+      })),
+    });
+    if (error) throw error;
+    await page.goto(`/lessons/${(data as { id: string }).id}`);
+    await expect(lessonQuestion(page)).toBeVisible();
+
+    await answerCurrentQuestion(page);
+    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+    await expect(pronunciationRegion(page)).toHaveCount(0);
+    await expect(playPronunciation(page, 'casa')).toHaveCount(0);
   });
 
   test('records and locks one answer, announces semantic feedback, reveals the correction, and advances only on Continue', async ({ page }) => {

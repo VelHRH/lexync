@@ -98,17 +98,20 @@ function AudioClipControl({ dataUi, durationMs, idleLabel, playingLabel, resolve
   </span>;
 }
 
-export function VocabularyAudioClipPlayer({ entry }: { entry: LibraryEntry }) {
-  const path = entry.audioClipPath;
-  if (!path) return null;
+export function AudioClipPlayer({ dataUi, durationMs, expression, path }: { dataUi: string; durationMs: number | null; expression: string; path: string }) {
   return <AudioClipControl
     key={path}
-    dataUi="vocabulary-audio-clip"
-    durationMs={entry.audioClipDurationMs}
-    idleLabel={`Play the pronunciation of ${entry.expression}`}
-    playingLabel={`Stop the pronunciation of ${entry.expression}`}
+    dataUi={dataUi}
+    durationMs={durationMs}
+    idleLabel={`Play the pronunciation of ${expression}`}
+    playingLabel={`Stop the pronunciation of ${expression}`}
     resolve={() => signedClipUrl(path)}
   />;
+}
+
+export function VocabularyAudioClipPlayer({ entry }: { entry: LibraryEntry }) {
+  if (!entry.audioClipPath) return null;
+  return <AudioClipPlayer dataUi="vocabulary-audio-clip" durationMs={entry.audioClipDurationMs} expression={entry.expression} path={entry.audioClipPath} />;
 }
 
 export function VocabularyAudioClipRecorder({ entry, languageId, online, onChanged }: { entry: LibraryEntry; languageId: string; online: boolean; onChanged: () => void }) {
