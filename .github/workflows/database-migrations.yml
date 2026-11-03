@@ -41,7 +41,7 @@ jobs:
         with:
           node-version-file: .node-version
 
-      - name: Check release configuration
+      - name: Check migration push configuration
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN"
           test -n "$SUPABASE_DB_PASSWORD"

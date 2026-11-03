@@ -10,7 +10,7 @@ export function audioClipPath({ clipId, entryId, languageId, learnerId, mimeType
   return `${learnerId}/${languageId}/${entryId}/${clipId}.${audioClipExtension(mimeType)}`;
 }
 
-export type AudioClipFailureReason = 'storage-missing' | 'not-permitted' | 'upload-failed' | 'contract-missing' | 'metadata-failed';
+export type AudioClipFailureReason = 'storage-missing' | 'not-permitted' | 'upload-failed' | 'contract-missing' | 'metadata-failed' | 'removal-failed';
 
 export type AudioClipFailure = { notice: string; reason: AudioClipFailureReason };
 
@@ -18,6 +18,7 @@ const notices: Record<AudioClipFailureReason, string> = {
   'contract-missing': 'This server cannot keep pronunciations yet, so the recording was not saved. Everything else here still works.',
   'metadata-failed': 'That recording was stored but could not be attached to this word. Try again.',
   'not-permitted': 'Lexync was not allowed to save that recording. Sign in again and try once more.',
+  'removal-failed': 'That recording could not be removed. Try again.',
   'storage-missing': 'This server cannot store pronunciations yet, so the recording was not saved. Everything else here still works.',
   'upload-failed': 'That recording could not be saved. Try again.',
 };
@@ -48,9 +49,17 @@ export function audioClipUploadFailure(error: unknown): AudioClipFailure {
   return failure('upload-failed');
 }
 
-export function audioClipMetadataFailure(error: unknown): AudioClipFailure {
+function writeFailure(error: unknown, fallback: AudioClipFailureReason): AudioClipFailure {
   const text = errorText(error);
   if (text.includes('pgrst202') || text.includes('could not find the function') || text.includes('42703') || text.includes('does not exist')) return failure('contract-missing');
   if (refused(text, errorStatus(error))) return failure('not-permitted');
-  return failure('metadata-failed');
+  return failure(fallback);
+}
+
+export function audioClipMetadataFailure(error: unknown): AudioClipFailure {
+  return writeFailure(error, 'metadata-failed');
+}
+
+export function audioClipRemovalFailure(error: unknown): AudioClipFailure {
+  return writeFailure(error, 'removal-failed');
 }

@@ -30,7 +30,7 @@ The repository uses a single shared domain context. See `docs/agents/domain.md`.
 ## Database migrations
 
 - `supabase/migrations` is the only source of truth for the deployed schema.
-- Migrations reach the deployed project only through the `Push database migrations` workflow. See `docs/database-migrations.md`.
+- Migrations reach the deployed project through the `Push database migrations` workflow. `pnpm db:push` is a break-glass for when Actions is unavailable, never the routine path, and `pnpm db:verify` must follow it. See `docs/database-migrations.md`.
 - Never apply SQL to the deployed project by hand, and never renumber or delete an already applied migration.
 
 ## Library Documentation

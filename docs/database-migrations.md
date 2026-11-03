@@ -1,6 +1,6 @@
 # Database migration operations
 
-`supabase/migrations` is the only source of truth for the deployed schema. The deployed project advances through the `Push database migrations` workflow and through nothing else. Applying SQL by hand in the Supabase dashboard, or from a local shell against the linked project, leaves the recorded history and the repository disagreeing and is not a supported path.
+`supabase/migrations` is the only source of truth for the deployed schema. The deployed project advances through the `Push database migrations` workflow. The one exception is the break-glass below, which exists because Actions can itself be unavailable; it runs the same migrations through the same CLI, and the drift check makes any use of it visible. Applying SQL by hand in the Supabase dashboard is never a supported path: it leaves the recorded history and the repository disagreeing.
 
 ## Why this exists
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { LibraryEntry } from '../lib/libraryStore';
-import { AUDIO_CLIP_BUCKET, audioClipMetadataFailure, audioClipPath, audioClipUploadFailure } from '../lib/audioClip';
+import { AUDIO_CLIP_BUCKET, audioClipMetadataFailure, audioClipPath, audioClipRemovalFailure, audioClipUploadFailure } from '../lib/audioClip';
 
 function recordingMimeType() {
   if (typeof MediaRecorder === 'undefined') return '';
@@ -216,10 +216,10 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
       p_learning_vocabulary_entry_id: entry.learningVocabularyEntryId,
     });
     if (error) {
-      const failure = audioClipMetadataFailure(error);
+      const failure = audioClipRemovalFailure(error);
       console.error(`Audio Clip removal failed (${failure.reason}) through set_vocabulary_entry_audio_clip`, error);
       setBusy(false);
-      setNotice(failure.reason === 'metadata-failed' ? 'That recording could not be removed. Try again.' : failure.notice);
+      setNotice(failure.notice);
       return;
     }
     await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([entry.audioClipPath]);

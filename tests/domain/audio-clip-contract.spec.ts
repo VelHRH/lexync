@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { audioClipMetadataFailure, audioClipPath, audioClipUploadFailure } from '../../apps/web/lib/audioClip';
+import { audioClipMetadataFailure, audioClipPath, audioClipRemovalFailure, audioClipUploadFailure } from '../../apps/web/lib/audioClip';
 
 const learnerId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const languageId = 'a1000000-0000-0000-0000-000000000001';
@@ -78,6 +78,15 @@ test.describe('Audio Clip failures a Learner can act on', () => {
     expect(upload.notice).toBe('That recording could not be saved. Try again.');
     expect(metadata.reason).toBe('metadata-failed');
     expect(metadata.notice).toContain('Try again.');
+  });
+
+  test('a recording that cannot be removed says so, and still names a server that cannot keep pronunciations', () => {
+    const ordinary = audioClipRemovalFailure({ message: 'Failed to fetch' });
+
+    expect(ordinary.reason).toBe('removal-failed');
+    expect(ordinary.notice).toBe('That recording could not be removed. Try again.');
+    expect(audioClipRemovalFailure({ code: 'PGRST202', message: 'Could not find the function' }).reason).toBe('contract-missing');
+    expect(audioClipRemovalFailure({ code: '42501', message: 'permission denied' }).reason).toBe('not-permitted');
   });
 
   test('each distinct reason carries its own sentence, and a refusal reads the same from either step', () => {
