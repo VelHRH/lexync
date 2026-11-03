@@ -27,6 +27,12 @@ The repository uses a single shared domain context. See `docs/agents/domain.md`.
 - Verify web-rendered UI in a real browser at representative desktop and mobile sizes before delivery.
 - Run the relevant Impeccable audit or polish flow before final code review.
 
+## Database migrations
+
+- `supabase/migrations` is the only source of truth for the deployed schema.
+- Migrations reach the deployed project only through the `Push database migrations` workflow. See `docs/database-migrations.md`.
+- Never apply SQL to the deployed project by hand, and never renumber or delete an already applied migration.
+
 ## Library Documentation
 
 - Use Context7 MCP for current documentation when a task asks about a library, framework, SDK, API, CLI tool, or cloud service.

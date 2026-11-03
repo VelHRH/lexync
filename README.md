@@ -34,6 +34,8 @@ pnpm backend:reset
 
 Copy `.env.example` to `.env.local` and provide the Supabase URL, browser-safe publishable key, and web URL. Secret and service-role keys must never use a `WXT_PUBLIC_` variable.
 
+Migrations reach the deployed Supabase project only through the `Push database migrations` workflow. See `docs/database-migrations.md`.
+
 `pnpm test` starts and resets the local Supabase project, runs the focused ownership-policy tests, builds every JavaScript/TypeScript workspace, and runs Playwright. Stop the local services with `pnpm backend:stop` when they are no longer needed.
 
 ## Email and password authentication

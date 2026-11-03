@@ -212,6 +212,10 @@ export default defineConfig({
       name: 'extension-release',
       testMatch: /extension-release(?:-command)?\.spec\.ts/,
     },
+    {
+      name: 'database-migrations',
+      testMatch: /database-migrations\.spec\.ts/,
+    },
   ],
   webServer: [
     {

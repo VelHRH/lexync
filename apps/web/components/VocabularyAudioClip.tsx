@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { LibraryEntry } from '../lib/libraryStore';
-
-const AUDIO_BUCKET = 'vocabulary-audio-clips';
+import { AUDIO_CLIP_BUCKET, audioClipMetadataFailure, audioClipPath, audioClipUploadFailure } from '../lib/audioClip';
 
 function recordingMimeType() {
   if (typeof MediaRecorder === 'undefined') return '';
@@ -14,19 +13,13 @@ function recordingMimeType() {
   return '';
 }
 
-function clipExtension(mimeType: string) {
-  if (mimeType.startsWith('audio/ogg')) return 'ogg';
-  if (mimeType.startsWith('audio/mp4')) return 'm4a';
-  return 'webm';
-}
-
 function clipLength(seconds: number) {
   const total = Math.max(0, Math.round(seconds));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 async function signedClipUrl(path: string) {
-  const { data } = await supabase.storage.from(AUDIO_BUCKET).createSignedUrl(path, 3600);
+  const { data } = await supabase.storage.from(AUDIO_CLIP_BUCKET).createSignedUrl(path, 3600);
   return data?.signedUrl ?? '';
 }
 
@@ -177,12 +170,19 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
     if (!preview) return;
     setBusy(true);
     setNotice('');
-    const extension = clipExtension(preview.blob.type);
-    const path = `${await currentLearnerId()}/${languageId}/${entry.learningVocabularyEntryId}/${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from(AUDIO_BUCKET).upload(path, preview.blob, { contentType: preview.blob.type });
+    const path = audioClipPath({
+      clipId: crypto.randomUUID(),
+      entryId: entry.learningVocabularyEntryId,
+      languageId,
+      learnerId: await currentLearnerId(),
+      mimeType: preview.blob.type,
+    });
+    const { error: uploadError } = await supabase.storage.from(AUDIO_CLIP_BUCKET).upload(path, preview.blob, { contentType: preview.blob.type });
     if (uploadError) {
+      const failure = audioClipUploadFailure(uploadError);
+      console.error(`Audio Clip upload failed (${failure.reason}) for ${AUDIO_CLIP_BUCKET}/${path}`, uploadError);
       setBusy(false);
-      setNotice('That recording could not be saved. Try again.');
+      setNotice(failure.notice);
       return;
     }
     const previousPath = entry.audioClipPath;
@@ -192,12 +192,14 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
       p_learning_vocabulary_entry_id: entry.learningVocabularyEntryId,
     });
     if (error) {
-      await supabase.storage.from(AUDIO_BUCKET).remove([path]);
+      const failure = audioClipMetadataFailure(error);
+      console.error(`Audio Clip metadata write failed (${failure.reason}) through set_vocabulary_entry_audio_clip`, error);
+      await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([path]);
       setBusy(false);
-      setNotice('That recording could not be saved. Try again.');
+      setNotice(failure.notice);
       return;
     }
-    if (previousPath && previousPath !== path) await supabase.storage.from(AUDIO_BUCKET).remove([previousPath]);
+    if (previousPath && previousPath !== path) await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([previousPath]);
     URL.revokeObjectURL(preview.url);
     setPreview(null);
     setBusy(false);
@@ -214,11 +216,13 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
       p_learning_vocabulary_entry_id: entry.learningVocabularyEntryId,
     });
     if (error) {
+      const failure = audioClipMetadataFailure(error);
+      console.error(`Audio Clip removal failed (${failure.reason}) through set_vocabulary_entry_audio_clip`, error);
       setBusy(false);
-      setNotice('That recording could not be removed. Try again.');
+      setNotice(failure.reason === 'metadata-failed' ? 'That recording could not be removed. Try again.' : failure.notice);
       return;
     }
-    await supabase.storage.from(AUDIO_BUCKET).remove([entry.audioClipPath]);
+    await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([entry.audioClipPath]);
     setBusy(false);
     onChanged();
   }
