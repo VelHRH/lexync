@@ -596,6 +596,45 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(entry).not.toHaveAttribute('open', '');
   });
 
+  test('tells the Learner a server that cannot store pronunciations apart from one that cannot keep them', async ({ page }) => {
+    const account = credentials('web-audio-missing-backend');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    const logged: string[] = [];
+    page.on('console', (message) => { if (message.type() === 'error') logged.push(message.text()); });
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await openEditor(page, 'casa');
+
+    await page.route('**/storage/v1/object/vocabulary-audio-clips/**', (route) => route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Bucket not found', message: 'Bucket not found', statusCode: '404' }),
+    }));
+    await recordClip(page);
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect(audioClipControls(page).getByText('This server cannot store pronunciations yet, so the recording was not saved. Everything else here still works.')).toBeVisible();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Keep recording' })).toBeEnabled();
+    expect(logged.some((entry) => entry.includes('storage-missing'))).toBe(true);
+
+    await page.unroute('**/storage/v1/object/vocabulary-audio-clips/**');
+    await page.route('**/rest/v1/rpc/set_vocabulary_entry_audio_clip', (route) => route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 'PGRST202', message: 'Could not find the function public.set_vocabulary_entry_audio_clip(p_audio_clip_duration_ms, p_audio_clip_path, p_learning_vocabulary_entry_id) in the schema cache' }),
+    }));
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect(audioClipControls(page).getByText('This server cannot keep pronunciations yet, so the recording was not saved. Everything else here still works.')).toBeVisible();
+    expect(logged.some((entry) => entry.includes('contract-missing'))).toBe(true);
+
+    await page.unroute('**/rest/v1/rpc/set_vocabulary_entry_audio_clip');
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Remove recording' })).toBeVisible();
+    expect(await storedClipPath(client)).not.toBeNull();
+  });
+
   test('replaces an Audio Clip so the earlier recording stops being reachable, then removes it entirely', async ({ page }) => {
     const account = credentials('web-audio-replace');
     const { client, pair } = await registerWithPair(account);
