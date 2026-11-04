@@ -17,7 +17,9 @@ Set these secrets. The push workflow reads them from the protected `supabase-mig
 - `SUPABASE_ACCESS_TOKEN`: a Supabase personal access token authorized for that project.
 - `SUPABASE_DB_PASSWORD`: the database password of that project.
 
-Add the authorized reviewer to the `supabase-migrations` environment's required reviewers and enable `prevent self-review`, so the person who dispatches a push cannot approve their own schema change. Pull requests from forks receive no secrets, so the drift check fails closed on them by design; push migrations and run CI from a branch in this repository.
+Add the authorized reviewer to the `supabase-migrations` environment's required reviewers, so a dispatched push waits for a deliberate approval instead of applying DDL the moment it starts. Leave `prevent self-review` off while one person maintains this repository, exactly as the `chrome-web-store` environment does: with a single reviewer it would make every push unapprovable. Turn it on once a second maintainer can approve.
+
+Pull requests from forks receive no secrets, so the drift check fails closed on them by design; push migrations and run CI from a branch in this repository.
 
 ## Pushing migrations
 
