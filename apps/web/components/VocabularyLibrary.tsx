@@ -282,6 +282,16 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     await reload();
   }
 
+  function isMember(entry: LibraryEntry, collection: Collection) {
+    return memberships.some((membership) => membership.collection_id === collection.id && membership.learning_vocabulary_entry_id === entry.learningVocabularyEntryId);
+  }
+
+  function collectionChip(entry: LibraryEntry, collection: Collection) {
+    const member = isMember(entry, collection);
+    const changing = changingMembership === `${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`;
+    return <button className={`collection-chip${member ? ' selected' : ''}`} type="button" key={collection.id} aria-pressed={member} aria-label={member ? `Remove ${entry.expression} from ${collection.name}` : `Add ${entry.expression} to ${collection.name}`} disabled={!online || changing} aria-describedby={offlineReason} onClick={() => void changeMembership(entry, collection, member)}>{changing ? `${member ? 'Removing' : 'Adding'}…` : collection.name}</button>;
+  }
+
   const draftExamples = draft?.senses.flatMap((sense) => sense.examples) ?? [];
   const normalizedQuery = normalizeSearchText(query);
   const scopeParam = searchParams.get('collection') ?? '';
@@ -645,26 +655,29 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
                 <button className="secondary-button" type="button" disabled={saving} onClick={() => { setDraft(null); setNotice(''); }}>Cancel</button>
               </div>
             </form> : <>
-              {entry.senses.map((sense, index) => <div className="vocabulary-sense" key={sense.id}>
-                <h4>Sense {index + 1}</h4>
+              {entry.senses.map((sense, index) => <section className="vocabulary-sense" key={sense.id} role="group" aria-labelledby={`sense-${sense.id}`}>
+                <h4 className={entry.senses.length > 1 ? undefined : 'visually-hidden'} id={`sense-${sense.id}`}>Sense {index + 1}</h4>
                 {sense.translations.map((item) => <p key={item.id}>{item.text} <span>{item.answer_language_tag}</span></p>)}
-                {sense.examples.map((item) => <div key={item.id}>
+                {sense.examples.map((item) => <div className="vocabulary-sense-example" key={item.id}>
                   <p className="vocabulary-example">{item.text}</p>
                   {item.translations.map((translation) => <p className="vocabulary-example-translation" key={translation.id}>{translation.text} <span>{translation.answer_language_tag}</span></p>)}
                 </div>)}
-              </div>)}
-              {collections.length > 0 && <fieldset className="library-collections" aria-labelledby={`entry-collections-${entry.id}`}>
-                <legend id={`entry-collections-${entry.id}`}>Collections</legend>
-                {collections.map((collection) => {
-                  const member = memberships.some((membership) => membership.collection_id === collection.id && membership.learning_vocabulary_entry_id === entry.learningVocabularyEntryId);
-                  const changing = changingMembership === `${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`;
-                  return <button className={`collection-chip${member ? ' selected' : ''}`} type="button" key={collection.id} aria-pressed={member} aria-label={member ? `Remove ${entry.expression} from ${collection.name}` : `Add ${entry.expression} to ${collection.name}`} disabled={!online || changing} aria-describedby={offlineReason} onClick={() => void changeMembership(entry, collection, member)}>{changing ? `${member ? 'Removing' : 'Adding'}…` : collection.name}</button>;
-                })}
-              </fieldset>}
+              </section>)}
+              {collections.length > 0 && <div className="entry-collections" role="group" aria-labelledby={`entry-collections-${entry.id}`}>
+                <h4 id={`entry-collections-${entry.id}`}>Collections</h4>
+                {collections.some((collection) => isMember(entry, collection)) && <div className="entry-collections-member">
+                  {collections.filter((collection) => isMember(entry, collection)).map((collection) => collectionChip(entry, collection))}
+                </div>}
+                {collections.some((collection) => !isMember(entry, collection)) && <div className="entry-collections-rest">
+                  {collections.filter((collection) => !isMember(entry, collection)).map((collection) => collectionChip(entry, collection))}
+                </div>}
+              </div>}
               <div className="vocabulary-entry-actions">
-                <button className="secondary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit</button>
-                <button className="secondary-button" type="button" aria-label={`${entry.suspended ? 'Resume' : 'Suspend'} ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void setSuspended(entry, !entry.suspended)}>{entry.suspended ? 'Resume' : 'Suspend'}</button>
-                <button className="secondary-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void deleteEntry(entry)}>Delete</button>
+                <div className="vocabulary-entry-actions-main">
+                  <button className="primary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit</button>
+                  <button className="inline-button" type="button" aria-label={`${entry.suspended ? 'Resume' : 'Suspend'} ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void setSuspended(entry, !entry.suspended)}>{entry.suspended ? 'Resume' : 'Suspend'}</button>
+                </div>
+                <button className="inline-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void deleteEntry(entry)}>Delete</button>
               </div>
             </>}
             </div>
