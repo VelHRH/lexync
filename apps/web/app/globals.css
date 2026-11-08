@@ -452,7 +452,6 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-sense p + p { margin-top: var(--lexync-space-1); }
 .vocabulary-sense p span { margin-left: var(--lexync-space-1); color: var(--web-muted); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-xs); text-transform: uppercase; }
 .vocabulary-sense-example { margin-top: var(--lexync-space-3); }
-.vocabulary-sense-example + .vocabulary-sense-example { margin-top: var(--lexync-space-2); }
 .vocabulary-example { margin: 0; padding: var(--lexync-space-2) var(--lexync-space-3); border-radius: var(--lexync-radius-md); background: var(--web-subtle); font-family: var(--lexync-type-family-material); color: var(--lexync-color-ink-soft); font-style: italic; }
 .vocabulary-example-translation { margin: 0; padding: 0 var(--lexync-space-3); color: var(--web-muted); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-normal); }
 .vocabulary-example-translation span { margin-left: var(--lexync-space-1); color: var(--web-muted); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-xs); text-transform: uppercase; }
@@ -683,12 +682,12 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .collection-dialog-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .5rem; }
 .entry-collections { display: grid; gap: var(--lexync-space-2); min-width: 0; margin: var(--lexync-space-6) 0 0; padding: var(--lexync-space-4) 0 0; border-top: var(--lexync-border-regular) solid var(--web-quiet); }
 .entry-collections h4 { margin: 0; }
-.entry-collections-member { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lexync-space-2); min-width: 0; }
-.entry-collections-rest { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--lexync-space-2); min-width: 0; overflow-x: auto; padding: var(--lexync-space-1); margin: calc(var(--lexync-space-1) * -1); scroll-snap-type: x proximity; scroll-padding-inline: var(--lexync-space-1); }
-.entry-collections-rest .collection-chip { flex: 0 0 auto; scroll-snap-align: start; }
+.entry-collections-member, .entry-collections-rest { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--lexync-space-2); min-width: 0; overflow-x: auto; padding: var(--lexync-space-1); margin: calc(var(--lexync-space-1) * -1); scrollbar-width: thin; scroll-snap-type: x proximity; scroll-padding-inline: var(--lexync-space-1); }
+.entry-collections .collection-chip { flex: 0 0 auto; scroll-snap-align: start; }
 .collection-chip { min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-3); border: var(--web-outline); border-radius: var(--web-control-radius); background: var(--web-surface); color: var(--web-ink); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); cursor: pointer; transition: background var(--web-state), border-color var(--web-state); }
 .collection-chip:hover { background: var(--web-strong); }
 .collection-chip.selected { border-color: var(--web-primary); background: var(--web-selected); color: var(--web-primary-active); }
+.collection-chip.selected:hover { background: var(--web-strong); }
 .collection-chip:disabled { border-color: var(--web-line); background: var(--web-dim); color: var(--web-muted); cursor: not-allowed; }
 .vocabulary-entry-actions { margin-top: var(--lexync-space-4); }
 .vocabulary-entry-actions-main { display: flex; align-items: center; flex-wrap: wrap; gap: var(--lexync-space-3); min-width: 0; }

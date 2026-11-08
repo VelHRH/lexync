@@ -107,7 +107,7 @@ async function seedCollections(client: Awaited<ReturnType<typeof registerWithPai
   }
 }
 
-const spacingScale = [0, 4, 8, 12, 16, 20, 24, 32, 40, 48];
+const spacingScale = [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80];
 
 test.describe('web Vocabulary Entry library', () => {
   test('searches and filters only the active Learning Language', async ({ page }) => {
@@ -916,8 +916,17 @@ test.describe('web Vocabulary Entry library', () => {
       .map((control) => `${control.className}:${control.getAttribute('aria-label') ?? control.textContent}`));
     expect(shortControls, 'every control in the expanded entry meets the 44px minimum').toEqual([]);
 
-    const filingRows = await entry.evaluate((node) => new Set([...node.querySelectorAll('.entry-collections-rest .collection-chip')].map((chip) => Math.round(chip.getBoundingClientRect().top))).size);
-    expect(filingRows, 'the Collections the entry is not in stay on one row at a dozen Collections').toBe(1);
+    const filingRows = await entry.evaluate((node) => [...node.querySelectorAll('.entry-collections-member, .entry-collections-rest')]
+      .map((group) => new Set([...group.querySelectorAll('.collection-chip')].map((chip) => Math.round(chip.getBoundingClientRect().top))).size));
+    expect(filingRows, 'each half of the filing region stays on one row at a dozen Collections').toEqual([1]);
+
+    const filingHeight = await entry.evaluate((node) => node.querySelector('.entry-collections')!.getBoundingClientRect().height);
+    for (const collection of ['Kitchen', 'Places', 'Travel', 'Verbs', 'Food', 'Family', 'Work', 'Weather', 'Body', 'Animals', 'Numbers', 'Colours']) {
+      await entry.getByRole('button', { name: `Add casa to ${collection}` }).click();
+      await expect(entry.getByRole('button', { name: `Remove casa from ${collection}` })).toBeVisible();
+    }
+    const filedHeight = await entry.evaluate((node) => node.querySelector('.entry-collections')!.getBoundingClientRect().height);
+    expect(filedHeight, 'filing an entry into every Collection does not grow the region').toBeLessThanOrEqual(filingHeight);
 
     for (const action of ['Edit casa', 'Suspend casa', 'Delete casa']) {
       await expect(entry.getByRole('button', { name: action })).toBeVisible();

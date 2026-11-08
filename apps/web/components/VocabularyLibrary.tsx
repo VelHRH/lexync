@@ -286,7 +286,15 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     return memberships.some((membership) => membership.collection_id === collection.id && membership.learning_vocabulary_entry_id === entry.learningVocabularyEntryId);
   }
 
-  function collectionChip(entry: LibraryEntry, collection: Collection) {
+  function filedIn(entry: LibraryEntry) {
+    return collections.filter((collection) => isMember(entry, collection));
+  }
+
+  function notFiledIn(entry: LibraryEntry) {
+    return collections.filter((collection) => !isMember(entry, collection));
+  }
+
+  function renderCollectionChip(entry: LibraryEntry, collection: Collection) {
     const member = isMember(entry, collection);
     const changing = changingMembership === `${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`;
     return <button className={`collection-chip${member ? ' selected' : ''}`} type="button" key={collection.id} aria-pressed={member} aria-label={member ? `Remove ${entry.expression} from ${collection.name}` : `Add ${entry.expression} to ${collection.name}`} disabled={!online || changing} aria-describedby={offlineReason} onClick={() => void changeMembership(entry, collection, member)}>{changing ? `${member ? 'Removing' : 'Adding'}…` : collection.name}</button>;
@@ -665,16 +673,16 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
               </section>)}
               {collections.length > 0 && <div className="entry-collections" role="group" aria-labelledby={`entry-collections-${entry.id}`}>
                 <h4 id={`entry-collections-${entry.id}`}>Collections</h4>
-                {collections.some((collection) => isMember(entry, collection)) && <div className="entry-collections-member">
-                  {collections.filter((collection) => isMember(entry, collection)).map((collection) => collectionChip(entry, collection))}
+                {filedIn(entry).length > 0 && <div className="entry-collections-member">
+                  {filedIn(entry).map((collection) => renderCollectionChip(entry, collection))}
                 </div>}
-                {collections.some((collection) => !isMember(entry, collection)) && <div className="entry-collections-rest">
-                  {collections.filter((collection) => !isMember(entry, collection)).map((collection) => collectionChip(entry, collection))}
+                {notFiledIn(entry).length > 0 && <div className="entry-collections-rest">
+                  {notFiledIn(entry).map((collection) => renderCollectionChip(entry, collection))}
                 </div>}
               </div>}
               <div className="vocabulary-entry-actions">
                 <div className="vocabulary-entry-actions-main">
-                  <button className="primary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit</button>
+                  <button className="secondary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit</button>
                   <button className="inline-button" type="button" aria-label={`${entry.suspended ? 'Resume' : 'Suspend'} ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void setSuspended(entry, !entry.suspended)}>{entry.suspended ? 'Resume' : 'Suspend'}</button>
                 </div>
                 <button className="inline-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void deleteEntry(entry)}>Delete</button>
