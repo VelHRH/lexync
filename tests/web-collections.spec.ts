@@ -246,7 +246,8 @@ test.describe('web Collections', () => {
 
     await entrySummary(page, 'casa').click();
     const casaEntry = entrySummary(page, 'casa').locator('..');
-    await expect(casaEntry.getByRole('heading', { name: 'Sense 1' })).toBeVisible();
+    await expect(casaEntry.getByRole('group', { name: 'Sense 1' })).toBeVisible();
+    expect((await casaEntry.getByRole('heading', { name: 'Sense 1' }).boundingBox())!.height).toBeLessThanOrEqual(2);
     await expect(casaEntry.getByText(/^house\s+en$/)).toBeVisible();
     await expect(casaEntry.getByText('La casa es grande.', { exact: true })).toBeVisible();
     await expect(casaEntry.getByRole('button', { name: 'Suspend casa' })).toBeVisible();

@@ -71,6 +71,44 @@ async function openEditor(page: Page, expression: string) {
   await expect(audioClipControls(page)).toBeVisible();
 }
 
+function expandedEntry(page: Page, expression: string) {
+  return page.locator('.vocabulary-entry-item').filter({ has: page.locator('summary').filter({ hasText: expression }) });
+}
+
+async function learningLanguageIdFor(client: Awaited<ReturnType<typeof registerWithPair>>['client'], languageTag: string) {
+  const { data, error } = await client.from('learning_languages').select('id,language_tag');
+  if (error || !data) throw error ?? new Error('The Learning Language fixtures are missing.');
+  const language = data.find((row) => (row as { language_tag: string }).language_tag === languageTag);
+  if (!language) throw new Error(`The ${languageTag} Learning Language fixture is missing.`);
+  return (language as { id: string }).id;
+}
+
+async function captureSense(
+  client: Awaited<ReturnType<typeof registerWithPair>>['client'],
+  learningLanguageId: string,
+  expression: string,
+  translation: string,
+  createNewSense = false,
+) {
+  const { error } = await client.rpc('capture_learning_language_entry', {
+    p_answer_language_tag: 'en',
+    p_create_new_sense: createNewSense,
+    p_expression: expression,
+    p_learning_language_id: learningLanguageId,
+    p_translation: translation,
+  });
+  if (error) throw error;
+}
+
+async function seedCollections(client: Awaited<ReturnType<typeof registerWithPair>>['client'], learningLanguageId: string, names: string[]) {
+  for (const name of names) {
+    const { error } = await client.rpc('create_collection', { p_learning_language_id: learningLanguageId, p_name: name });
+    if (error) throw error;
+  }
+}
+
+const spacingScale = [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80];
+
 test.describe('web Vocabulary Entry library', () => {
   test('searches and filters only the active Learning Language', async ({ page }) => {
     const account = credentials('web-discovery');
@@ -816,5 +854,92 @@ test.describe('web Vocabulary Entry library', () => {
 
     await context.setOffline(false);
     await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeEnabled();
+  });
+
+  test('shows the Sense ordinal only to an entry that has more than one Sense', async ({ page }) => {
+    const account = credentials('web-sense-ordinal');
+    const { client } = await registerWithPair(account);
+    const spanish = await learningLanguageIdFor(client, 'es');
+    await captureSense(client, spanish, 'casa', 'house');
+    await captureSense(client, spanish, 'banco', 'bank');
+    await captureSense(client, spanish, 'banco', 'bench', true);
+
+    await signIn(page, account);
+    await page.goto('/library');
+
+    await expandEntry(page, 'casa');
+    const single = expandedEntry(page, 'casa');
+    await expect(single.getByRole('group', { name: 'Sense 1' })).toBeVisible();
+    const singleOrdinal = await single.getByRole('heading', { name: 'Sense 1' }).boundingBox();
+    expect(singleOrdinal, 'a single-Sense entry still names its Sense for assistive technology').not.toBeNull();
+    expect(singleOrdinal!.height, 'a single-Sense entry draws no Sense ordinal').toBeLessThanOrEqual(2);
+
+    await expandEntry(page, 'banco');
+    const multiple = expandedEntry(page, 'banco');
+    await expect(multiple.getByRole('group', { name: 'Sense 1' })).toBeVisible();
+    await expect(multiple.getByRole('group', { name: 'Sense 2' })).toBeVisible();
+    for (const ordinal of ['Sense 1', 'Sense 2']) {
+      const box = await multiple.getByRole('heading', { name: ordinal }).boundingBox();
+      expect(box!.height, `a multi-Sense entry draws ${ordinal}`).toBeGreaterThan(2);
+    }
+  });
+
+  test('closes the expanded entry with graded separation, reachable filing, and receding actions', async ({ page }) => {
+    const account = credentials('web-read-view');
+    const { client, pair } = await registerWithPair(account);
+    const spanish = await learningLanguageIdFor(client, 'es');
+    await createEntry(client, pair.id, 'casa', 'house', 'La casa es grande.');
+    await seedCollections(client, spanish, ['Kitchen', 'Places', 'Travel', 'Verbs', 'Food', 'Family', 'Work', 'Weather', 'Body', 'Animals', 'Numbers', 'Colours']);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expandEntry(page, 'casa');
+    const entry = expandedEntry(page, 'casa');
+    await expect(entry.getByRole('button', { name: 'Add casa to Colours' })).toBeVisible();
+
+    const title = await entry.locator('summary').evaluate((node) => getComputedStyle(node).fontWeight);
+    expect(title, 'DESIGN.md sets card titles at semibold').toBe('600');
+
+    const separations = await entry.evaluate((node) => ['.vocabulary-sense:last-of-type', '.entry-collections', '.vocabulary-entry-actions'].map((selector) => {
+      const region = node.querySelector(selector)!;
+      const style = getComputedStyle(region);
+      return { marginTop: Number.parseFloat(style.marginTop), paddingTop: Number.parseFloat(style.paddingTop), borderTopWidth: Number.parseFloat(style.borderTopWidth) };
+    }));
+    expect(new Set(separations.map((separation) => JSON.stringify(separation))).size, 'content, filing and actions are separated differently').toBe(separations.length);
+    for (const separation of separations) {
+      expect(spacingScale, `${separation.marginTop}px margin comes from --lexync-space-*`).toContain(separation.marginTop);
+      expect(spacingScale, `${separation.paddingTop}px padding comes from --lexync-space-*`).toContain(separation.paddingTop);
+    }
+
+    const shortControls = await entry.evaluate((node) => [...node.querySelectorAll('button')]
+      .filter((control) => control.getBoundingClientRect().height < 44)
+      .map((control) => `${control.className}:${control.getAttribute('aria-label') ?? control.textContent}`));
+    expect(shortControls, 'every control in the expanded entry meets the 44px minimum').toEqual([]);
+
+    const filingRows = await entry.evaluate((node) => [...node.querySelectorAll('.entry-collections-member, .entry-collections-rest')]
+      .map((group) => new Set([...group.querySelectorAll('.collection-chip')].map((chip) => Math.round(chip.getBoundingClientRect().top))).size));
+    expect(filingRows, 'each half of the filing region stays on one row at a dozen Collections').toEqual([1]);
+
+    const filingHeight = await entry.evaluate((node) => node.querySelector('.entry-collections')!.getBoundingClientRect().height);
+    for (const collection of ['Kitchen', 'Places', 'Travel', 'Verbs', 'Food', 'Family', 'Work', 'Weather', 'Body', 'Animals', 'Numbers', 'Colours']) {
+      await entry.getByRole('button', { name: `Add casa to ${collection}` }).click();
+      await expect(entry.getByRole('button', { name: `Remove casa from ${collection}` })).toBeVisible();
+    }
+    const filedHeight = await entry.evaluate((node) => node.querySelector('.entry-collections')!.getBoundingClientRect().height);
+    expect(filedHeight, 'filing an entry into every Collection does not grow the region').toBeLessThanOrEqual(filingHeight);
+
+    for (const action of ['Edit casa', 'Suspend casa', 'Delete casa']) {
+      await expect(entry.getByRole('button', { name: action })).toBeVisible();
+    }
+    const weights = await entry.evaluate((node) => ['Edit', 'Suspend', 'Delete'].map((action) => {
+      const control = [...node.querySelectorAll('.vocabulary-entry-actions button')].find((button) => button.textContent?.trim() === action)!;
+      const style = getComputedStyle(control);
+      return { action, background: style.backgroundColor, border: style.borderTopColor, borderWidth: Number.parseFloat(style.borderTopWidth) };
+    }));
+    const [edit, suspend, remove] = weights;
+    expect(edit.background, 'Edit is the one filled action').not.toBe('rgba(0, 0, 0, 0)');
+    expect(suspend.background, 'Suspend recedes to transparent').toBe('rgba(0, 0, 0, 0)');
+    expect(remove.background, 'Delete recedes to transparent').toBe('rgba(0, 0, 0, 0)');
+    expect(remove.border, 'Delete no longer carries the loudest edge on the card').toBe('rgba(0, 0, 0, 0)');
   });
 });
