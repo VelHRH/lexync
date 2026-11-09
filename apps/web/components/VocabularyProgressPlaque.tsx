@@ -3,24 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-
-type VocabularyProgress = {
-  newCount: number;
-  inPracticeCount: number;
-  learnedCount: number;
-  totalCount: number;
-};
-
-function parseProgress(value: unknown): VocabularyProgress | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const newCount = Number(record.new_count);
-  const inPracticeCount = Number(record.in_practice_count);
-  const learnedCount = Number(record.learned_count);
-  const totalCount = Number(record.total_count);
-  if (![newCount, inPracticeCount, learnedCount, totalCount].every((count) => Number.isFinite(count))) return null;
-  return { inPracticeCount, learnedCount, newCount, totalCount };
-}
+import { learnedHeadline, parseVocabularyProgress, type VocabularyProgress } from '../lib/vocabularyProgress';
 
 export function VocabularyProgressPlaque({ learningLanguageId }: { learningLanguageId: string }) {
   const [progress, setProgress] = useState<VocabularyProgress | null>(null);
@@ -32,7 +15,7 @@ export function VocabularyProgressPlaque({ learningLanguageId }: { learningLangu
     void (async () => {
       const { data, error } = await supabase.rpc('vocabulary_progress', { p_learning_language_id: learningLanguageId });
       if (cancelled || error) return;
-      setProgress(parseProgress(data));
+      setProgress(parseVocabularyProgress(data));
     })();
 
     return () => {
@@ -50,7 +33,7 @@ export function VocabularyProgressPlaque({ learningLanguageId }: { learningLangu
         <p className="progress-plaque-detail">Capture a word to start tracking what you know.</p>
       </>
       : <>
-        <p className="progress-plaque-headline">{progress.learnedCount} of {progress.totalCount} learned</p>
+        <p className="progress-plaque-headline">{learnedHeadline(progress)}</p>
         <progress aria-label="Learned Vocabulary Entries" max={progress.totalCount} value={progress.learnedCount} />
         <p className="progress-plaque-detail">{progress.inPracticeCount} in practice</p>
       </>}

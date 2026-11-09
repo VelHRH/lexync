@@ -18,6 +18,7 @@ import { LessonHistory } from './LessonHistory';
 import { LearningMaterials } from './LearningMaterials';
 import { DynamicLessonRequest } from './DynamicLessonRequest';
 import { VocabularyProgressPlaque } from './VocabularyProgressPlaque';
+import { VocabularyProgressSurface } from './VocabularyProgressSurface';
 import { LessonInProgressActions } from './LessonInProgressActions';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -76,6 +77,7 @@ function sectionLabel(section: string) {
   if (normalized === 'history') return 'Lesson history';
   if (normalized === 'materials') return 'Learning Materials';
   if (normalized === 'profile') return 'Profile';
+  if (normalized === 'progress') return 'Vocabulary Progress';
   if (normalized === 'settings') return 'Settings';
   return destinations.find(([label]) => label.toLowerCase() === normalized)?.[0] ?? section;
 }
@@ -469,6 +471,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
           </section>}
           {lessonError && activeSection === 'Lessons' && <p className="form-notice error" role="alert">Unable to load Lesson: {lessonError}</p>}
           {activeSection === 'Library' && <Suspense fallback={<div className="library-skeleton" aria-hidden="true"><div className="skeleton library-skeleton-row" /><div className="skeleton library-skeleton-row" /><div className="skeleton library-skeleton-row" /></div>}><VocabularyLibrary key={activeLanguage.id} lessonInProgress={lessonInProgress} onEntriesChanged={async () => { await loadPairs(); await refreshLessonState(activeLanguage.id); }} language={activeLanguage} pairs={activePairs} /></Suspense>}
+          {activeSection === 'Vocabulary Progress' && <VocabularyProgressSurface key={`vocabulary-progress-surface-${activeLanguage.id}`} learningLanguageId={activeLanguage.id} />}
           {activeSection === 'Lesson history' && <LessonHistory key={activeLanguage.id} learningLanguageId={activeLanguage.id} learningLanguageTag={activeLanguage.languageTag} />}
           {activeSection === 'Settings' && <section className="panel pair-management" aria-labelledby="learning-languages-heading">
             <div className="panel-header"><h2 id="learning-languages-heading">Learning Languages</h2></div>
@@ -487,7 +490,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
               </ul>
             </div>
           </section>}
-          {!['Dynamic Lesson', 'Lesson history', 'Lessons', 'Learning Materials', 'Library', 'Profile', 'Settings'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
+          {!['Dynamic Lesson', 'Lesson history', 'Lessons', 'Learning Materials', 'Library', 'Profile', 'Settings', 'Vocabulary Progress'].includes(activeSection) && <p className="app-empty">Your {activeSection.toLowerCase()} will appear here as you build your language library.</p>}
         </section>
       </div>
     </main>

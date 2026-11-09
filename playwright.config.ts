@@ -92,6 +92,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-vocabulary-progress-surface',
+      testMatch: /web-vocabulary-progress-surface\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-vocabulary-progress-surface-mobile',
+      testMatch: /web-vocabulary-progress-surface\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-collections',
       testMatch: /web-collections\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
