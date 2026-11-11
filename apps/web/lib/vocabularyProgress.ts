@@ -7,6 +7,16 @@ export type VocabularyProgressStates = {
 
 export type CollectionProgress = VocabularyProgressStates & { id: string; name: string };
 
+export const VOCABULARY_PROGRESS_STATES = ['new', 'in-practice', 'learned'] as const;
+
+export type VocabularyProgressState = (typeof VOCABULARY_PROGRESS_STATES)[number];
+
+export const PROGRESS_STATE_LABELS: Record<VocabularyProgressState, string> = {
+  'in-practice': 'In practice',
+  learned: 'Learned',
+  new: 'New',
+};
+
 export type VocabularyProgress = VocabularyProgressStates & { collections: CollectionProgress[] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -41,4 +51,21 @@ export function parseVocabularyProgress(value: unknown): VocabularyProgress | nu
 
 export function learnedHeadline(progress: VocabularyProgressStates): string {
   return `${progress.learnedCount} of ${progress.totalCount} learned`;
+}
+
+const PROGRESS_STATE_BY_CONTRACT: Record<string, VocabularyProgressState> = {
+  in_practice: 'in-practice',
+  learned: 'learned',
+  new: 'new',
+};
+
+export function parseVocabularyProgressStates(value: unknown): Map<string, VocabularyProgressState> {
+  const rows = isRecord(value) && Array.isArray(value.entries) ? value.entries : [];
+  const states = new Map<string, VocabularyProgressState>();
+  for (const row of rows) {
+    if (!isRecord(row) || typeof row.learning_vocabulary_entry_id !== 'string' || typeof row.state !== 'string') continue;
+    const state = PROGRESS_STATE_BY_CONTRACT[row.state];
+    if (state) states.set(row.learning_vocabulary_entry_id, state);
+  }
+  return states;
 }

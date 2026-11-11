@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
 import { materialsLinkName } from './support/navigation';
+import { defaultVocabulary, practiceStreaks, practiseCollection, seedEntries, stateOf } from './support/vocabulary-progress';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -419,6 +420,54 @@ test.describe('web Collections', () => {
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     await expect(page.getByText('No suspended Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
     await expect(page.getByText('No Vocabulary Entries are outside a Collection.')).toHaveCount(0);
+  });
+
+  test('composes the Vocabulary Progress filter with the Collection scope and the search', async ({ page }) => {
+    const account = credentials('web-collection-progress');
+    const { client } = await register(account);
+    const spanish = await languageIdFor(client, 'es');
+    const entries = await seedEntries(client, spanish);
+    const travel = await seedCollection(client, spanish, 'Travel');
+    await seedCollection(client, spanish, 'Sky');
+    for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
+    await practiseCollection(client, spanish, travel);
+    await practiseCollection(client, spanish, travel, 4);
+    const streaks = await practiceStreaks(client);
+    const rows = entries.map((entry, index) => ({ expression: defaultVocabulary[index][0], filed: index < 8, state: stateOf(entry, streaks) }));
+    const learnedInTravel = rows.filter((row) => row.filed && row.state === 'learned');
+    const unfiled = rows.filter((row) => !row.filed);
+    expect(learnedInTravel.length, 'the fixture must leave a learned word in the Collection').toBeGreaterThan(0);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await chooseCollection(page, /Travel/);
+    await page.getByLabel('Progress state').selectOption('learned');
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(learnedInTravel.length);
+    for (const row of learnedInTravel) await expect(entrySummary(page, row.expression)).toBeVisible();
+    for (const row of unfiled) await expect(entrySummary(page, row.expression)).toHaveCount(0);
+    await expectCollectionScope(page, 'Travel');
+
+    await page.getByLabel('Search vocabulary').fill(learnedInTravel[0].expression);
+    await expect(entrySummary(page, learnedInTravel[0].expression)).toBeVisible();
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(1);
+
+    await page.getByLabel('Search vocabulary').fill(unfiled[0].expression);
+    await expect(page.getByRole('heading', { name: 'No match in this library.' })).toBeVisible();
+    await expect(page.getByText(`No learned Vocabulary Entries match “${unfiled[0].expression}”.`, { exact: true })).toBeVisible();
+    await expectCollectionScope(page, 'Travel');
+
+    await page.getByLabel('Search vocabulary').fill('');
+    await chooseCollection(page, /Sky/);
+    await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
+    await expect(page.getByText('No learned Vocabulary Entries in “Sky”.', { exact: true })).toBeVisible();
+
+    await chooseCollection(page, 'Not in a Collection');
+    await expect(page.getByText('No learned Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
+    await page.getByLabel('Progress state').selectOption('new');
+    for (const row of unfiled) await expect(entrySummary(page, row.expression)).toBeVisible();
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(unfiled.length);
+
+    if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
   });
 
   test('names an empty Collection and keeps it distinguishable from a failed load', async ({ page }) => {

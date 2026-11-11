@@ -2,12 +2,13 @@
 
 import type { Translation } from '../components/VocabularyCaptureDialog';
 import { normalizeSearchText } from './searchText';
+import { parseVocabularyProgressStates, type VocabularyProgressState } from './vocabularyProgress';
 import { supabase } from './supabase';
 
 export type ExampleTranslation = { id: string; text: string; answer_language_tag: string };
 export type Example = { id: string; text: string; translations: ExampleTranslation[] };
 export type Sense = { id: string; translations: Translation[]; examples: Example[] };
-export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean; audioClipPath: string | null; audioClipDurationMs: number | null };
+export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean; progressState: VocabularyProgressState | null; audioClipPath: string | null; audioClipDurationMs: number | null };
 export type Collection = { id: string; name: string; entryCount: number; eligibleSenseCount: number; canPractise: boolean };
 export type Membership = { collection_id: string; learning_vocabulary_entry_id: string };
 
@@ -155,6 +156,7 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
         learningVocabularyEntryId: entry.learning_vocabulary_entry_id,
         expression: entry.expression.trim(),
         suspended: entry.suspended,
+        progressState: null,
         senses: nextSenses,
         audioClipPath: typeof clip?.audio_clip_path === 'string' ? clip.audio_clip_path : null,
         audioClipDurationMs: typeof clip?.audio_clip_duration_ms === 'number' ? clip.audio_clip_duration_ms : null,
@@ -191,6 +193,12 @@ async function fetchCollections(languageId: string): Promise<{ collections: Coll
   return { collections: nextCollections, memberships: (membershipData ?? []) as Membership[], minimumEntries };
 }
 
+async function fetchProgressStates(languageId: string): Promise<{ states: Map<string, VocabularyProgressState> } | { error: string }> {
+  const { data, error } = await supabase.rpc('vocabulary_progress_states', { p_learning_language_id: languageId });
+  if (error) return { error: error.message };
+  return { states: parseVocabularyProgressStates(data) };
+}
+
 function commitError(languageId: string, version: number, message: string) {
   if (versions.get(languageId) !== version) return;
   const current = library.get(languageId) ?? { ...EMPTY_LIBRARY_SNAPSHOT, pairIdsKey: '' };
@@ -208,12 +216,17 @@ async function fetchLibrary(languageId: string, pairIds: string[], key: string, 
     commitError(languageId, version, entriesResult.error);
     return;
   }
-  const collectionsResult = await fetchCollections(languageId);
+  const [collectionsResult, statesResult] = await Promise.all([fetchCollections(languageId), fetchProgressStates(languageId)]);
   if ('error' in collectionsResult) {
     commitError(languageId, version, collectionsResult.error);
     return;
   }
-  commitSuccess(languageId, version, key, entriesResult.entries, collectionsResult.collections, collectionsResult.memberships, collectionsResult.minimumEntries);
+  if ('error' in statesResult) {
+    commitError(languageId, version, statesResult.error);
+    return;
+  }
+  const entries = entriesResult.entries.map((entry) => ({ ...entry, progressState: statesResult.states.get(entry.learningVocabularyEntryId) ?? null }));
+  commitSuccess(languageId, version, key, entries, collectionsResult.collections, collectionsResult.memberships, collectionsResult.minimumEntries);
 }
 
 export async function loadLibrary(languageId: string, pairIds: string[], options: { force?: boolean } = {}): Promise<void> {

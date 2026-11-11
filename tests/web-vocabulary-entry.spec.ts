@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
+import { PROGRESS_STATE_COPY, defaultVocabulary, fileEntry, practiceStreaks, practiseCollection, seedCollection, seedEntries, stateOf, statesOf, suspendEntry } from './support/vocabulary-progress';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -107,6 +108,10 @@ async function seedCollections(client: Awaited<ReturnType<typeof registerWithPai
   }
 }
 
+function progressState(page: Page, expression: string) {
+  return expandedEntry(page, expression).locator('[data-ui="entry-progress-state"]');
+}
+
 const spacingScale = [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80];
 
 test.describe('web Vocabulary Entry library', () => {
@@ -166,6 +171,107 @@ test.describe('web Vocabulary Entry library', () => {
     if (test.info().project.name === 'web-vocabulary-mobile') {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     }
+  });
+
+  test('shows the Vocabulary Progress State of every word on its Library row', async ({ page }) => {
+    const account = credentials('web-row-progress');
+    const { client } = await registerWithPair(account);
+    const learningLanguageId = await learningLanguageIdFor(client, 'es');
+    const entries = await seedEntries(client, learningLanguageId);
+    const travel = await seedCollection(client, learningLanguageId, 'Travel');
+    for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
+    await practiseCollection(client, learningLanguageId, travel);
+    await practiseCollection(client, learningLanguageId, travel, 4);
+    const streaks = await practiceStreaks(client);
+    const tally = statesOf(entries, streaks);
+    expect(tally.learned, 'the fixture must leave a learned word in the Library').toBeGreaterThan(0);
+    expect(tally.inPractice, 'the fixture must leave a word in practice in the Library').toBeGreaterThan(0);
+    expect(tally.new, 'the fixture must leave an unpractised word in the Library').toBeGreaterThan(0);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    for (const [index, [expression]] of defaultVocabulary.entries()) {
+      await expect(progressState(page, expression)).toHaveText(PROGRESS_STATE_COPY[stateOf(entries[index], streaks)]);
+    }
+    if (test.info().project.name === 'web-vocabulary-mobile') {
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+    }
+  });
+
+  test('filters the Library to one Vocabulary Progress State and explains a state with no words', async ({ page }) => {
+    const account = credentials('web-progress-filter');
+    const { client } = await registerWithPair(account);
+    const learningLanguageId = await learningLanguageIdFor(client, 'es');
+    const entries = await seedEntries(client, learningLanguageId);
+    const travel = await seedCollection(client, learningLanguageId, 'Travel');
+    for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
+    await practiseCollection(client, learningLanguageId, travel);
+    await practiseCollection(client, learningLanguageId, travel, 4);
+    const streaks = await practiceStreaks(client);
+    const tally = statesOf(entries, streaks);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(entries.length);
+
+    for (const [state, expected] of [['learned', tally.learned], ['in-practice', tally.inPractice], ['new', tally.new]] as const) {
+      await page.getByLabel('Progress state').selectOption(state);
+      await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expected);
+      await expect(page.locator(`[data-ui="entry-progress-state"][data-state="${state}"]`)).toHaveCount(expected);
+      await expect(page.locator('.library-toolbar')).toContainText(`${expected} shown`);
+    }
+
+    await page.getByLabel('Progress state').selectOption('all');
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(entries.length);
+
+    await page.getByLabel('Vocabulary status').selectOption('suspended');
+    await page.getByLabel('Progress state').selectOption('learned');
+    await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
+    await expect(page.getByText('A suspended Vocabulary Entry carries no Vocabulary Progress State. Resume it to see where it stands.', { exact: true })).toBeVisible();
+    if (test.info().project.name === 'web-vocabulary-mobile') {
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+    }
+  });
+
+  test('leaves a suspended word out of the Vocabulary Progress States the plaque and the progress surface report', async ({ page }) => {
+    const account = credentials('web-progress-suspension');
+    const { client } = await registerWithPair(account);
+    const learningLanguageId = await learningLanguageIdFor(client, 'es');
+    const entries = await seedEntries(client, learningLanguageId);
+    const travel = await seedCollection(client, learningLanguageId, 'Travel');
+    for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
+    await practiseCollection(client, learningLanguageId, travel);
+    await practiseCollection(client, learningLanguageId, travel, 4);
+    const streaks = await practiceStreaks(client);
+    const [withheld] = entries;
+    const withheldExpression = defaultVocabulary[0][0];
+    await suspendEntry(client, withheld.vocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    const withheldRow = expandedEntry(page, withheldExpression);
+    await expect(withheldRow.getByText('Suspended', { exact: true })).toBeVisible();
+    await expect(withheldRow.locator('[data-ui="entry-progress-state"]')).toHaveCount(0);
+
+    const counted = new Map<string, number>();
+    for (const state of ['learned', 'in-practice', 'new'] as const) {
+      counted.set(state, await page.locator(`[data-ui="entry-progress-state"][data-state="${state}"]`).count());
+    }
+
+    await page.goto('/progress');
+    const surface = page.locator('[data-ui="vocabulary-progress-library"]');
+    for (const state of ['learned', 'in-practice', 'new'] as const) {
+      await expect(surface.locator(`[data-state="${state}"] dd`)).toHaveText(String(counted.get(state)));
+    }
+
+    await page.goto('/');
+    await expect(page.locator('[data-ui="vocabulary-progress-plaque"]')).toContainText(`${counted.get('learned')} of ${entries.length - 1} learned`);
+
+    await page.goto('/library');
+    await expandEntry(page, withheldExpression);
+    await page.getByRole('button', { name: `Resume ${withheldExpression}` }).click();
+    await expect(page.getByRole('status').filter({ hasText: `${withheldExpression} is active.` })).toBeVisible();
+    await expect(progressState(page, withheldExpression)).toHaveText(PROGRESS_STATE_COPY[stateOf(withheld, streaks)]);
   });
 
   test('suspends and resumes an Entry without losing its details', async ({ page }) => {
