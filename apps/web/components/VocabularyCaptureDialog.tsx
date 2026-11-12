@@ -5,14 +5,16 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
+import { VocabularyCaptureAudioRecorder, currentAudioClipPath, storeAudioClip, useAudioClipRecorder } from './VocabularyAudioClip';
 
 export type Translation = { answer_language_tag: string; id: string; text: string };
 type PendingSense = { id: string; translations: Translation[] };
 
 export type VocabularyCaptureDraft = { answerLanguage: string; example: string; expression: string };
 
-export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, open }: { draft?: VocabularyCaptureDraft; language: { id: string; languageTag: string }; onCaptured: (expression: string) => void | Promise<void>; onClose: () => void; open: boolean }) {
+export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, open }: { draft?: VocabularyCaptureDraft; language: { id: string; languageTag: string }; onCaptured: (expression: string, clipNotice: string) => void | Promise<void>; onClose: () => void; open: boolean }) {
   const online = useOnlineStatus();
+  const recorder = useAudioClipRecorder({ declinedNotice: 'Lexync could not use your microphone. You can still save this word without a pronunciation.' });
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [expression, setExpression] = useState('');
   const [answerLanguage, setAnswerLanguage] = useState('');
@@ -33,6 +35,7 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
     setTranslation('');
     setNotice('');
     setPendingSenses([]);
+    recorder.discard();
   } else if (!open && wasOpen) {
     setWasOpen(false);
   }
@@ -53,6 +56,18 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
     setExample('');
     setExampleTranslation('');
     setPendingSenses([]);
+    recorder.discard();
+  }
+
+  async function keepCapturedClip(entryId: string, capturedExpression: string) {
+    const preview = recorder.preview;
+    if (!preview) return '';
+    if (!entryId) return 'That recording could not be attached to this word. Record it again from the Library.';
+    const existing = await currentAudioClipPath(entryId);
+    if ('failure' in existing) return existing.failure.notice;
+    if (existing.path) return `“${capturedExpression}” already had a pronunciation, so this recording was not kept. Replace it from the Library.`;
+    const failure = await storeAudioClip({ durationMs: preview.durationMs, entryId, file: preview.blob, languageId: language.id, previousPath: null });
+    return failure ? failure.notice : '';
   }
 
   async function capture(senseId: string | null = null, createNewSense = false) {
@@ -64,29 +79,33 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
       return;
     }
     setSaving(true);
-    const { data, error } = await supabase.rpc('capture_learning_language_entry', {
-      p_example: example,
-      p_example_translation: exampleTranslation,
-      p_expression: expression,
-      p_translation: translation,
-      p_answer_language_tag: answerTag,
-      p_learning_language_id: language.id,
-      p_sense_id: senseId,
-      p_create_new_sense: createNewSense,
-    });
-    setSaving(false);
-    if (error) {
-      setNotice(error.message);
-      return;
+    try {
+      const { data, error } = await supabase.rpc('capture_learning_language_entry', {
+        p_example: example,
+        p_example_translation: exampleTranslation,
+        p_expression: expression,
+        p_translation: translation,
+        p_answer_language_tag: answerTag,
+        p_learning_language_id: language.id,
+        p_sense_id: senseId,
+        p_create_new_sense: createNewSense,
+      });
+      if (error) {
+        setNotice(error.message);
+        return;
+      }
+      if (data?.kind === 'needs_sense') {
+        setPendingSenses(data.senses ?? []);
+        return;
+      }
+      const capturedExpression = expression;
+      const clipNotice = await keepCapturedClip(typeof data?.vocabularyEntryId === 'string' ? data.vocabularyEntryId : '', capturedExpression);
+      resetCaptureDraft();
+      await onCaptured(capturedExpression, clipNotice);
+      onClose();
+    } finally {
+      setSaving(false);
     }
-    if (data?.kind === 'needs_sense') {
-      setPendingSenses(data.senses ?? []);
-      return;
-    }
-    const capturedExpression = expression;
-    resetCaptureDraft();
-    await onCaptured(capturedExpression);
-    onClose();
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -116,6 +135,7 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
         <textarea id="example" value={example} disabled={!online} onChange={(event) => setExample(event.target.value)} />
         <label htmlFor="example-translation">Example translation <span>(optional)</span></label>
         <textarea id="example-translation" value={exampleTranslation} disabled={!online || !example.trim()} onChange={(event) => setExampleTranslation(event.target.value)} />
+        <VocabularyCaptureAudioRecorder busy={saving} online={online} recorder={recorder} />
         {notice && <p className="form-notice error" role="alert">{notice}</p>}
         <div className="vocabulary-editor-actions">
           <button className="primary-button" type="submit" disabled={saving || !online}>{saving ? 'Saving…' : 'Save Vocabulary Entry'}</button>
