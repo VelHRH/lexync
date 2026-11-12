@@ -1,24 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
+import { fileEntry, practiceStreaks, practiseCollection, seedCollection, seedEntries, statesOf } from './support/vocabulary-progress';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
-
-type CapturedEntry = { senseId: string; vocabularyEntryId: string };
-
-const vocabulary = [
-  ['casa', 'house'],
-  ['perro', 'dog'],
-  ['nube', 'cloud'],
-  ['libro', 'book'],
-  ['mesa', 'table'],
-  ['puerta', 'door'],
-  ['agua', 'water'],
-  ['camino', 'road'],
-  ['ventana', 'window'],
-  ['llave', 'key'],
-] as const;
 
 function credentials(prefix: string) {
   return { email: `${prefix}-${Date.now()}-${crypto.randomUUID()}@example.test`, password: `Lexync-${crypto.randomUUID()}-test` };
@@ -39,68 +25,6 @@ async function addLearningLanguage(client: SupabaseClient, languageTag: string) 
   const { data, error } = await client.rpc('create_learning_language', { p_language_tag: languageTag });
   if (error) throw error;
   return (data as { id: string }).id;
-}
-
-async function captureEntry(client: SupabaseClient, learningLanguageId: string, expression: string, translation: string) {
-  const { data, error } = await client.rpc('capture_learning_language_entry', {
-    p_answer_language_tag: 'en',
-    p_create_new_sense: false,
-    p_example: null,
-    p_expression: expression,
-    p_learning_language_id: learningLanguageId,
-    p_sense_id: null,
-    p_translation: translation,
-  });
-  if (error) throw error;
-  return data as CapturedEntry;
-}
-
-async function seedEntries(client: SupabaseClient, learningLanguageId: string, entries: ReadonlyArray<readonly [string, string]> = vocabulary) {
-  const captured: CapturedEntry[] = [];
-  for (const [expression, translation] of entries) captured.push(await captureEntry(client, learningLanguageId, expression, translation));
-  return captured;
-}
-
-async function seedCollection(client: SupabaseClient, learningLanguageId: string, name: string) {
-  const { data, error } = await client.rpc('create_collection', { p_learning_language_id: learningLanguageId, p_name: name });
-  if (error) throw error;
-  return (data as { id: string }).id;
-}
-
-async function fileEntry(client: SupabaseClient, collectionId: string, learningVocabularyEntryId: string) {
-  const { error } = await client.rpc('add_collection_membership', { p_collection_id: collectionId, p_learning_vocabulary_entry_id: learningVocabularyEntryId });
-  if (error) throw error;
-}
-
-async function practiseCollection(client: SupabaseClient, learningLanguageId: string, collectionId: string, questionLimit = Number.POSITIVE_INFINITY) {
-  const { data: lesson, error } = await client.rpc('start_or_resume_vocabulary_lesson', { p_collection_id: collectionId, p_learning_language_id: learningLanguageId });
-  if (error) throw error;
-  const lessonId = (lesson as { id: string }).id;
-  const { data: questions, error: questionError } = await client.from('lesson_questions').select('id,correct_answer').eq('lesson_id', lessonId).order('ordinal');
-  if (questionError) throw questionError;
-  for (const question of ((questions ?? []) as Array<{ id: string; correct_answer: string }>).slice(0, questionLimit)) {
-    const { error: submitError } = await client.rpc('submit_lesson_answer', { p_lesson_id: lessonId, p_question_id: question.id, p_selected_choice: question.correct_answer });
-    if (submitError) throw submitError;
-    const { error: continueError } = await client.rpc('continue_lesson_question', { p_lesson_id: lessonId, p_question_id: question.id });
-    if (continueError) throw continueError;
-  }
-}
-
-async function practiceStreaks(client: SupabaseClient) {
-  const { data, error } = await client.from('lesson_attempts').select('sense_id,is_correct').order('answered_at');
-  if (error) throw error;
-  const streaks = new Map<string, number>();
-  for (const attempt of (data ?? []) as Array<{ sense_id: string | null; is_correct: boolean }>) {
-    if (!attempt.sense_id) continue;
-    streaks.set(attempt.sense_id, attempt.is_correct ? (streaks.get(attempt.sense_id) ?? 0) + 1 : 0);
-  }
-  return streaks;
-}
-
-function statesOf(entries: readonly CapturedEntry[], streaks: Map<string, number>) {
-  const learned = entries.filter((entry) => (streaks.get(entry.senseId) ?? 0) >= 2).length;
-  const inPractice = entries.filter((entry) => streaks.has(entry.senseId) && (streaks.get(entry.senseId) ?? 0) < 2).length;
-  return { inPractice, learned, new: entries.length - learned - inPractice };
 }
 
 async function signIn(page: Page, account: ReturnType<typeof credentials>) {

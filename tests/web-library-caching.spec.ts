@@ -344,6 +344,43 @@ test.describe('web Library data lifetime', () => {
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toHaveCount(0);
   });
 
+  test('reads the Vocabulary Progress State of every row in one request and filters by it without another', async ({ page }) => {
+    const account = credentials('web-library-progress-budget');
+    const { client, pairIds } = await register(account);
+    const expressions = Array.from({ length: 12 }, (_, index) => `palabra${index}`);
+    for (const expression of expressions) await createEntry(client, pairIds[0], expression, `word ${expression}`);
+    await signIn(page, account);
+
+    const progressRequests = trackRequests(page, /\/rest\/v1\/rpc\/vocabulary_progress_states(?:[?/]|$)/);
+    const libraryRequests = trackLibraryRequests(page);
+    await page.goto('/library');
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
+
+    const refresh = page.getByRole('button', { name: 'Refresh library' });
+    progressRequests.reset();
+    await refresh.click();
+    await expect(refresh).toBeEnabled();
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
+    expect(progressRequests.count(), 'one request reads every row state, however many rows there are').toBe(1);
+
+    progressRequests.reset();
+    libraryRequests.reset();
+    await clickNavLink(page, 'Lessons');
+    await expect(page).toHaveURL('/lessons');
+    await clickNavLink(page, 'Library');
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
+    expect(progressRequests.count(), 'the row states ride the Library snapshot rather than a read path of their own').toBe(0);
+
+    await page.getByLabel('Vocabulary Progress State').selectOption('new');
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
+    await page.getByLabel('Vocabulary Progress State').selectOption('learned');
+    await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
+    expect(progressRequests.count()).toBe(0);
+    expect(libraryRequests.count()).toBe(0);
+
+    if (test.info().project.name === 'web-library-caching-mobile') await assertNoHorizontalOverflow(page);
+  });
+
   test('filters the Library through an in-app query change without requesting more Library data (AC10); opening the capture dialog from add=1 is exercised via a direct navigation because no in-app control reaches that URL', async ({ page }) => {
     const account = credentials('web-library-query-params');
     const { client, pairIds } = await register(account);

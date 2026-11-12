@@ -12,9 +12,11 @@ import { normalizeSearchText } from '../lib/searchText';
 import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
+import { PROGRESS_STATE_LABELS, VOCABULARY_PROGRESS_STATES, type VocabularyProgressState } from '../lib/vocabularyProgress';
 
 type LearningLanguage = { id: string; languageTag: string };
 type VocabularyStatus = 'active' | 'all' | 'suspended';
+type ProgressFilter = VocabularyProgressState | 'all';
 type DraftItem = { id: string | null; key: string; text: string };
 type DraftExampleTranslation = { id: string | null; key: string; text: string; answerLanguageTag: string | null };
 type DraftExample = DraftItem & { translations: DraftExampleTranslation[] };
@@ -57,6 +59,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const [draft, setDraft] = useState<EntryDraft | null>(null);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<VocabularyStatus>('all');
+  const [progress, setProgress] = useState<ProgressFilter>('all');
   const [suspensionNotice, setSuspensionNotice] = useState('');
   const [changingMembership, setChangingMembership] = useState('');
   const [collectionRequest, setCollectionRequest] = useState<CollectionDialogRequest | null>(null);
@@ -260,6 +263,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     }
     setEntrySuspendedInStore(language.id, entry.id, suspended);
     setSuspensionNotice(`${entry.expression} is ${suspended ? 'suspended' : 'active'}.`);
+    if (!suspended && !entry.progressState) await loadLibrary(language.id, pairIds, { force: true });
   }
 
   async function changeMembership(entry: LibraryEntry, collection: Collection, member: boolean) {
@@ -329,9 +333,10 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const selectedCollectionEntryIds = new Set(memberships.filter((membership) => membership.collection_id === selectedCollectionId).map((membership) => membership.learning_vocabulary_entry_id));
   const visibleEntries = entries.filter((entry) => {
     const matchesStatus = status === 'all' || (status === 'suspended' ? entry.suspended : !entry.suspended);
+    const matchesProgress = progress === 'all' || (!entry.suspended && entry.progressState === progress);
     const matchesCollection = selectedCollectionId === ALL_VOCABULARY_SCOPE || (selectedCollectionId === NO_COLLECTION_SCOPE ? !collectedEntryIds.has(entry.learningVocabularyEntryId) : selectedCollectionEntryIds.has(entry.learningVocabularyEntryId));
     const haystacks = [entry.expression, ...entry.senses.flatMap((sense) => sense.translations.map((item) => item.text))].map(normalizeSearchText);
-    return matchesStatus && matchesCollection && (!normalizedQuery || haystacks.some((text) => text.includes(normalizedQuery)));
+    return matchesStatus && matchesProgress && matchesCollection && (!normalizedQuery || haystacks.some((text) => text.includes(normalizedQuery)));
   });
   const selectedEntryIds = selection.scope === selectedCollectionId ? selection.ids : [];
   const selectedEntries = entries.filter((entry) => selectedEntryIds.includes(entry.learningVocabularyEntryId));
@@ -427,15 +432,18 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   }
 
   function emptyStateCopy() {
-    if (normalizedQuery) return { heading: 'No match in this library.', message: `No ${status === 'all' ? '' : `${status} `}Vocabulary Entries match “${query.trim()}”.` };
-    if (selectedCollection) return status === 'all'
-      ? { heading: 'This Collection is empty.', message: `No vocabulary entries in “${selectedCollection.name}”.` }
-      : { heading: 'Nothing here right now.', message: `No ${status} Vocabulary Entries in “${selectedCollection.name}”.` };
-    if (selectedCollectionId === NO_COLLECTION_SCOPE) return status === 'all'
-      ? { heading: 'Nothing outside your Collections.', message: 'No Vocabulary Entries are outside a Collection.' }
-      : { heading: 'Nothing here right now.', message: `No ${status} Vocabulary Entries outside a Collection.` };
-    if (status === 'all' && entries.length === 0) return { heading: 'Nothing filed under this language yet.', message: 'No vocabulary entries yet. Add your first one.' };
-    return { heading: 'Nothing here right now.', message: `No ${status} Vocabulary Entries yet.` };
+    if (status === 'suspended' && progress !== 'all') return { heading: 'Nothing here right now.', message: 'A suspended Vocabulary Entry carries no Vocabulary Progress State. Resume it to see where it stands.' };
+    const described = `${status === 'all' ? '' : `${status} `}${progress === 'all' ? '' : `${PROGRESS_STATE_LABELS[progress].toLowerCase()} `}`;
+    const narrowed = status !== 'all' || progress !== 'all';
+    if (normalizedQuery) return { heading: 'No match in this library.', message: `No ${described}Vocabulary Entries match “${query.trim()}”.` };
+    if (selectedCollection) return narrowed
+      ? { heading: 'Nothing here right now.', message: `No ${described}Vocabulary Entries in “${selectedCollection.name}”.` }
+      : { heading: 'This Collection is empty.', message: `No vocabulary entries in “${selectedCollection.name}”.` };
+    if (selectedCollectionId === NO_COLLECTION_SCOPE) return narrowed
+      ? { heading: 'Nothing here right now.', message: `No ${described}Vocabulary Entries outside a Collection.` }
+      : { heading: 'Nothing outside your Collections.', message: 'No Vocabulary Entries are outside a Collection.' };
+    if (!narrowed && entries.length === 0) return { heading: 'Nothing filed under this language yet.', message: 'No vocabulary entries yet. Add your first one.' };
+    return { heading: 'Nothing here right now.', message: `No ${described}Vocabulary Entries yet.` };
   }
 
   const { heading: emptyHeading, message: noResultsMessage } = emptyStateCopy();
@@ -535,6 +543,13 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
             <option value="suspended">Suspended entries</option>
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="vocabulary-progress-state">Vocabulary Progress State</label>
+          <select id="vocabulary-progress-state" value={progress} onChange={(event) => setProgress(event.target.value as ProgressFilter)}>
+            <option value="all">All states</option>
+            {VOCABULARY_PROGRESS_STATES.map((state) => <option key={state} value={state}>{PROGRESS_STATE_LABELS[state]}</option>)}
+          </select>
+        </div>
         <button aria-pressed={selecting} className="secondary-button library-select-toggle" type="button" disabled={filing} onClick={toggleSelecting}>{selecting ? 'Done' : 'Select'}</button>
       </div>
 
@@ -606,7 +621,12 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
                 <h3 className="vocabulary-entry-expression"><span className="marked">{entry.expression}</span></h3>
                 <span className="vocabulary-entry-gloss">{entry.senses.flatMap((sense) => sense.translations.map((item) => item.text)).join(' · ') || 'No translation yet'}</span>
               </span>
-              {entry.suspended ? <span className="vocabulary-status-badge">Suspended</span> : entry.senses.length > 1 && <span className="surface-tally">{entry.senses.length}</span>}
+              <span className="vocabulary-entry-marks">
+                {entry.suspended
+                  ? <span className="vocabulary-status-badge">Suspended</span>
+                  : entry.progressState && <span className="vocabulary-progress-badge" data-ui="entry-progress-state" data-state={entry.progressState}>{PROGRESS_STATE_LABELS[entry.progressState]}</span>}
+                {!entry.suspended && entry.senses.length > 1 && <span className="surface-tally">{entry.senses.length}</span>}
+              </span>
             </summary>
             <div>
             {draft?.id === entry.id ? <form className="vocabulary-editor" onSubmit={saveDraft}>

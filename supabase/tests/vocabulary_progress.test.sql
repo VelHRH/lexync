@@ -1,6 +1,6 @@
 begin;
 
-select plan(19);
+select plan(27);
 
 select ok(
   to_regprocedure('public.vocabulary_progress(uuid)') is not null,
@@ -342,6 +342,53 @@ select is(
   'a Learning Language with no Collection reports an empty Collection list rather than nothing'
 );
 
+select ok(
+  to_regprocedure('public.vocabulary_progress_states(uuid)') is not null,
+  'the Library read path exposes a per-Entry Vocabulary Progress State contract'
+);
+
+select is(
+  (select jsonb_agg(jsonb_build_object('expression', learning_vocabulary_entries.expression, 'state', entry->>'state') order by learning_vocabulary_entries.created_at)
+   from jsonb_array_elements(public.vocabulary_progress_states('a1000000-0000-0000-0000-000900000001')->'entries') as entry
+   join public.learning_vocabulary_entries
+     on learning_vocabulary_entries.id = (entry->>'learning_vocabulary_entry_id')::uuid),
+  '[{"expression": "ett", "state": "learned"}, {"expression": "tva", "state": "in_practice"}, {"expression": "tre", "state": "new"}, {"expression": "fem", "state": "new"}]'::jsonb,
+  'every unsuspended Vocabulary Entry reports the one Vocabulary Progress State it occupies'
+);
+
+select is(
+  (select count(*)
+   from jsonb_array_elements(public.vocabulary_progress_states('a1000000-0000-0000-0000-000900000001')->'entries') as entry
+   where entry->>'learning_vocabulary_entry_id' = 'a3000000-0000-0000-0000-000900000004'),
+  0::bigint,
+  'a suspended Vocabulary Entry carries no Vocabulary Progress State'
+);
+
+select is(
+  (select jsonb_build_object(
+     'new_count', count(*) filter (where entry->>'state' = 'new'),
+     'in_practice_count', count(*) filter (where entry->>'state' = 'in_practice'),
+     'learned_count', count(*) filter (where entry->>'state' = 'learned'),
+     'total_count', count(*)
+   )
+   from jsonb_array_elements(public.vocabulary_progress_states('a1000000-0000-0000-0000-000900000001')->'entries') as entry),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000900000001') - 'collections'),
+  'the states reported for the rows agree with the figures reported for the plaque and the progress surface'
+);
+
+select is(
+  (select public.vocabulary_progress_states('a1000000-0000-0000-0000-000600000001')->'entries'),
+  jsonb_build_array(jsonb_build_object('learning_vocabulary_entry_id', 'a3000000-0000-0000-0000-000600000001', 'state', 'new')),
+  'a Vocabulary Entry with no Sense reports the new state rather than nothing'
+);
+
+select throws_ok(
+  $$select public.vocabulary_entry_progress_states('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001')$$,
+  '42501',
+  'permission denied for function vocabulary_entry_progress_states',
+  'a Learner cannot ask the internal state computation about another Learner'
+);
+
 select set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true);
 select throws_ok(
   $$select public.vocabulary_progress('a1000000-0000-0000-0000-000100000001')$$,
@@ -350,12 +397,26 @@ select throws_ok(
   'a Learning Language that does not belong to the Learner is unavailable'
 );
 
+select throws_ok(
+  $$select public.vocabulary_progress_states('a1000000-0000-0000-0000-000100000001')$$,
+  'P0001',
+  'Learning Language is unavailable.',
+  'the per-Entry states of a Learning Language that does not belong to the Learner are unavailable'
+);
+
 set local role anon;
 select throws_ok(
   $$select public.vocabulary_progress('a1000000-0000-0000-0000-000100000001')$$,
   '42501',
   'permission denied for function vocabulary_progress',
   'anonymous clients cannot read Vocabulary Progress'
+);
+
+select throws_ok(
+  $$select public.vocabulary_progress_states('a1000000-0000-0000-0000-000100000001')$$,
+  '42501',
+  'permission denied for function vocabulary_progress_states',
+  'anonymous clients cannot read per-Entry Vocabulary Progress States'
 );
 
 select * from finish();

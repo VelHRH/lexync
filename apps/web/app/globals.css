@@ -383,7 +383,9 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .library-toolbar, .vocabulary-entry-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--lexync-space-4); }
 .library-toolbar .page-lede { margin: 0; }
 .library-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
-.vocabulary-discovery-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, .4fr) minmax(13rem, .45fr); align-items: end; gap: 1rem; margin-top: 1.25rem; padding-bottom: 1.5rem; border-bottom: var(--web-outline); }
+.vocabulary-discovery-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; margin-top: 1.25rem; padding-bottom: 1.5rem; border-bottom: var(--web-outline); }
+.vocabulary-discovery-controls > .field { flex: 0 1 10rem; }
+.vocabulary-discovery-controls > .field:first-child { flex: 1 1 18rem; }
 .field { display: flex; min-width: 0; flex-direction: column; gap: .4rem; }
 .vocabulary-discovery-controls input, .vocabulary-discovery-controls select { margin: 0; }
 .library-entry-add { width: min(100%, 26rem); margin-top: 1.25rem; }
@@ -467,6 +469,12 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-entry-identity { display: flex; min-width: 0; flex-direction: column; gap: .4rem; }
 .vocabulary-entry-expression { margin: 0; font-family: var(--lexync-type-family-material); font-size: inherit; font-weight: inherit; letter-spacing: inherit; line-height: inherit; overflow-wrap: anywhere; }
 .vocabulary-entry-gloss { color: var(--web-muted); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-regular); letter-spacing: 0; line-height: var(--lexync-type-line-normal); }
+.vocabulary-entry-marks { display: flex; flex: 0 0 auto; align-items: center; gap: .4rem; }
+.vocabulary-progress-badge { padding: .2rem .6rem .2rem .5rem; border: var(--lexync-border-hairline) solid var(--web-line); border-radius: var(--lexync-radius-pill); background: var(--web-subtle); color: var(--web-ink); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); letter-spacing: var(--lexync-type-tracking-wide); text-transform: uppercase; white-space: nowrap; }
+.vocabulary-progress-badge::before { display: inline-block; width: .5rem; height: .5rem; margin-right: .4rem; border-radius: var(--lexync-radius-pill); vertical-align: baseline; content: ''; }
+.vocabulary-progress-badge[data-state='learned']::before { background: var(--web-primary); }
+.vocabulary-progress-badge[data-state='in-practice']::before { background: var(--web-brand-deep); }
+.vocabulary-progress-badge[data-state='new']::before { background: var(--web-skeleton); }
 .vocabulary-status-badge, .badge { padding: .2rem .6rem; border: var(--lexync-border-hairline) solid var(--lexync-color-warning); border-radius: var(--lexync-radius-pill); background: var(--lexync-color-warning-surface); color: var(--lexync-color-warning); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); letter-spacing: var(--lexync-type-tracking-wide); text-transform: uppercase; }
 .vocabulary-entry > div { padding: 0 1.15rem 1.15rem; }
 .vocabulary-sense { margin: 0; padding-top: var(--lexync-space-4); }
@@ -553,7 +561,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
   .vocabulary-entry-actions-main { flex: 1 1 auto; }
   .library-selection-controls { grid-template-columns: 1fr; align-items: stretch; }
   .library-selection-actions { align-items: stretch; flex-direction: column; }
-  .vocabulary-discovery-controls, .lesson-choices { grid-template-columns: 1fr; }
+  .lesson-choices { grid-template-columns: 1fr; }
   .learning-materials-form { grid-template-columns: 1fr; }
   .learning-materials-form .primary-button { width: 100%; }
   .learning-material-row { align-items: stretch; flex-direction: column; }
@@ -773,11 +781,6 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .searchable-picker-option:active .searchable-picker-option-detail, .searchable-picker-option[aria-selected='true'][data-highlighted='true'] .searchable-picker-option-detail { color: var(--web-strong); }
 .searchable-picker-empty { display: flex; align-items: center; min-height: 2.75rem; margin: 0; padding: .55rem .8rem; color: var(--web-muted); font-size: var(--lexync-type-size-sm); }
 
-@media (min-width: 44.0625rem) and (max-width: 60rem) {
-  .vocabulary-discovery-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .vocabulary-discovery-controls > :first-child { grid-column: 1 / -1; }
-}
-
 h1, h2, h3, h4,
 .app-shell h1, .app-shell h2, .app-shell h3, .app-shell h4,
 .lesson-tile h2, .panel-header h2, .lesson-progress-banner h2, .lesson-missed h2,
@@ -839,7 +842,7 @@ h1, h2, h3, h4,
 .library-scope-actions .text-button { min-height: 2.75rem; }
 .library-scope-error { flex: 1 1 100%; margin: 0; font-weight: var(--lexync-type-weight-regular); }
 
-.vocabulary-discovery-controls { grid-template-columns: minmax(0, 1fr) minmax(10rem, .35fr) auto; margin-top: 1rem; }
+.vocabulary-discovery-controls { margin-top: 1rem; }
 .library-select-toggle { align-self: end; min-height: 3rem; }
 .library-select-toggle[aria-pressed='true'] { border-color: var(--web-primary); background: var(--web-selected); color: var(--web-primary-active); }
 
@@ -853,7 +856,6 @@ h1, h2, h3, h4,
 .library-selection .text-button { min-height: 2.75rem; }
 
 @media (max-width: 44rem) {
-  .vocabulary-discovery-controls { grid-template-columns: 1fr; }
   .library-select-toggle { width: 100%; }
   .library-scope, .library-scope-actions { align-items: stretch; flex-direction: column; }
   .library-scope-actions > * { width: 100%; }
