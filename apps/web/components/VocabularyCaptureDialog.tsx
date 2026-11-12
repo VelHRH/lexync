@@ -79,32 +79,33 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
       return;
     }
     setSaving(true);
-    const { data, error } = await supabase.rpc('capture_learning_language_entry', {
-      p_example: example,
-      p_example_translation: exampleTranslation,
-      p_expression: expression,
-      p_translation: translation,
-      p_answer_language_tag: answerTag,
-      p_learning_language_id: language.id,
-      p_sense_id: senseId,
-      p_create_new_sense: createNewSense,
-    });
-    if (error) {
+    try {
+      const { data, error } = await supabase.rpc('capture_learning_language_entry', {
+        p_example: example,
+        p_example_translation: exampleTranslation,
+        p_expression: expression,
+        p_translation: translation,
+        p_answer_language_tag: answerTag,
+        p_learning_language_id: language.id,
+        p_sense_id: senseId,
+        p_create_new_sense: createNewSense,
+      });
+      if (error) {
+        setNotice(error.message);
+        return;
+      }
+      if (data?.kind === 'needs_sense') {
+        setPendingSenses(data.senses ?? []);
+        return;
+      }
+      const capturedExpression = expression;
+      const clipNotice = await keepCapturedClip(typeof data?.vocabularyEntryId === 'string' ? data.vocabularyEntryId : '', capturedExpression);
+      resetCaptureDraft();
+      await onCaptured(capturedExpression, clipNotice);
+      onClose();
+    } finally {
       setSaving(false);
-      setNotice(error.message);
-      return;
     }
-    if (data?.kind === 'needs_sense') {
-      setSaving(false);
-      setPendingSenses(data.senses ?? []);
-      return;
-    }
-    const capturedExpression = expression;
-    const clipNotice = await keepCapturedClip(typeof data?.vocabularyEntryId === 'string' ? data.vocabularyEntryId : '', capturedExpression);
-    setSaving(false);
-    resetCaptureDraft();
-    await onCaptured(capturedExpression, clipNotice);
-    onClose();
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {

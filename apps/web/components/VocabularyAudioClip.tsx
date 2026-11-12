@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import type { LibraryEntry } from '../lib/libraryStore';
 import { AUDIO_CLIP_BUCKET, audioClipMetadataFailure, audioClipPath, audioClipRemovalFailure, audioClipUploadFailure, type AudioClipFailure } from '../lib/audioClip';
@@ -218,29 +218,36 @@ export async function storeAudioClip({ durationMs, entryId, file, languageId, pr
   return null;
 }
 
+function AudioClipRecorderStatus({ idle, recorder }: { idle: ReactNode; recorder: AudioClipRecorder }) {
+  const preview = recorder.preview;
+  if (recorder.recording) return <span className="audio-clip-recording" role="status"><span className="audio-clip-recording-dot" aria-hidden="true" />Recording</span>;
+  if (!preview) return idle;
+  return <AudioClipControl
+    key={preview.url}
+    dataUi="vocabulary-audio-clip-preview"
+    durationMs={preview.durationMs}
+    idleLabel="Play the recording to listen back"
+    playingLabel="Stop the recording"
+    resolve={async () => preview.url}
+  />;
+}
+
+function recordingUnavailableNote({ online, supported, unsupported }: { online: boolean; supported: boolean; unsupported: string }) {
+  if (!supported) return unsupported;
+  if (!online) return 'Recording a pronunciation needs a connection. Everything else here still works.';
+  return '';
+}
+
+const noRecordingYet = <span className="vocabulary-audio-empty">No pronunciation yet</span>;
+
 export function VocabularyCaptureAudioRecorder({ busy, online, recorder }: { busy: boolean; online: boolean; recorder: AudioClipRecorder }) {
   const preview = recorder.preview;
-  const unavailable = !recorder.supported
-    ? 'This browser cannot record audio, so this word saves without a pronunciation. Everything else here still works.'
-    : !online
-      ? 'Recording a pronunciation needs a connection. Everything else here still works.'
-      : '';
+  const unavailable = recordingUnavailableNote({ online, supported: recorder.supported, unsupported: 'This browser cannot record audio, so this word saves without a pronunciation. Everything else here still works.' });
 
   return <fieldset className="vocabulary-audio-editor">
     <legend>Audio Clip</legend>
     <div className="vocabulary-audio-row">
-      {recorder.recording
-        ? <span className="audio-clip-recording" role="status"><span className="audio-clip-recording-dot" aria-hidden="true" />Recording</span>
-        : preview
-          ? <AudioClipControl
-            key={preview.url}
-            dataUi="vocabulary-audio-clip-preview"
-            durationMs={preview.durationMs}
-            idleLabel="Play the recording to listen back"
-            playingLabel="Stop the recording"
-            resolve={async () => preview.url}
-          />
-          : <span className="vocabulary-audio-empty">No pronunciation yet</span>}
+      <AudioClipRecorderStatus idle={noRecordingYet} recorder={recorder} />
       <div className="vocabulary-audio-actions">
         {recorder.recording
           ? <button className="secondary-button" type="button" onClick={() => recorder.stop()}>Stop recording</button>
@@ -300,29 +307,12 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
     onChanged();
   }
 
-  const unavailable = !recorder.supported
-    ? 'This browser cannot record audio, so this word has no pronunciation yet. Everything else here still works.'
-    : !online
-      ? 'Recording a pronunciation needs a connection. Everything else here still works.'
-      : '';
+  const unavailable = recordingUnavailableNote({ online, supported: recorder.supported, unsupported: 'This browser cannot record audio, so this word has no pronunciation yet. Everything else here still works.' });
 
   return <fieldset className="vocabulary-audio-editor">
     <legend>Audio Clip</legend>
     <div className="vocabulary-audio-row">
-      {recorder.recording
-        ? <span className="audio-clip-recording" role="status"><span className="audio-clip-recording-dot" aria-hidden="true" />Recording</span>
-        : preview
-          ? <AudioClipControl
-            key={preview.url}
-            dataUi="vocabulary-audio-clip-preview"
-            durationMs={preview.durationMs}
-            idleLabel="Play the recording to listen back"
-            playingLabel="Stop the recording"
-            resolve={async () => preview.url}
-          />
-          : entry.audioClipPath
-            ? <VocabularyAudioClipPlayer entry={entry} />
-            : <span className="vocabulary-audio-empty">No pronunciation yet</span>}
+      <AudioClipRecorderStatus idle={entry.audioClipPath ? <VocabularyAudioClipPlayer entry={entry} /> : noRecordingYet} recorder={recorder} />
       <div className="vocabulary-audio-actions">
         {preview
           ? <>
