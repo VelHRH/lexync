@@ -355,13 +355,25 @@ test.describe('web Library data lifetime', () => {
     const libraryRequests = trackLibraryRequests(page);
     await page.goto('/library');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
-    expect(progressRequests.count()).toBe(1);
+
+    const refresh = page.getByRole('button', { name: 'Refresh library' });
+    progressRequests.reset();
+    await refresh.click();
+    await expect(refresh).toBeEnabled();
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
+    expect(progressRequests.count(), 'one request reads every row state, however many rows there are').toBe(1);
 
     progressRequests.reset();
     libraryRequests.reset();
-    await page.getByLabel('Progress state').selectOption('new');
+    await clickNavLink(page, 'Lessons');
+    await expect(page).toHaveURL('/lessons');
+    await clickNavLink(page, 'Library');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
-    await page.getByLabel('Progress state').selectOption('learned');
+    expect(progressRequests.count(), 'the row states ride the Library snapshot rather than a read path of their own').toBe(0);
+
+    await page.getByLabel('Vocabulary Progress State').selectOption('new');
+    await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
+    await page.getByLabel('Vocabulary Progress State').selectOption('learned');
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     expect(progressRequests.count()).toBe(0);
     expect(libraryRequests.count()).toBe(0);

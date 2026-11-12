@@ -263,7 +263,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     }
     setEntrySuspendedInStore(language.id, entry.id, suspended);
     setSuspensionNotice(`${entry.expression} is ${suspended ? 'suspended' : 'active'}.`);
-    await reload();
+    if (!suspended && !entry.progressState) await loadLibrary(language.id, pairIds, { force: true });
   }
 
   async function changeMembership(entry: LibraryEntry, collection: Collection, member: boolean) {
@@ -544,7 +544,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
           </select>
         </div>
         <div className="field">
-          <label htmlFor="vocabulary-progress-state">Progress state</label>
+          <label htmlFor="vocabulary-progress-state">Vocabulary Progress State</label>
           <select id="vocabulary-progress-state" value={progress} onChange={(event) => setProgress(event.target.value as ProgressFilter)}>
             <option value="all">All states</option>
             {VOCABULARY_PROGRESS_STATES.map((state) => <option key={state} value={state}>{PROGRESS_STATE_LABELS[state]}</option>)}

@@ -441,7 +441,7 @@ test.describe('web Collections', () => {
     await signIn(page, account);
     await page.goto('/library');
     await chooseCollection(page, /Travel/);
-    await page.getByLabel('Progress state').selectOption('learned');
+    await page.getByLabel('Vocabulary Progress State').selectOption('learned');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(learnedInTravel.length);
     for (const row of learnedInTravel) await expect(entrySummary(page, row.expression)).toBeVisible();
     for (const row of unfiled) await expect(entrySummary(page, row.expression)).toHaveCount(0);
@@ -463,7 +463,7 @@ test.describe('web Collections', () => {
 
     await chooseCollection(page, 'Not in a Collection');
     await expect(page.getByText('No learned Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
-    await page.getByLabel('Progress state').selectOption('new');
+    await page.getByLabel('Vocabulary Progress State').selectOption('new');
     for (const row of unfiled) await expect(entrySummary(page, row.expression)).toBeVisible();
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(unfiled.length);
 

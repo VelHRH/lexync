@@ -215,17 +215,17 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(entries.length);
 
     for (const [state, expected] of [['learned', tally.learned], ['in-practice', tally.inPractice], ['new', tally.new]] as const) {
-      await page.getByLabel('Progress state').selectOption(state);
+      await page.getByLabel('Vocabulary Progress State').selectOption(state);
       await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expected);
       await expect(page.locator(`[data-ui="entry-progress-state"][data-state="${state}"]`)).toHaveCount(expected);
       await expect(page.locator('.library-toolbar')).toContainText(`${expected} shown`);
     }
 
-    await page.getByLabel('Progress state').selectOption('all');
+    await page.getByLabel('Vocabulary Progress State').selectOption('all');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(entries.length);
 
     await page.getByLabel('Vocabulary status').selectOption('suspended');
-    await page.getByLabel('Progress state').selectOption('learned');
+    await page.getByLabel('Vocabulary Progress State').selectOption('learned');
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     await expect(page.getByText('A suspended Vocabulary Entry carries no Vocabulary Progress State. Resume it to see where it stands.', { exact: true })).toBeVisible();
     if (test.info().project.name === 'web-vocabulary-mobile') {
