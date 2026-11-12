@@ -556,7 +556,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       {selectedCollection && <div className="library-entry-add">
         <SearchablePicker id="library-entry-to-add" label="Vocabulary Entry to add" value={entryToAddId} options={addableEntryOptions} onChange={(id) => void addEntryToScopedCollection(id)} emptyMessage="No Vocabulary Entries match" disabled={!online || filing} describedBy={offlineReason} />
       </div>}
-      <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression) => { setCapturedNotice(`Saved “${expression}” to your vocabulary.`); await reload(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
+      <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression, clipNotice) => { setCapturedNotice([`Saved “${expression}” to your vocabulary.`, clipNotice].filter(Boolean).join(' ')); await reload(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
       <CollectionDialogs
         languageId={language.id}
         request={collectionRequest}

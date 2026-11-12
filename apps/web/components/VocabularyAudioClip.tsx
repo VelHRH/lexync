@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { LibraryEntry } from '../lib/libraryStore';
-import { AUDIO_CLIP_BUCKET, audioClipMetadataFailure, audioClipPath, audioClipRemovalFailure, audioClipUploadFailure } from '../lib/audioClip';
+import { AUDIO_CLIP_BUCKET, audioClipMetadataFailure, audioClipPath, audioClipRemovalFailure, audioClipUploadFailure, type AudioClipFailure } from '../lib/audioClip';
 
 function recordingMimeType() {
   if (typeof MediaRecorder === 'undefined') return '';
@@ -107,10 +107,11 @@ export function VocabularyAudioClipPlayer({ entry }: { entry: LibraryEntry }) {
   return <AudioClipPlayer dataUi="vocabulary-audio-clip" durationMs={entry.audioClipDurationMs} expression={entry.expression} path={entry.audioClipPath} />;
 }
 
-export function VocabularyAudioClipRecorder({ entry, languageId, online, onChanged }: { entry: LibraryEntry; languageId: string; online: boolean; onChanged: () => void }) {
+export type AudioClipRecording = { blob: Blob; durationMs: number; url: string };
+
+export function useAudioClipRecorder({ declinedNotice }: { declinedNotice: string }) {
   const [recording, setRecording] = useState(false);
-  const [preview, setPreview] = useState<{ blob: Blob; durationMs: number; url: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<AudioClipRecording | null>(null);
   const [notice, setNotice] = useState('');
   const recorder = useRef<MediaRecorder | null>(null);
   const microphone = useRef<MediaStream | null>(null);
@@ -132,14 +133,14 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
     microphone.current = null;
   }, []);
 
-  async function startRecording() {
+  async function start() {
     setNotice('');
     const mimeType = recordingMimeType();
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setNotice('Lexync could not use your microphone. You can still edit and save this word.');
+      setNotice(declinedNotice);
       return;
     }
     microphone.current = stream;
@@ -161,55 +162,127 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
     setRecording(true);
   }
 
-  function stopRecording() {
+  function stop() {
     recorder.current?.stop();
     recorder.current = null;
   }
 
+  function discard() {
+    setPreview((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+
+  return { discard, notice, preview, recording, setNotice, start, stop, supported };
+}
+
+export type AudioClipRecorder = ReturnType<typeof useAudioClipRecorder>;
+
+export async function currentAudioClipPath(entryId: string): Promise<{ path: string | null } | { failure: AudioClipFailure }> {
+  const { data, error } = await supabase.from('learning_vocabulary_entries').select('audio_clip_path').eq('id', entryId).maybeSingle();
+  if (error) {
+    const failure = audioClipMetadataFailure(error);
+    console.error(`Audio Clip lookup failed (${failure.reason}) for Vocabulary Entry ${entryId}`, error);
+    return { failure };
+  }
+  return { path: typeof data?.audio_clip_path === 'string' ? data.audio_clip_path : null };
+}
+
+export async function storeAudioClip({ durationMs, entryId, file, languageId, previousPath }: { durationMs: number; entryId: string; file: Blob; languageId: string; previousPath: string | null }): Promise<AudioClipFailure | null> {
+  const path = audioClipPath({
+    clipId: crypto.randomUUID(),
+    entryId,
+    languageId,
+    learnerId: await currentLearnerId(),
+    mimeType: file.type,
+  });
+  const { error: uploadError } = await supabase.storage.from(AUDIO_CLIP_BUCKET).upload(path, file, { contentType: file.type });
+  if (uploadError) {
+    const failure = audioClipUploadFailure(uploadError);
+    console.error(`Audio Clip upload failed (${failure.reason}) for ${AUDIO_CLIP_BUCKET}/${path}`, uploadError);
+    return failure;
+  }
+  const { error } = await supabase.rpc('set_vocabulary_entry_audio_clip', {
+    p_audio_clip_duration_ms: durationMs,
+    p_audio_clip_path: path,
+    p_learning_vocabulary_entry_id: entryId,
+  });
+  if (error) {
+    const failure = audioClipMetadataFailure(error);
+    console.error(`Audio Clip metadata write failed (${failure.reason}) through set_vocabulary_entry_audio_clip`, error);
+    await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([path]);
+    return failure;
+  }
+  if (previousPath && previousPath !== path) await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([previousPath]);
+  return null;
+}
+
+export function VocabularyCaptureAudioRecorder({ busy, online, recorder }: { busy: boolean; online: boolean; recorder: AudioClipRecorder }) {
+  const preview = recorder.preview;
+  const unavailable = !recorder.supported
+    ? 'This browser cannot record audio, so this word saves without a pronunciation. Everything else here still works.'
+    : !online
+      ? 'Recording a pronunciation needs a connection. Everything else here still works.'
+      : '';
+
+  return <fieldset className="vocabulary-audio-editor">
+    <legend>Audio Clip</legend>
+    <div className="vocabulary-audio-row">
+      {recorder.recording
+        ? <span className="audio-clip-recording" role="status"><span className="audio-clip-recording-dot" aria-hidden="true" />Recording</span>
+        : preview
+          ? <AudioClipControl
+            key={preview.url}
+            dataUi="vocabulary-audio-clip-preview"
+            durationMs={preview.durationMs}
+            idleLabel="Play the recording to listen back"
+            playingLabel="Stop the recording"
+            resolve={async () => preview.url}
+          />
+          : <span className="vocabulary-audio-empty">No pronunciation yet</span>}
+      <div className="vocabulary-audio-actions">
+        {recorder.recording
+          ? <button className="secondary-button" type="button" onClick={() => recorder.stop()}>Stop recording</button>
+          : <button className="secondary-button" type="button" disabled={!recorder.supported || !online || busy} onClick={() => void recorder.start()}>{preview ? 'Replace recording' : 'Record pronunciation'}</button>}
+        {preview && !recorder.recording && <button className="inline-button" type="button" disabled={busy} onClick={() => recorder.discard()}>Discard recording</button>}
+      </div>
+    </div>
+    {preview && !recorder.recording && <p className="vocabulary-audio-note">This recording is kept with the word when you save it.</p>}
+    {unavailable && <p className="vocabulary-audio-note">{unavailable}</p>}
+    {recorder.notice && <p className="vocabulary-audio-note" role="status">{recorder.notice}</p>}
+  </fieldset>;
+}
+
+export function VocabularyAudioClipRecorder({ entry, languageId, online, onChanged }: { entry: LibraryEntry; languageId: string; online: boolean; onChanged: () => void }) {
+  const recorder = useAudioClipRecorder({ declinedNotice: 'Lexync could not use your microphone. You can still edit and save this word.' });
+  const [busy, setBusy] = useState(false);
+  const preview = recorder.preview;
+
   async function keepRecording() {
     if (!preview) return;
     setBusy(true);
-    setNotice('');
-    const path = audioClipPath({
-      clipId: crypto.randomUUID(),
+    recorder.setNotice('');
+    const failure = await storeAudioClip({
+      durationMs: preview.durationMs,
       entryId: entry.learningVocabularyEntryId,
+      file: preview.blob,
       languageId,
-      learnerId: await currentLearnerId(),
-      mimeType: preview.blob.type,
+      previousPath: entry.audioClipPath,
     });
-    const { error: uploadError } = await supabase.storage.from(AUDIO_CLIP_BUCKET).upload(path, preview.blob, { contentType: preview.blob.type });
-    if (uploadError) {
-      const failure = audioClipUploadFailure(uploadError);
-      console.error(`Audio Clip upload failed (${failure.reason}) for ${AUDIO_CLIP_BUCKET}/${path}`, uploadError);
-      setBusy(false);
-      setNotice(failure.notice);
-      return;
-    }
-    const previousPath = entry.audioClipPath;
-    const { error } = await supabase.rpc('set_vocabulary_entry_audio_clip', {
-      p_audio_clip_duration_ms: preview.durationMs,
-      p_audio_clip_path: path,
-      p_learning_vocabulary_entry_id: entry.learningVocabularyEntryId,
-    });
-    if (error) {
-      const failure = audioClipMetadataFailure(error);
-      console.error(`Audio Clip metadata write failed (${failure.reason}) through set_vocabulary_entry_audio_clip`, error);
-      await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([path]);
-      setBusy(false);
-      setNotice(failure.notice);
-      return;
-    }
-    if (previousPath && previousPath !== path) await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([previousPath]);
-    URL.revokeObjectURL(preview.url);
-    setPreview(null);
     setBusy(false);
+    if (failure) {
+      recorder.setNotice(failure.notice);
+      return;
+    }
+    recorder.discard();
     onChanged();
   }
 
   async function removeRecording() {
     if (!entry.audioClipPath) return;
     setBusy(true);
-    setNotice('');
+    recorder.setNotice('');
     const { error } = await supabase.rpc('set_vocabulary_entry_audio_clip', {
       p_audio_clip_duration_ms: null,
       p_audio_clip_path: null,
@@ -219,7 +292,7 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
       const failure = audioClipRemovalFailure(error);
       console.error(`Audio Clip removal failed (${failure.reason}) through set_vocabulary_entry_audio_clip`, error);
       setBusy(false);
-      setNotice(failure.notice);
+      recorder.setNotice(failure.notice);
       return;
     }
     await supabase.storage.from(AUDIO_CLIP_BUCKET).remove([entry.audioClipPath]);
@@ -227,12 +300,7 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
     onChanged();
   }
 
-  function discardPreview() {
-    if (preview) URL.revokeObjectURL(preview.url);
-    setPreview(null);
-  }
-
-  const unavailable = !supported
+  const unavailable = !recorder.supported
     ? 'This browser cannot record audio, so this word has no pronunciation yet. Everything else here still works.'
     : !online
       ? 'Recording a pronunciation needs a connection. Everything else here still works.'
@@ -241,7 +309,7 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
   return <fieldset className="vocabulary-audio-editor">
     <legend>Audio Clip</legend>
     <div className="vocabulary-audio-row">
-      {recording
+      {recorder.recording
         ? <span className="audio-clip-recording" role="status"><span className="audio-clip-recording-dot" aria-hidden="true" />Recording</span>
         : preview
           ? <AudioClipControl
@@ -259,16 +327,16 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
         {preview
           ? <>
             <button className="secondary-button" type="button" disabled={busy} onClick={() => void keepRecording()}>{busy ? 'Saving…' : 'Keep recording'}</button>
-            <button className="inline-button" type="button" disabled={busy} onClick={discardPreview}>Discard recording</button>
+            <button className="inline-button" type="button" disabled={busy} onClick={() => recorder.discard()}>Discard recording</button>
           </>
-          : recording
-            ? <button className="secondary-button" type="button" onClick={stopRecording}>Stop recording</button>
-            : <button className="secondary-button" type="button" disabled={!supported || !online || busy} onClick={() => void startRecording()}>{entry.audioClipPath ? 'Replace recording' : 'Record pronunciation'}</button>}
-        {entry.audioClipPath && !preview && !recording && <button className="inline-button danger" type="button" disabled={busy || !online} onClick={() => void removeRecording()}>Remove recording</button>}
+          : recorder.recording
+            ? <button className="secondary-button" type="button" onClick={() => recorder.stop()}>Stop recording</button>
+            : <button className="secondary-button" type="button" disabled={!recorder.supported || !online || busy} onClick={() => void recorder.start()}>{entry.audioClipPath ? 'Replace recording' : 'Record pronunciation'}</button>}
+        {entry.audioClipPath && !preview && !recorder.recording && <button className="inline-button danger" type="button" disabled={busy || !online} onClick={() => void removeRecording()}>Remove recording</button>}
       </div>
     </div>
     {unavailable && <p className="vocabulary-audio-note">{unavailable}</p>}
-    {notice && <p className="vocabulary-audio-note" role="status">{notice}</p>}
+    {recorder.notice && <p className="vocabulary-audio-note" role="status">{recorder.notice}</p>}
   </fieldset>;
 }
 
