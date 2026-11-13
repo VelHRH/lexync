@@ -4,7 +4,7 @@ export type CapturedEntry = { senseId: string; vocabularyEntryId: string };
 export type ProgressState = 'new' | 'in_practice' | 'learned';
 export type StateTally = { new: number; inPractice: number; learned: number };
 
-export const LEARNED_PRACTICE_STREAK = 2;
+export const LEARNED_PRACTICE_STREAK = 5;
 
 export const PROGRESS_STATE_COPY: Record<ProgressState, string> = {
   in_practice: 'In practice',
@@ -86,6 +86,16 @@ export async function practiseCollection(
     const { error: continueError } = await client.rpc('continue_lesson_question', { p_lesson_id: lessonId, p_question_id: question.id });
     if (continueError) throw continueError;
   }
+}
+
+export async function practiseToMixedStates(
+  client: SupabaseClient,
+  learningLanguageId: string,
+  collectionId: string,
+  partialLimit = 4,
+) {
+  for (let round = 1; round < LEARNED_PRACTICE_STREAK; round += 1) await practiseCollection(client, learningLanguageId, collectionId);
+  await practiseCollection(client, learningLanguageId, collectionId, partialLimit);
 }
 
 export async function practiceStreaks(client: SupabaseClient) {
