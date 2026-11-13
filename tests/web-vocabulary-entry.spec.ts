@@ -233,7 +233,7 @@ test.describe('web Vocabulary Entry library', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    const explanation = 'A word counts as learned once every one of its meanings has been answered correctly twice in a row. A wrong answer resets that count.';
+    const explanation = 'A word is new until a Lesson asks it, and in practice from then on. It counts as learned once every one of its meanings has been answered correctly twice in a row, and a wrong answer resets that count.';
     await expect(page.getByText(explanation)).toBeVisible();
     await expect(page.getByLabel('Vocabulary Progress State')).toHaveAccessibleDescription(explanation);
   });
@@ -804,6 +804,25 @@ test.describe('web Vocabulary Entry library', () => {
     expect(await storedClipPath(client)).not.toBeNull();
   });
 
+  test('keeps a recording the Learner stops and saves in one motion', async ({ page }) => {
+    const account = credentials('web-capture-audio-rushed');
+    const { client } = await registerWithPair(account);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await page.getByRole('button', { name: 'Add vocabulary' }).click();
+    await page.getByLabel('Expression').fill('descubrir');
+    await page.getByLabel('Answer Language').fill('en');
+    await page.getByLabel('Translation', { exact: true }).fill('to discover');
+    await audioClipControls(page).getByRole('button', { name: 'Record pronunciation' }).click();
+    await audioClipControls(page).getByRole('button', { name: 'Stop recording' }).click();
+    await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await expect(playControl(page, 'descubrir')).toBeVisible();
+    expect(await storedClipPath(client)).not.toBeNull();
+  });
+
   test('reports a recording that could not be kept apart from the word that was saved', async ({ page }) => {
     const account = credentials('web-capture-audio-failure');
     await registerWithPair(account);
@@ -838,11 +857,37 @@ test.describe('web Vocabulary Entry library', () => {
 
     await captureWithClip(page, 'descubrir', 'to discover');
     await expect(page.getByRole('status').filter({ hasText: 'Saved “descubrir” to your vocabulary.' })).toBeVisible();
-    expect(held.length).toBeGreaterThan(0);
+    await expect(page.getByRole('button', { name: 'Refreshing…' })).toBeVisible();
 
     holding = false;
     for (const release of held) release();
     await expect(playControl(page, 'descubrir')).toBeVisible();
+  });
+
+  test('reports a pending state the Learner can see while the capture dialog writes', async ({ page }) => {
+    const account = credentials('web-capture-pending');
+    await registerWithPair(account);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    const held: Array<() => void> = [];
+    await page.route('**/rest/v1/rpc/capture_learning_language_entry', async (route) => {
+      await new Promise<void>((resolve) => { held.push(resolve); });
+      await route.continue();
+    });
+
+    await page.getByRole('button', { name: 'Add vocabulary' }).click();
+    await page.getByLabel('Expression').fill('descubrir');
+    await page.getByLabel('Answer Language').fill('en');
+    await page.getByLabel('Translation', { exact: true }).fill('to discover');
+    await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+
+    await expect(page.getByRole('status').filter({ hasText: 'Saving “descubrir”' })).toBeVisible();
+    await expect(page.getByLabel('Expression')).toBeDisabled();
+
+    for (const release of held) release();
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await expect(page.locator('summary').filter({ hasText: 'descubrir' })).toBeVisible();
   });
 
   test('offers a word its pronunciation in the read view, without opening the editor', async ({ page }) => {

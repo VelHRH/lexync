@@ -102,6 +102,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     queueMicrotask(() => {
       if (new URLSearchParams(window.location.search).get('add') === '1') {
         setCapturedNotice('');
+        setCapturedClipError('');
         setShowForm(true);
         const remaining = new URLSearchParams(window.location.search);
         remaining.delete('add');
@@ -484,7 +485,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       <div className="library-toolbar">
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <div className="library-toolbar-actions">
-          <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
+          <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setCapturedClipError(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
           <button className="secondary-button" type="button" disabled={!online || snapshot.loading || snapshot.refreshing} onClick={() => void loadLibrary(language.id, pairIds, { force: true })}>{snapshot.loading || snapshot.refreshing ? 'Refreshing…' : 'Refresh library'}</button>
         </div>
       </div>

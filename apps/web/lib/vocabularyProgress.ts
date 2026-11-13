@@ -11,7 +11,7 @@ export const VOCABULARY_PROGRESS_STATES = ['new', 'in-practice', 'learned'] as c
 
 export type VocabularyProgressState = (typeof VOCABULARY_PROGRESS_STATES)[number];
 
-export const VOCABULARY_PROGRESS_RULE = 'A word counts as learned once every one of its meanings has been answered correctly twice in a row. A wrong answer resets that count.';
+export const VOCABULARY_PROGRESS_RULE = 'A word is new until a Lesson asks it, and in practice from then on. It counts as learned once every one of its meanings has been answered correctly twice in a row, and a wrong answer resets that count.';
 
 export const PROGRESS_STATE_LABELS: Record<VocabularyProgressState, string> = {
   'in-practice': 'In practice',
