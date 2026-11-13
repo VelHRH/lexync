@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
-import { PROGRESS_STATE_COPY, defaultVocabulary, fileEntry, practiceStreaks, practiseCollection, seedCollection, seedEntries, stateOf, statesOf, suspendEntry } from './support/vocabulary-progress';
+import { PROGRESS_STATE_COPY, defaultVocabulary, fileEntry, practiceStreaks, practiseToMixedStates, seedCollection, seedEntries, stateOf, statesOf, suspendEntry } from './support/vocabulary-progress';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -208,8 +208,7 @@ test.describe('web Vocabulary Entry library', () => {
     const entries = await seedEntries(client, learningLanguageId);
     const travel = await seedCollection(client, learningLanguageId, 'Travel');
     for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
-    await practiseCollection(client, learningLanguageId, travel);
-    await practiseCollection(client, learningLanguageId, travel, 4);
+    await practiseToMixedStates(client, learningLanguageId, travel);
     const streaks = await practiceStreaks(client);
     const tally = statesOf(entries, streaks);
     expect(tally.learned, 'the fixture must leave a learned word in the Library').toBeGreaterThan(0);
@@ -233,7 +232,7 @@ test.describe('web Vocabulary Entry library', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    const explanation = 'A word is new until a Lesson asks it, and in practice from then on. It counts as learned once every one of its meanings has been answered correctly twice in a row, and a wrong answer resets that count.';
+    const explanation = 'A word is new until a Lesson asks it, and in practice from then on. It counts as learned once every one of its meanings has been answered correctly five times in a row, and a wrong answer resets that count.';
     await expect(page.getByText(explanation)).toBeVisible();
     await expect(page.getByLabel('Vocabulary Progress State')).toHaveAccessibleDescription(explanation);
   });
@@ -245,8 +244,7 @@ test.describe('web Vocabulary Entry library', () => {
     const entries = await seedEntries(client, learningLanguageId);
     const travel = await seedCollection(client, learningLanguageId, 'Travel');
     for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
-    await practiseCollection(client, learningLanguageId, travel);
-    await practiseCollection(client, learningLanguageId, travel, 4);
+    await practiseToMixedStates(client, learningLanguageId, travel);
     const streaks = await practiceStreaks(client);
     const tally = statesOf(entries, streaks);
 
@@ -280,8 +278,7 @@ test.describe('web Vocabulary Entry library', () => {
     const entries = await seedEntries(client, learningLanguageId);
     const travel = await seedCollection(client, learningLanguageId, 'Travel');
     for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
-    await practiseCollection(client, learningLanguageId, travel);
-    await practiseCollection(client, learningLanguageId, travel, 4);
+    await practiseToMixedStates(client, learningLanguageId, travel);
     const streaks = await practiceStreaks(client);
     const [withheld] = entries;
     const withheldExpression = defaultVocabulary[0][0];

@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
 import { materialsLinkName } from './support/navigation';
-import { defaultVocabulary, practiceStreaks, practiseCollection, seedEntries, stateOf } from './support/vocabulary-progress';
+import { defaultVocabulary, practiceStreaks, practiseToMixedStates, seedEntries, stateOf } from './support/vocabulary-progress';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -430,8 +430,7 @@ test.describe('web Collections', () => {
     const travel = await seedCollection(client, spanish, 'Travel');
     await seedCollection(client, spanish, 'Sky');
     for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
-    await practiseCollection(client, spanish, travel);
-    await practiseCollection(client, spanish, travel, 4);
+    await practiseToMixedStates(client, spanish, travel);
     const streaks = await practiceStreaks(client);
     const rows = entries.map((entry, index) => ({ expression: defaultVocabulary[index][0], filed: index < 8, state: stateOf(entry, streaks) }));
     const learnedInTravel = rows.filter((row) => row.filed && row.state === 'learned');

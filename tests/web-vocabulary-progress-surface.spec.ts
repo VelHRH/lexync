@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
-import { fileEntry, practiceStreaks, practiseCollection, seedCollection, seedEntries, statesOf } from './support/vocabulary-progress';
+import { fileEntry, practiceStreaks, practiseToMixedStates, seedCollection, seedEntries, statesOf } from './support/vocabulary-progress';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -81,7 +81,7 @@ test.describe('Vocabulary Progress surface', () => {
     await seedEntries(fixture.client, fixture.learningLanguageId);
     await signIn(page, fixture.account);
     await page.goto('/progress');
-    await expect(page.getByText('A word is new until a Lesson asks it, and in practice from then on. It counts as learned once every one of its meanings has been answered correctly twice in a row, and a wrong answer resets that count.')).toBeVisible();
+    await expect(page.getByText('A word is new until a Lesson asks it, and in practice from then on. It counts as learned once every one of its meanings has been answered correctly five times in a row, and a wrong answer resets that count.')).toBeVisible();
   });
 
   test('gives every Collection in the active Learning Language its own counts and bar', async ({ page }) => {
@@ -91,8 +91,7 @@ test.describe('Vocabulary Progress surface', () => {
     const shelf = await seedCollection(fixture.client, fixture.learningLanguageId, 'Empty shelf');
     const filed = entries.slice(0, 8);
     for (const entry of filed) await fileEntry(fixture.client, travel, entry.vocabularyEntryId);
-    await practiseCollection(fixture.client, fixture.learningLanguageId, travel);
-    await practiseCollection(fixture.client, fixture.learningLanguageId, travel, 4);
+    await practiseToMixedStates(fixture.client, fixture.learningLanguageId, travel);
     const streaks = await practiceStreaks(fixture.client);
     const filedStates = statesOf(filed, streaks);
     expect(filedStates.learned, 'the fixture must leave a learned Vocabulary Entry in the Collection').toBeGreaterThan(0);

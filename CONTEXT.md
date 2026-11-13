@@ -110,7 +110,7 @@ The number of consecutive correct Lesson Attempts a Sense has accumulated since 
 
 ## Learned Sense
 
-A Sense whose Practice Streak has reached two. A Sense stops being a Learned Sense when a later incorrect Lesson Attempt returns its Practice Streak to zero.
+A Sense whose Practice Streak has reached five. A Sense stops being a Learned Sense when a later incorrect Lesson Attempt returns its Practice Streak to zero.
 
 ## Learned Vocabulary Entry
 
