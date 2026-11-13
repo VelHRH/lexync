@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
-import { VocabularyCaptureAudioRecorder, currentAudioClipPath, storeAudioClip, useAudioClipRecorder } from './VocabularyAudioClip';
+import { VocabularyCaptureAudioRecorder, currentAudioClipPath, storeAudioClip, useAudioClipRecorder, type AudioClipRecording } from './VocabularyAudioClip';
 
 export type Translation = { answer_language_tag: string; id: string; text: string };
 type PendingSense = { id: string; translations: Translation[] };
@@ -59,8 +59,7 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
     recorder.discard();
   }
 
-  async function keepCapturedClip(entryId: string, capturedExpression: string) {
-    const preview = recorder.preview;
+  async function keepCapturedClip(entryId: string, capturedExpression: string, preview: AudioClipRecording | null) {
     if (!preview) return '';
     if (!entryId) return 'That recording could not be attached to this word. Record it again from the Library.';
     const existing = await currentAudioClipPath(entryId);
@@ -80,6 +79,7 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
     }
     setSaving(true);
     try {
+      const recording = await recorder.finish();
       const { data, error } = await supabase.rpc('capture_learning_language_entry', {
         p_example: example,
         p_example_translation: exampleTranslation,
@@ -99,10 +99,10 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
         return;
       }
       const capturedExpression = expression;
-      const clipNotice = await keepCapturedClip(typeof data?.vocabularyEntryId === 'string' ? data.vocabularyEntryId : '', capturedExpression);
+      const clipNotice = await keepCapturedClip(typeof data?.vocabularyEntryId === 'string' ? data.vocabularyEntryId : '', capturedExpression, recording);
       resetCaptureDraft();
-      await onCaptured(capturedExpression, clipNotice);
       onClose();
+      await onCaptured(capturedExpression, clipNotice);
     } finally {
       setSaving(false);
     }
@@ -126,16 +126,17 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
       <h2 id="vocabulary-capture-heading">Add vocabulary</h2>
       <form className="web-auth-form vocabulary-form" onSubmit={save}>
         <label htmlFor="expression">Expression</label>
-        <input id="expression" value={expression} disabled={!online} onChange={(event) => setExpression(event.target.value)} />
+        <input id="expression" value={expression} disabled={!online || saving} onChange={(event) => setExpression(event.target.value)} />
         <label htmlFor="answer-language">Answer Language</label>
-        <input id="answer-language" value={answerLanguage} disabled={!online} onChange={(event) => setAnswerLanguage(event.target.value)} placeholder="en or pt-BR" />
+        <input id="answer-language" value={answerLanguage} disabled={!online || saving} onChange={(event) => setAnswerLanguage(event.target.value)} placeholder="en or pt-BR" />
         <label htmlFor="translation">Translation</label>
-        <input id="translation" value={translation} disabled={!online} onChange={(event) => setTranslation(event.target.value)} />
+        <input id="translation" value={translation} disabled={!online || saving} onChange={(event) => setTranslation(event.target.value)} />
         <label htmlFor="example">Example <span>(optional)</span></label>
-        <textarea id="example" value={example} disabled={!online} onChange={(event) => setExample(event.target.value)} />
+        <textarea id="example" value={example} disabled={!online || saving} onChange={(event) => setExample(event.target.value)} />
         <label htmlFor="example-translation">Example translation <span>(optional)</span></label>
-        <textarea id="example-translation" value={exampleTranslation} disabled={!online || !example.trim()} onChange={(event) => setExampleTranslation(event.target.value)} />
+        <textarea id="example-translation" value={exampleTranslation} disabled={!online || saving || !example.trim()} onChange={(event) => setExampleTranslation(event.target.value)} />
         <VocabularyCaptureAudioRecorder busy={saving} online={online} recorder={recorder} />
+        {saving && <p className="form-notice vocabulary-capture-pending" role="status"><span className="vocabulary-capture-spinner" aria-hidden="true" />Saving “{expression}”{recorder.preview ? ' and its recording' : ''}…</p>}
         {notice && <p className="form-notice error" role="alert">{notice}</p>}
         <div className="vocabulary-editor-actions">
           <button className="primary-button" type="submit" disabled={saving || !online}>{saving ? 'Saving…' : 'Save Vocabulary Entry'}</button>

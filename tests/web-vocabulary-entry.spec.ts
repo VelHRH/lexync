@@ -50,7 +50,7 @@ function audioClipControls(page: Page) {
 }
 
 function playControl(page: Page, expression: string) {
-  return page.getByRole('button', { name: `Play the pronunciation of ${expression}` });
+  return page.locator('[data-ui="vocabulary-row-audio"]').getByRole('button', { name: `Play the pronunciation of ${expression}` });
 }
 
 async function recordClip(page: Page) {
@@ -224,6 +224,18 @@ test.describe('web Vocabulary Entry library', () => {
     if (test.info().project.name === 'web-vocabulary-mobile') {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     }
+  });
+
+  test('states the rule behind the Vocabulary Progress State filter', async ({ page }) => {
+    const account = credentials('web-progress-filter-rule');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    const explanation = 'A word counts as learned once every one of its meanings has been answered correctly twice in a row. A wrong answer resets that count.';
+    await expect(page.getByText(explanation)).toBeVisible();
+    await expect(page.getByLabel('Vocabulary Progress State')).toHaveAccessibleDescription(explanation);
   });
 
   test('filters the Library to one Vocabulary Progress State and explains a state with no words', async ({ page }) => {
@@ -580,6 +592,8 @@ test.describe('web Vocabulary Entry library', () => {
     await summary.focus();
     await page.keyboard.press('Enter');
     await page.keyboard.press('Tab');
+    await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Edit teclado' })).toBeFocused();
     await page.keyboard.press('Enter');
     await page.getByLabel('Expression').focus();
@@ -590,6 +604,8 @@ test.describe('web Vocabulary Entry library', () => {
     const updatedSummary = page.locator('summary').filter({ hasText: 'teclado nuevo' });
     await updatedSummary.focus();
     await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Edit teclado nuevo' })).toBeFocused();
     await page.keyboard.press('Tab');
@@ -736,7 +752,7 @@ test.describe('web Vocabulary Entry library', () => {
 
     await page.getByRole('button', { name: 'Cancel' }).click();
     await page.reload();
-    const player = page.locator('[data-ui="vocabulary-audio-clip"]');
+    const player = page.locator('[data-ui="vocabulary-row-audio"] [data-ui="vocabulary-audio-clip"]');
     await expect(playControl(page, 'casa')).toBeVisible();
     expect(await player.evaluate((element) => (element as HTMLAudioElement).paused)).toBe(true);
     expect(await player.evaluate((element) => (element as HTMLAudioElement).hasAttribute('autoplay'))).toBe(false);
@@ -767,6 +783,93 @@ test.describe('web Vocabulary Entry library', () => {
 
     await page.reload();
     await expect(playControl(page, 'descubrir')).toBeVisible();
+  });
+
+  test('keeps a recording the Learner never stopped before saving the word', async ({ page }) => {
+    const account = credentials('web-capture-audio-running');
+    const { client } = await registerWithPair(account);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await page.getByRole('button', { name: 'Add vocabulary' }).click();
+    await page.getByLabel('Expression').fill('descubrir');
+    await page.getByLabel('Answer Language').fill('en');
+    await page.getByLabel('Translation', { exact: true }).fill('to discover');
+    await audioClipControls(page).getByRole('button', { name: 'Record pronunciation' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Stop recording' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Save Vocabulary Entry' }).click();
+    await expect(page.getByLabel('Expression')).toHaveCount(0);
+    await expect(playControl(page, 'descubrir')).toBeVisible();
+    expect(await storedClipPath(client)).not.toBeNull();
+  });
+
+  test('reports a recording that could not be kept apart from the word that was saved', async ({ page }) => {
+    const account = credentials('web-capture-audio-failure');
+    await registerWithPair(account);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await page.route('**/storage/v1/object/vocabulary-audio-clips/**', (route) => route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Bucket not found', message: 'Bucket not found', statusCode: '404' }),
+    }));
+    await captureWithClip(page, 'descubrir', 'to discover');
+
+    await expect(page.getByRole('alert').filter({ hasText: 'This server cannot store pronunciations yet' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Saved “descubrir” to your vocabulary.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'cannot store pronunciations' })).toHaveCount(0);
+    await expect(playControl(page, 'descubrir')).toHaveCount(0);
+  });
+
+  test('closes the capture dialog without waiting for the Library to reload', async ({ page }) => {
+    const account = credentials('web-capture-audio-close');
+    await registerWithPair(account);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    const held: Array<() => void> = [];
+    let holding = true;
+    await page.route('**/rest/v1/rpc/vocabulary_progress_states', async (route) => {
+      if (holding) await new Promise<void>((resolve) => { held.push(resolve); });
+      await route.continue();
+    });
+
+    await captureWithClip(page, 'descubrir', 'to discover');
+    await expect(page.getByRole('status').filter({ hasText: 'Saved “descubrir” to your vocabulary.' })).toBeVisible();
+    expect(held.length).toBeGreaterThan(0);
+
+    holding = false;
+    for (const release of held) release();
+    await expect(playControl(page, 'descubrir')).toBeVisible();
+  });
+
+  test('offers a word its pronunciation in the read view, without opening the editor', async ({ page }) => {
+    const account = credentials('web-audio-read-view');
+    const { client, pair } = await registerWithPair(account);
+    await createEntry(client, pair.id, 'casa', 'house');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expandEntry(page, 'casa');
+    await expect(audioClipControls(page).getByText('No pronunciation yet')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Edit casa' })).toBeVisible();
+
+    await recordClip(page);
+    await audioClipControls(page).getByRole('button', { name: 'Keep recording' }).click();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Remove recording' })).toBeVisible();
+    await expect(playControl(page, 'casa')).toBeVisible();
+    expect(await storedClipPath(client)).not.toBeNull();
+
+    await page.reload();
+    await expandEntry(page, 'casa');
+    await expect(audioClipControls(page).getByRole('button', { name: 'Replace recording' })).toBeVisible();
+    await expect(audioClipControls(page).locator('[data-ui="vocabulary-audio-clip"]')).toHaveCount(1);
+
+    await audioClipControls(page).getByRole('button', { name: 'Remove recording' }).click();
+    await expect(audioClipControls(page).getByText('No pronunciation yet')).toBeVisible();
+    await expect(playControl(page, 'casa')).toHaveCount(0);
   });
 
   test('saves a captured word when the Learner declines the microphone', async ({ page }) => {
@@ -844,7 +947,7 @@ test.describe('web Vocabulary Entry library', () => {
     expect(await storedClipObjects(client, learnerId)).toEqual([firstPath]);
 
     await captureWithClip(page, 'casa', 'home');
-    await expect(page.getByRole('status').filter({ hasText: 'already had a pronunciation' })).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'already had a pronunciation' })).toBeVisible();
     expect(await storedClipPath(client)).toBe(firstPath);
     expect(await storedClipObjects(client, learnerId)).toEqual([firstPath]);
     expect((await client.storage.from('vocabulary-audio-clips').download(firstPath as string)).error).toBeNull();
@@ -1036,7 +1139,10 @@ test.describe('web Vocabulary Entry library', () => {
     expect(await page.evaluate(() => (window as unknown as { openedStreams: MediaStream[] }).openedStreams.flatMap((stream) => stream.getTracks()).some((track) => track.readyState === 'live'))).toBe(true);
 
     await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(audioClipControls(page)).toHaveCount(0);
+    await expandEntry(page, 'casa');
+    await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeVisible();
+    await expect(audioClipControls(page).getByRole('button', { name: 'Stop recording' })).toHaveCount(0);
+    await expect(audioClipControls(page).locator('[data-ui="vocabulary-audio-clip-preview"]')).toHaveCount(0);
     await expect.poll(async () => page.evaluate(() => (window as unknown as { openedStreams: MediaStream[] }).openedStreams.flatMap((stream) => stream.getTracks()).every((track) => track.readyState === 'ended'))).toBe(true);
   });
 
