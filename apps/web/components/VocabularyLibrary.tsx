@@ -680,7 +680,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
                 <button className="inline-button" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Add Example to Sense ${senseIndex + 1}`} onClick={() => addExample(senseIndex)}>Add Example</button>
               </section>)}
               <button className="secondary-button vocabulary-add-sense" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => setDraft({ ...draft, senses: [...draft.senses, { id: null, key: draftKey(), translations: [{ id: null, key: draftKey(), text: '' }], examples: [] }] })}>Add Sense</button>
-              <VocabularyAudioClipRecorder entry={entry} languageId={language.id} online={online} onChanged={() => void reload()} />
+              <VocabularyAudioClipRecorder entry={entry} online={online} onChanged={() => void reload()} />
               {notice && <p className="form-notice error" role="alert">{notice}</p>}
               <div className="vocabulary-editor-actions">
                 <button className="primary-button" type="submit" disabled={saving || !online} aria-describedby={offlineReason}>{saving ? 'Saving…' : 'Save changes'}</button>
@@ -695,7 +695,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
                   {item.translations.map((translation) => <p className="vocabulary-example-translation" key={translation.id}>{translation.text} <span>{translation.answer_language_tag}</span></p>)}
                 </div>)}
               </section>)}
-              <VocabularyAudioClipRecorder entry={entry} languageId={language.id} online={online} onChanged={() => void reload()} />
+              <VocabularyAudioClipRecorder entry={entry} online={online} onChanged={() => void reload()} />
               {collections.length > 0 && <div className="entry-collections" role="group" aria-labelledby={`entry-collections-${entry.id}`}>
                 <h4 id={`entry-collections-${entry.id}`}>Collections</h4>
                 {filedIn(entry).length > 0 && <div className="entry-collections-member">
