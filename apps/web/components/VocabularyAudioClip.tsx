@@ -206,21 +206,26 @@ export function useAudioClipRecorder({ declinedNotice }: { declinedNotice: strin
 
 export type AudioClipRecorder = ReturnType<typeof useAudioClipRecorder>;
 
-export async function currentAudioClipPath(entryId: string): Promise<{ path: string | null } | { failure: AudioClipFailure }> {
-  const { data, error } = await supabase.from('learning_vocabulary_entries').select('audio_clip_path').eq('id', entryId).maybeSingle();
+export async function currentAudioClip(entryId: string): Promise<{ languageId: string; path: string | null } | { failure: AudioClipFailure }> {
+  const { data, error } = await supabase.from('learning_vocabulary_entries').select('audio_clip_path,learning_language_id').eq('id', entryId).maybeSingle();
   if (error) {
     const failure = audioClipMetadataFailure(error);
     console.error(`Audio Clip lookup failed (${failure.reason}) for Vocabulary Entry ${entryId}`, error);
     return { failure };
   }
-  return { path: typeof data?.audio_clip_path === 'string' ? data.audio_clip_path : null };
+  return {
+    languageId: typeof data?.learning_language_id === 'string' ? data.learning_language_id : '',
+    path: typeof data?.audio_clip_path === 'string' ? data.audio_clip_path : null,
+  };
 }
 
-export async function storeAudioClip({ durationMs, entryId, file, languageId, previousPath }: { durationMs: number; entryId: string; file: Blob; languageId: string; previousPath: string | null }): Promise<AudioClipFailure | null> {
+export async function storeAudioClip({ durationMs, entryId, file, previousPath }: { durationMs: number; entryId: string; file: Blob; previousPath: string | null }): Promise<AudioClipFailure | null> {
+  const current = await currentAudioClip(entryId);
+  if ('failure' in current) return current.failure;
   const path = audioClipPath({
     clipId: crypto.randomUUID(),
     entryId,
-    languageId,
+    languageId: current.languageId,
     learnerId: await currentLearnerId(),
     mimeType: file.type,
   });
@@ -288,7 +293,7 @@ export function VocabularyCaptureAudioRecorder({ busy, online, recorder }: { bus
   </fieldset>;
 }
 
-export function VocabularyAudioClipRecorder({ entry, languageId, online, onChanged }: { entry: LibraryEntry; languageId: string; online: boolean; onChanged: () => void }) {
+export function VocabularyAudioClipRecorder({ entry, online, onChanged }: { entry: LibraryEntry; online: boolean; onChanged: () => void }) {
   const recorder = useAudioClipRecorder({ declinedNotice: 'Lexync could not use your microphone. You can still edit and save this word.' });
   const [busy, setBusy] = useState(false);
   const preview = recorder.preview;
@@ -301,7 +306,6 @@ export function VocabularyAudioClipRecorder({ entry, languageId, online, onChang
       durationMs: preview.durationMs,
       entryId: entry.learningVocabularyEntryId,
       file: preview.blob,
-      languageId,
       previousPath: entry.audioClipPath,
     });
     setBusy(false);
