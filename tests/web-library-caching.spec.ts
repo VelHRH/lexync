@@ -208,8 +208,8 @@ test.describe('web Library data lifetime', () => {
     await page.getByRole('button', { name: 'Resume perrito' }).click();
     await expect(page.getByText('Suspended', { exact: true })).toHaveCount(0);
 
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Delete perrito' }).click();
+    await page.getByRole('dialog', { name: 'Delete Vocabulary Entry' }).getByRole('button', { name: 'Delete Vocabulary Entry' }).click();
     await expect(page.getByText('perrito', { exact: true })).toHaveCount(0);
   });
 

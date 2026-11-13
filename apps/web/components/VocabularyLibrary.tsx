@@ -12,6 +12,7 @@ import { normalizeSearchText } from '../lib/searchText';
 import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
+import { VocabularyEntryDeleteDialog } from './VocabularyEntryDeleteDialog';
 import { PROGRESS_STATE_LABELS, VOCABULARY_PROGRESS_RULE, VOCABULARY_PROGRESS_STATES, type VocabularyProgressState } from '../lib/vocabularyProgress';
 
 type LearningLanguage = { id: string; languageTag: string };
@@ -64,6 +65,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const [suspensionNotice, setSuspensionNotice] = useState('');
   const [changingMembership, setChangingMembership] = useState('');
   const [collectionRequest, setCollectionRequest] = useState<CollectionDialogRequest | null>(null);
+  const [entryToDelete, setEntryToDelete] = useState<LibraryEntry | null>(null);
   const [collectionNotice, setCollectionNotice] = useState('');
   const [selection, setSelection] = useState<{ scope: string; ids: string[] }>({ scope: ALL_VOCABULARY_SCOPE, ids: [] });
   const [fileTargetId, setFileTargetId] = useState('');
@@ -224,32 +226,22 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     await reload();
   }
 
-  async function deleteEntry(entry: LibraryEntry) {
-    const confirmed = window.confirm(`Delete ${entry.expression}? Senses, translations, Examples, and learning progress owned by this Vocabulary Entry will also be removed. This cannot be undone.`);
-    if (!confirmed) return;
+  async function deleteEntry(entry: LibraryEntry): Promise<string> {
     setNotice('');
     if (entry.audioClipPath) {
       const { count, error: countError } = await supabase.from('vocabulary_entries').select('id', { count: 'exact', head: true }).eq('learning_vocabulary_entry_id', entry.learningVocabularyEntryId);
-      if (countError) {
-        setNotice(`Vocabulary Entry could not be deleted. ${countError.message}`);
-        return;
-      }
+      if (countError) return `Vocabulary Entry could not be deleted. ${countError.message}`;
       if ((count ?? 0) <= 1) {
         const { error: clipError } = await supabase.storage.from('vocabulary-audio-clips').remove([entry.audioClipPath]);
-        if (clipError) {
-          setNotice(`Vocabulary Entry could not be deleted. ${clipError.message}`);
-          return;
-        }
+        if (clipError) return `Vocabulary Entry could not be deleted. ${clipError.message}`;
       }
     }
     const { error } = await supabase.rpc('delete_vocabulary_entry', { p_vocabulary_entry_id: entry.id });
-    if (error) {
-      setNotice(`Vocabulary Entry could not be deleted. ${error.message}`);
-      return;
-    }
+    if (error) return `Vocabulary Entry could not be deleted. ${error.message}`;
     setDraft(null);
     await reload();
     await onEntriesChanged();
+    return '';
   }
 
   async function setSuspended(entry: LibraryEntry, suspended: boolean) {
@@ -560,6 +552,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
         <SearchablePicker id="library-entry-to-add" label="Vocabulary Entry to add" value={entryToAddId} options={addableEntryOptions} onChange={(id) => void addEntryToScopedCollection(id)} emptyMessage="No Vocabulary Entries match" disabled={!online || filing} describedBy={offlineReason} />
       </div>}
       <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression, clipNotice) => { setCapturedNotice(`Saved “${expression}” to your vocabulary.`); setCapturedClipError(clipNotice); await reload(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
+      {entryToDelete && <VocabularyEntryDeleteDialog entry={entryToDelete} onClose={() => setEntryToDelete(null)} onConfirm={deleteEntry} />}
       <CollectionDialogs
         languageId={language.id}
         request={collectionRequest}
@@ -710,7 +703,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
                   <button className="secondary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit</button>
                   <button className="inline-button" type="button" aria-label={`${entry.suspended ? 'Resume' : 'Suspend'} ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void setSuspended(entry, !entry.suspended)}>{entry.suspended ? 'Resume' : 'Suspend'}</button>
                 </div>
-                <button className="inline-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void deleteEntry(entry)}>Delete</button>
+                <button className="inline-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setEntryToDelete(entry); }}>Delete</button>
               </div>
             </>}
             </div>
