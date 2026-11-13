@@ -609,8 +609,8 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(page.getByRole('button', { name: 'Suspend teclado nuevo' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Delete teclado nuevo' })).toBeFocused();
-    page.once('dialog', (dialog) => dialog.accept());
     await page.keyboard.press('Enter');
+    await page.getByRole('dialog', { name: 'Delete Vocabulary Entry' }).getByRole('button', { name: 'Delete Vocabulary Entry' }).click();
     await expect(page.getByText('teclado nuevo', { exact: true })).toHaveCount(0);
   });
 
@@ -631,13 +631,31 @@ test.describe('web Vocabulary Entry library', () => {
     await page.context().setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
 
-    page.on('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('Senses, translations, Examples, and learning progress');
-      await dialog.accept();
-    });
+    const nativeDialogs: string[] = [];
+    page.on('dialog', async (dialog) => { nativeDialogs.push(dialog.message()); await dialog.dismiss(); });
+
     await page.getByRole('button', { name: 'Delete borrar' }).click();
+    const confirmation = page.getByRole('dialog', { name: 'Delete Vocabulary Entry' });
+    await expect(confirmation).toBeVisible();
+    await expect(confirmation).toContainText('Senses, translations, Examples, and learning progress');
+    await expect(confirmation).toContainText('borrar');
+    await expect(confirmation).toContainText('cannot be undone');
+
+    await confirmation.getByRole('button', { name: 'Cancel' }).click();
+    await expect(confirmation).toHaveCount(0);
+    await expect(page.locator('summary').filter({ hasText: 'borrar' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Delete borrar' }).click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Delete Vocabulary Entry' })).toHaveCount(0);
+    await expect(page.locator('summary').filter({ hasText: 'borrar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Delete borrar' })).toBeFocused();
+
+    await page.getByRole('button', { name: 'Delete borrar' }).click();
+    await page.getByRole('dialog', { name: 'Delete Vocabulary Entry' }).getByRole('button', { name: 'Delete Vocabulary Entry' }).click();
     await expect(page.getByText('borrar', { exact: true })).toHaveCount(0);
     await expect(page.locator('summary').filter({ hasText: 'guardar' })).toBeVisible();
+    expect(nativeDialogs).toEqual([]);
   });
 
   test('writes a translation for an Example and sees it after saving and reloading', async ({ page }) => {
@@ -1153,8 +1171,8 @@ test.describe('web Vocabulary Entry library', () => {
 
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expandEntry(page, 'casa');
-    page.once('dialog', (dialog) => void dialog.accept());
     await page.getByRole('button', { name: 'Delete casa' }).click();
+    await page.getByRole('dialog', { name: 'Delete Vocabulary Entry' }).getByRole('button', { name: 'Delete Vocabulary Entry' }).click();
     await expect(page.getByText('No vocabulary entries yet. Add your first one.')).toBeVisible();
     await expect.poll(async () => (await client.storage.from('vocabulary-audio-clips').download(path as string)).error !== null).toBe(true);
   });
@@ -1216,8 +1234,8 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expandEntry(page, 'casa');
 
-    page.once('dialog', (dialog) => void dialog.accept());
     await page.getByRole('button', { name: 'Delete casa' }).click();
+    await page.getByRole('dialog', { name: 'Delete Vocabulary Entry' }).getByRole('button', { name: 'Delete Vocabulary Entry' }).click();
     await expect.poll(async () => {
       const { count } = await client.from('vocabulary_entries').select('id', { count: 'exact', head: true });
       return count ?? 0;
