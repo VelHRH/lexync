@@ -419,7 +419,8 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
             <p className="lesson-capture-expression" id="lesson-capture-expression">{capturedSelection.expression}</p>
             <button className="secondary-button lesson-capture-save" type="button" aria-describedby="lesson-capture-expression" disabled={!online} onClick={openCaptureDialog} ref={captureSaveButtonRef}>Save to vocabulary</button>
           </> : <p className="lesson-capture-hint">Select a word or phrase to save it to your vocabulary.</p>}
-          {captureStatusMessage && <p className="lesson-capture-status" role="status" aria-live="polite">Saved “{captureStatusMessage}” to your vocabulary.{captureClipNotice ? ` ${captureClipNotice}` : ''}</p>}
+          {captureStatusMessage && <p className="lesson-capture-status" role="status" aria-live="polite">Saved “{captureStatusMessage}” to your vocabulary.</p>}
+          {captureClipNotice && <p className="lesson-capture-status error" role="alert">{captureClipNotice}</p>}
         </section>}
         {lesson.source === 'dynamic' && <VocabularyCaptureDialog draft={capturedSelection ? { expression: capturedSelection.expression, example: capturedSelection.example, answerLanguage: question.answer_language_tag ?? '' } : undefined} language={{ id: lesson.learning_language_id, languageTag: lessonLanguageTag }} onCaptured={handleCaptured} onClose={closeCaptureDialog} open={captureDialogOpen} />}
         <div className="lesson-footer"><button className="primary-button lesson-continue" type="button" disabled={!question.selected_answer && !selectedChoice || submitting || advancing} onClick={() => void continueLesson()}>{advancing ? 'Loading…' : 'Continue'}</button></div>

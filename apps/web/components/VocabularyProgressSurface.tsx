@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { learnedHeadline, parseVocabularyProgress, type VocabularyProgress, type VocabularyProgressStates } from '../lib/vocabularyProgress';
+import { VOCABULARY_PROGRESS_RULE, learnedHeadline, parseVocabularyProgress, type VocabularyProgress, type VocabularyProgressStates } from '../lib/vocabularyProgress';
 
 function tallies(progress: VocabularyProgressStates) {
   return [
@@ -70,6 +70,7 @@ export function VocabularyProgressSurface({ learningLanguageId }: { learningLang
 
   return <>
     <p className="page-lede">Where the words you have captured in this Learning Language stand — across the whole library, and inside each Collection you have grouped.</p>
+    <p className="vocabulary-progress-rule">{VOCABULARY_PROGRESS_RULE}</p>
     <section className="progress-region" data-ui="vocabulary-progress-library" aria-labelledby="progress-library-heading">
       <div className="progress-region-head">
         <h2 id="progress-library-heading">Whole library</h2>

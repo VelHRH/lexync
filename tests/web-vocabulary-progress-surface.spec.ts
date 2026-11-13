@@ -76,6 +76,14 @@ test.describe('Vocabulary Progress surface', () => {
     await expect(library(page).locator('[data-ui="progress-bar"]')).toBeVisible();
   });
 
+  test('states the rule behind learned, in practice and new', async ({ page }) => {
+    const fixture = await registerLearner('progress-surface-rule');
+    await seedEntries(fixture.client, fixture.learningLanguageId);
+    await signIn(page, fixture.account);
+    await page.goto('/progress');
+    await expect(page.getByText('A word is new until a Lesson asks it, and in practice from then on. It counts as learned once every one of its meanings has been answered correctly twice in a row, and a wrong answer resets that count.')).toBeVisible();
+  });
+
   test('gives every Collection in the active Learning Language its own counts and bar', async ({ page }) => {
     const fixture = await registerLearner('progress-surface-collections');
     const entries = await seedEntries(fixture.client, fixture.learningLanguageId);

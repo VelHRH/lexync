@@ -116,11 +116,21 @@ export function useAudioClipRecorder({ declinedNotice }: { declinedNotice: strin
   const recorder = useRef<MediaRecorder | null>(null);
   const microphone = useRef<MediaStream | null>(null);
   const startedAt = useRef(0);
+  const pendingStop = useRef<((recording: AudioClipRecording | null) => void) | null>(null);
+  const kept = useRef<AudioClipRecording | null>(null);
+  const stopping = useRef(false);
   const supported = typeof window !== 'undefined' && typeof MediaRecorder !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia) && Boolean(recordingMimeType());
 
   useEffect(() => () => {
     if (preview) URL.revokeObjectURL(preview.url);
   }, [preview]);
+
+  function releasePendingStop(recording: AudioClipRecording | null) {
+    stopping.current = false;
+    const waiting = pendingStop.current;
+    pendingStop.current = null;
+    waiting?.(recording);
+  }
 
   useEffect(() => () => {
     const active = recorder.current;
@@ -131,6 +141,7 @@ export function useAudioClipRecorder({ declinedNotice }: { declinedNotice: strin
     }
     for (const track of microphone.current?.getTracks() ?? []) track.stop();
     microphone.current = null;
+    releasePendingStop(null);
   }, []);
 
   async function start() {
@@ -144,6 +155,7 @@ export function useAudioClipRecorder({ declinedNotice }: { declinedNotice: strin
       return;
     }
     microphone.current = stream;
+    kept.current = null;
     const chunks: Blob[] = [];
     const active = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     recorder.current = active;
@@ -155,26 +167,41 @@ export function useAudioClipRecorder({ declinedNotice }: { declinedNotice: strin
       for (const track of stream.getTracks()) track.stop();
       microphone.current = null;
       const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
-      setPreview({ blob, durationMs: Math.max(1, Date.now() - startedAt.current), url: URL.createObjectURL(blob) });
+      const recording = { blob, durationMs: Math.max(1, Date.now() - startedAt.current), url: URL.createObjectURL(blob) };
+      kept.current = recording;
+      setPreview(recording);
       setRecording(false);
+      releasePendingStop(recording);
     };
     active.start();
     setRecording(true);
   }
 
   function stop() {
-    recorder.current?.stop();
+    const active = recorder.current;
     recorder.current = null;
+    if (!active || active.state === 'inactive') return;
+    stopping.current = true;
+    active.stop();
+  }
+
+  function finish() {
+    stop();
+    if (!stopping.current) return Promise.resolve(kept.current);
+    return new Promise<AudioClipRecording | null>((resolve) => {
+      pendingStop.current = resolve;
+    });
   }
 
   function discard() {
+    kept.current = null;
     setPreview((current) => {
       if (current) URL.revokeObjectURL(current.url);
       return null;
     });
   }
 
-  return { discard, notice, preview, recording, setNotice, start, stop, supported };
+  return { discard, finish, notice, preview, recording, setNotice, start, stop, supported };
 }
 
 export type AudioClipRecorder = ReturnType<typeof useAudioClipRecorder>;

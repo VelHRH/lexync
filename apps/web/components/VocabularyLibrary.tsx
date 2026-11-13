@@ -12,7 +12,7 @@ import { normalizeSearchText } from '../lib/searchText';
 import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
-import { PROGRESS_STATE_LABELS, VOCABULARY_PROGRESS_STATES, type VocabularyProgressState } from '../lib/vocabularyProgress';
+import { PROGRESS_STATE_LABELS, VOCABULARY_PROGRESS_RULE, VOCABULARY_PROGRESS_STATES, type VocabularyProgressState } from '../lib/vocabularyProgress';
 
 type LearningLanguage = { id: string; languageTag: string };
 type VocabularyStatus = 'active' | 'all' | 'suspended';
@@ -55,6 +55,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState('');
   const [capturedNotice, setCapturedNotice] = useState('');
+  const [capturedClipError, setCapturedClipError] = useState('');
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EntryDraft | null>(null);
   const [query, setQuery] = useState('');
@@ -86,7 +87,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
 
   const reload = useCallback(() => {
     invalidateLibrary(language.id);
-    return loadLibrary(language.id, pairIds);
+    return loadLibrary(language.id, pairIds, { force: true });
   }, [language.id, pairIds]);
 
   useEffect(() => {
@@ -101,6 +102,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     queueMicrotask(() => {
       if (new URLSearchParams(window.location.search).get('add') === '1') {
         setCapturedNotice('');
+        setCapturedClipError('');
         setShowForm(true);
         const remaining = new URLSearchParams(window.location.search);
         remaining.delete('add');
@@ -483,7 +485,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       <div className="library-toolbar">
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <div className="library-toolbar-actions">
-          <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
+          <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setCapturedClipError(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
           <button className="secondary-button" type="button" disabled={!online || snapshot.loading || snapshot.refreshing} onClick={() => void loadLibrary(language.id, pairIds, { force: true })}>{snapshot.loading || snapshot.refreshing ? 'Refreshing…' : 'Refresh library'}</button>
         </div>
       </div>
@@ -545,18 +547,19 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
         </div>
         <div className="field">
           <label htmlFor="vocabulary-progress-state">Vocabulary Progress State</label>
-          <select id="vocabulary-progress-state" value={progress} onChange={(event) => setProgress(event.target.value as ProgressFilter)}>
+          <select id="vocabulary-progress-state" aria-describedby="vocabulary-progress-state-rule" value={progress} onChange={(event) => setProgress(event.target.value as ProgressFilter)}>
             <option value="all">All states</option>
             {VOCABULARY_PROGRESS_STATES.map((state) => <option key={state} value={state}>{PROGRESS_STATE_LABELS[state]}</option>)}
           </select>
         </div>
         <button aria-pressed={selecting} className="secondary-button library-select-toggle" type="button" disabled={filing} onClick={toggleSelecting}>{selecting ? 'Done' : 'Select'}</button>
       </div>
+      <p className="vocabulary-progress-rule" id="vocabulary-progress-state-rule">{VOCABULARY_PROGRESS_RULE}</p>
 
       {selectedCollection && <div className="library-entry-add">
         <SearchablePicker id="library-entry-to-add" label="Vocabulary Entry to add" value={entryToAddId} options={addableEntryOptions} onChange={(id) => void addEntryToScopedCollection(id)} emptyMessage="No Vocabulary Entries match" disabled={!online || filing} describedBy={offlineReason} />
       </div>}
-      <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression, clipNotice) => { setCapturedNotice([`Saved “${expression}” to your vocabulary.`, clipNotice].filter(Boolean).join(' ')); await reload(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
+      <VocabularyCaptureDialog open={showForm} language={language} onCaptured={async (expression, clipNotice) => { setCapturedNotice(`Saved “${expression}” to your vocabulary.`); setCapturedClipError(clipNotice); await reload(); await onEntriesChanged(); }} onClose={() => setShowForm(false)} />
       <CollectionDialogs
         languageId={language.id}
         request={collectionRequest}
@@ -594,6 +597,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       </div>}
       {suspensionNotice && <p className="form-notice" role="status">{suspensionNotice}</p>}
       {capturedNotice && <p className="form-notice" role="status">{capturedNotice}</p>}
+      {capturedClipError && <p className="form-notice error" role="alert">{capturedClipError}</p>}
       {collectionNotice && <p className="form-notice" role="status">{collectionNotice}</p>}
       {fileNotice && <p className="form-notice" role="status">{fileNotice}</p>}
       {fileError && <p className="form-notice error" role="alert">{fileError}</p>}
@@ -614,7 +618,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
             />
             <span className="vocabulary-entry-select-mark" aria-hidden="true" />
           </label>}
-          {entry.audioClipPath && <span className="vocabulary-entry-audio"><VocabularyAudioClipPlayer entry={entry} /></span>}
+          {entry.audioClipPath && <span className="vocabulary-entry-audio" data-ui="vocabulary-row-audio"><VocabularyAudioClipPlayer entry={entry} /></span>}
           <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>
             <summary>
               <span className="vocabulary-entry-identity">
@@ -691,6 +695,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
                   {item.translations.map((translation) => <p className="vocabulary-example-translation" key={translation.id}>{translation.text} <span>{translation.answer_language_tag}</span></p>)}
                 </div>)}
               </section>)}
+              <VocabularyAudioClipRecorder entry={entry} languageId={language.id} online={online} onChanged={() => void reload()} />
               {collections.length > 0 && <div className="entry-collections" role="group" aria-labelledby={`entry-collections-${entry.id}`}>
                 <h4 id={`entry-collections-${entry.id}`}>Collections</h4>
                 {filedIn(entry).length > 0 && <div className="entry-collections-member">
