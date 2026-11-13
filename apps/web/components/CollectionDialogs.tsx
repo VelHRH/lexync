@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
+import { useModalDialog } from '../hooks/useModalDialog';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import type { Collection } from '../lib/libraryStore';
 import { supabase } from '../lib/supabase';
@@ -13,31 +14,12 @@ export type CollectionDialogRequest =
 
 type CollectionDialogProps = { languageId: string; request: CollectionDialogRequest | null; onClose: () => void; onSaved: (name: string, kind: 'create' | 'create-and-file' | 'rename', collectionId?: string | null) => Promise<void> | void; onDeleted: (collectionId: string, name: string) => Promise<void> | void };
 
-function useCollectionDialog() {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const returnFocus = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    if (!dialog.open) dialog.showModal();
-    return () => {
-      if (dialog.open) dialog.close();
-      if (returnFocus.current?.isConnected) returnFocus.current.focus();
-      returnFocus.current = null;
-    };
-  }, []);
-
-  return dialogRef;
-}
-
 function CollectionFormDialog({ languageId, collection, fileSelection, onClose, onSaved }: { languageId: string; collection: Collection | null; fileSelection: boolean; onClose: () => void; onSaved: CollectionDialogProps['onSaved'] }) {
   const online = useOnlineStatus();
   const [collectionName, setCollectionName] = useState(collection?.name ?? '');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
-  const dialogRef = useCollectionDialog();
+  const dialogRef = useModalDialog();
 
   async function saveCollection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -83,7 +65,7 @@ function DeleteCollectionDialog({ collection, onClose, onDeleted }: { collection
   const online = useOnlineStatus();
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(false);
-  const dialogRef = useCollectionDialog();
+  const dialogRef = useModalDialog();
 
   async function deleteCollection() {
     setDeleting(true);
