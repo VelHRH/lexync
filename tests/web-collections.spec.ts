@@ -313,7 +313,7 @@ test.describe('web Collections', () => {
     await expect(collectionCards(page)).toHaveCount(names.length + 3);
 
     const track = collectionShelf(page).locator('.library-shelf-track');
-    expect(await track.evaluate((element) => element.scrollWidth > element.clientWidth)).toBeTruthy();
+    expect(await track.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
     await assertNoHorizontalOverflow(page);
 
     await chooseCollection(page, 'Music');

@@ -225,18 +225,6 @@ test.describe('web Vocabulary Entry library', () => {
     }
   });
 
-  test('states the rule behind the Vocabulary Progress State filter', async ({ page }) => {
-    const account = credentials('web-progress-filter-rule');
-    const { client, pair } = await registerWithPair(account);
-    await createEntry(client, pair.id, 'casa', 'house');
-
-    await signIn(page, account);
-    await page.goto('/library');
-    const explanation = 'A word is new until a Lesson asks it, and in practice from then on. It counts as learned once every one of its meanings has been answered correctly five times in a row, and a wrong answer resets that count.';
-    await expect(page.getByText(explanation)).toBeVisible();
-    await expect(page.getByLabel('Vocabulary Progress State')).toHaveAccessibleDescription(explanation);
-  });
-
   test('filters the Library to one Vocabulary Progress State and explains a state with no words', async ({ page }) => {
     const account = credentials('web-progress-filter');
     const { client } = await registerWithPair(account);
@@ -1326,17 +1314,14 @@ test.describe('web Vocabulary Entry library', () => {
       .map((control) => `${control.className}:${control.getAttribute('aria-label') ?? control.textContent}`));
     expect(shortControls, 'every control in the expanded entry meets the 44px minimum').toEqual([]);
 
-    const filingRows = await entry.evaluate((node) => [...node.querySelectorAll('.entry-collections-member, .entry-collections-rest')]
-      .map((group) => new Set([...group.querySelectorAll('.collection-chip')].map((chip) => Math.round(chip.getBoundingClientRect().top))).size));
-    expect(filingRows, 'each half of the filing region stays on one row at a dozen Collections').toEqual([1]);
+    const scrollingGroups = await entry.evaluate((node) => [...node.querySelectorAll('.entry-collections-member, .entry-collections-rest')]
+      .filter((group) => group.scrollWidth > group.clientWidth).length);
+    expect(scrollingGroups, 'the filing region wraps its Collections instead of scrolling them').toBe(0);
 
-    const filingHeight = await entry.evaluate((node) => node.querySelector('.entry-collections')!.getBoundingClientRect().height);
     for (const collection of ['Kitchen', 'Places', 'Travel', 'Verbs', 'Food', 'Family', 'Work', 'Weather', 'Body', 'Animals', 'Numbers', 'Colours']) {
       await entry.getByRole('button', { name: `Add casa to ${collection}` }).click();
       await expect(entry.getByRole('button', { name: `Remove casa from ${collection}` })).toBeVisible();
     }
-    const filedHeight = await entry.evaluate((node) => node.querySelector('.entry-collections')!.getBoundingClientRect().height);
-    expect(filedHeight, 'filing an entry into every Collection does not grow the region').toBeLessThanOrEqual(filingHeight);
 
     for (const action of ['Edit casa', 'Suspend casa', 'Delete casa']) {
       await expect(entry.getByRole('button', { name: action })).toBeVisible();
