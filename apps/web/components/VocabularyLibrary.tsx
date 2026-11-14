@@ -13,7 +13,7 @@ import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDia
 import { SearchablePicker } from './SearchablePicker';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 import { VocabularyEntryDeleteDialog } from './VocabularyEntryDeleteDialog';
-import { PROGRESS_STATE_LABELS, VOCABULARY_PROGRESS_RULE, VOCABULARY_PROGRESS_STATES, type VocabularyProgressState } from '../lib/vocabularyProgress';
+import { PROGRESS_STATE_LABELS, VOCABULARY_PROGRESS_STATES, type VocabularyProgressState } from '../lib/vocabularyProgress';
 
 type LearningLanguage = { id: string; languageTag: string };
 type VocabularyStatus = 'active' | 'all' | 'suspended';
@@ -539,14 +539,13 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
         </div>
         <div className="field">
           <label htmlFor="vocabulary-progress-state">Vocabulary Progress State</label>
-          <select id="vocabulary-progress-state" aria-describedby="vocabulary-progress-state-rule" value={progress} onChange={(event) => setProgress(event.target.value as ProgressFilter)}>
+          <select id="vocabulary-progress-state" value={progress} onChange={(event) => setProgress(event.target.value as ProgressFilter)}>
             <option value="all">All states</option>
             {VOCABULARY_PROGRESS_STATES.map((state) => <option key={state} value={state}>{PROGRESS_STATE_LABELS[state]}</option>)}
           </select>
         </div>
         <button aria-pressed={selecting} className="secondary-button library-select-toggle" type="button" disabled={filing} onClick={toggleSelecting}>{selecting ? 'Done' : 'Select'}</button>
       </div>
-      <p className="vocabulary-progress-rule" id="vocabulary-progress-state-rule">{VOCABULARY_PROGRESS_RULE}</p>
 
       {selectedCollection && <div className="library-entry-add">
         <SearchablePicker id="library-entry-to-add" label="Vocabulary Entry to add" value={entryToAddId} options={addableEntryOptions} onChange={(id) => void addEntryToScopedCollection(id)} emptyMessage="No Vocabulary Entries match" disabled={!online || filing} describedBy={offlineReason} />
