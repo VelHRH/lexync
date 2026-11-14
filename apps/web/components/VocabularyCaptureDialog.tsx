@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
-import { VocabularyCaptureAudioRecorder, currentAudioClipPath, storeAudioClip, useAudioClipRecorder, type AudioClipRecording } from './VocabularyAudioClip';
+import { VocabularyCaptureAudioRecorder, currentAudioClip, storeAudioClip, useAudioClipRecorder, type AudioClipRecording } from './VocabularyAudioClip';
 
 export type Translation = { answer_language_tag: string; id: string; text: string };
 type PendingSense = { id: string; translations: Translation[] };
@@ -62,10 +62,10 @@ export function VocabularyCaptureDialog({ draft, language, onCaptured, onClose, 
   async function keepCapturedClip(entryId: string, capturedExpression: string, preview: AudioClipRecording | null) {
     if (!preview) return '';
     if (!entryId) return 'That recording could not be attached to this word. Record it again from the Library.';
-    const existing = await currentAudioClipPath(entryId);
+    const existing = await currentAudioClip(entryId);
     if ('failure' in existing) return existing.failure.notice;
     if (existing.path) return `“${capturedExpression}” already had a pronunciation, so this recording was not kept. Replace it from the Library.`;
-    const failure = await storeAudioClip({ durationMs: preview.durationMs, entryId, file: preview.blob, languageId: language.id, previousPath: null });
+    const failure = await storeAudioClip({ durationMs: preview.durationMs, entryId, file: preview.blob, previousPath: null });
     return failure ? failure.notice : '';
   }
 
