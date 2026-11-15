@@ -29,6 +29,8 @@
   --lexync-color-danger-surface: #fdeae8;
   --lexync-color-info: #4413b0;
   --lexync-color-info-surface: #ece5fe;
+  --lexync-color-ember-readable: #9d4a22;
+  --lexync-color-ember-soft: #f6ddcb;
   --lexync-color-scrim: rgba(10, 24, 56, 0.45);
 
   --lexync-gradient-ground: radial-gradient(120% 90% at 8% 0%, #d7e3fa 0%, rgba(215, 227, 250, 0) 58%), radial-gradient(90% 70% at 100% 100%, #e6e0fb 0%, rgba(230, 224, 251, 0) 60%);
@@ -155,6 +157,8 @@
   --lexync-color-danger-surface: #2f1618;
   --lexync-color-info: #bda9ff;
   --lexync-color-info-surface: #1d1a3d;
+  --lexync-color-ember-readable: #f2a77f;
+  --lexync-color-ember-soft: #2e1d14;
   --lexync-color-scrim: rgba(2, 5, 14, 0.66);
 
   --lexync-gradient-ground: radial-gradient(120% 90% at 8% 0%, #16224a 0%, rgba(22, 34, 74, 0) 58%), radial-gradient(90% 70% at 100% 100%, #221c48 0%, rgba(34, 28, 72, 0) 60%);
@@ -211,6 +215,8 @@
     --lexync-color-danger-surface: #2f1618;
     --lexync-color-info: #bda9ff;
     --lexync-color-info-surface: #1d1a3d;
+    --lexync-color-ember-readable: #f2a77f;
+    --lexync-color-ember-soft: #2e1d14;
     --lexync-color-scrim: rgba(2, 5, 14, 0.66);
 
     --lexync-gradient-ground: radial-gradient(120% 90% at 8% 0%, #16224a 0%, rgba(22, 34, 74, 0) 58%), radial-gradient(90% 70% at 100% 100%, #221c48 0%, rgba(34, 28, 72, 0) 60%);

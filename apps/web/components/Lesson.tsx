@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 import { BrandMark } from './BrandArtwork';
+import { readDailyStreak, reportLearnerTimezone, streakDays, type DailyStreak } from '../lib/dailyStreak';
+import { StreakFlame } from './DailyStreak';
 import { AudioClipPlayer } from './VocabularyAudioClip';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 
@@ -173,6 +175,9 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
   const [captureDialogOpen, setCaptureDialogOpen] = useState(false);
   const [captureStatusMessage, setCaptureStatusMessage] = useState('');
   const [captureClipNotice, setCaptureClipNotice] = useState('');
+  const [extendedStreak, setExtendedStreak] = useState<number | null>(null);
+  const [streakMomentShown, setStreakMomentShown] = useState(false);
+  const streakBeforeRef = useRef<Promise<DailyStreak | null> | null>(null);
   const lessonRequestId = useRef(0);
   const captureContainerRef = useRef<HTMLElement | null>(null);
   const captureSaveButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -229,6 +234,17 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
     setCaptureDialogOpen(false);
   }
 
+  function observeCompletion(previous: LessonState | null, next: LessonState) {
+    if (previous?.status !== 'active' || next.status !== 'completed') return;
+    const before = streakBeforeRef.current;
+    if (!before) return;
+    streakBeforeRef.current = null;
+    void (async () => {
+      const [prior, after] = await Promise.all([before, readDailyStreak()]);
+      if (prior && !prior.extendedToday && after?.extendedToday) setExtendedStreak(after.current);
+    })();
+  }
+
   function applyLesson(nextLesson: LessonState, preferredQuestionId?: string | null) {
     const nextQuestion = preferredQuestionId
       ? nextLesson.questions.find((question) => question.id === preferredQuestionId && !question.continued_at) ?? firstPending(nextLesson)
@@ -248,6 +264,8 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
       setLesson(null);
       setQuestionId(null);
       setSelectedChoice('');
+      setExtendedStreak(null);
+      setStreakMomentShown(false);
     });
     if (!lessonId) {
       queueMicrotask(() => {
@@ -260,6 +278,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
       };
     }
 
+    streakBeforeRef.current = null;
     void (async () => {
       const opened = await supabase.rpc('lesson_by_id', { p_lesson_id: lessonId });
       if (cancelled || currentRequestId !== lessonRequestId.current) return;
@@ -269,6 +288,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
         return;
       }
       const existing = parseLesson(opened.data);
+      if (existing?.status === 'active') streakBeforeRef.current = reportLearnerTimezone().then(readDailyStreak);
       if (existing) applyLesson(existing);
       else setError('This Lesson is no longer available.');
       setLoading(false);
@@ -292,6 +312,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
     setSelectedChoice(choice);
     setSubmitting(true);
     setError('');
+    await reportLearnerTimezone();
     const { data, error: submitError } = await supabase.rpc('submit_lesson_answer', {
       p_question_id: question.id,
       p_selected_choice: choice,
@@ -299,10 +320,14 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
     });
     const submitted = parseLesson(data);
     if (submitted) {
+      observeCompletion(lesson, submitted);
       applyLesson(submitted, question.id);
     } else if (submitError) {
       const refreshed = await refreshOverview();
-      if (refreshed) applyLesson(refreshed, question.id);
+      if (refreshed) {
+        observeCompletion(lesson, refreshed);
+        applyLesson(refreshed, question.id);
+      }
       else setError(submitError.message);
     } else {
       onExit();
@@ -330,6 +355,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
       return;
     }
     const nextQuestion = firstPending(continued);
+    observeCompletion(lesson, continued);
     setLesson(continued);
     setCaptureStatusMessage('');
     setCapturedSelection(null);
@@ -364,6 +390,12 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
   const total = lesson?.total_count ?? lesson?.questions.length ?? 0;
   const questionPosition = lesson && question ? lesson.questions.findIndex((candidate) => candidate.id === question.id) + 1 : 0;
   const progress = lesson ? Math.min(total, question ? questionPosition : answeredCount(lesson)) : 0;
+  useEffect(() => {
+    if (!isComplete || extendedStreak === null) return;
+    const frame = requestAnimationFrame(() => setStreakMomentShown(true));
+    return () => cancelAnimationFrame(frame);
+  }, [extendedStreak, isComplete]);
+
   const feedback = question?.is_correct === true ? 'Correct' : question?.is_correct === false ? 'Incorrect' : '';
 
   return <main className="lesson-shell" aria-label="Lesson">
@@ -429,6 +461,12 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
       {!loading && !error && lesson && isComplete && <section className="lesson-complete" aria-labelledby="lesson-complete-heading">
         <h1 id="lesson-complete-heading">Lesson complete</h1>
         <p className="lesson-score">{lesson.correct_count ?? 0}/{total} · {percentage(lesson)}%</p>
+        <div aria-atomic="true" className="lesson-streak-region" role="status">
+          {streakMomentShown && extendedStreak !== null && <p className="lesson-streak" data-ui="daily-streak-extended">
+            <StreakFlame className="streak-flame lesson-streak-flame" />
+            <span className="lesson-streak-text"><strong>Daily Streak extended</strong><span>{streakDays(extendedStreak)}</span></span>
+          </p>}
+        </div>
         {lesson.questions.some((lessonQuestion) => lessonQuestion.is_correct === false) && <section className="lesson-missed" aria-label="Missed answers">
           <h2>Missed answers</h2>
           {lesson.questions.filter((lessonQuestion) => lessonQuestion.is_correct === false).map((lessonQuestion) => <div className="lesson-missed-item" key={lessonQuestion.id}>
