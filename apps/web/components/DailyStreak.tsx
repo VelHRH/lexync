@@ -40,12 +40,11 @@ export function DailyStreakBadge() {
   const state = streak.extendedToday ? 'extended-today' : 'not-yet-today';
   const label = `Daily Streak: ${streakDays(streak.current)}, ${streak.extendedToday ? 'extended today' : 'not yet today'}`;
 
-  return <div aria-atomic="true" aria-label={label} className="daily-streak" data-state={state} data-ui="daily-streak" role="status" title={label}>
+  return <div aria-label={label} className="daily-streak" data-state={state} data-ui="daily-streak" role="group" title={label}>
     <StreakFlame />
     <span className="daily-streak-text" aria-hidden="true">
       <span className="daily-streak-count">{streak.current}<span className="daily-streak-unit"> {streak.current === 1 ? 'day' : 'days'}</span></span>
       <span className="daily-streak-caption">{streak.extendedToday ? 'Extended today' : 'Not yet today'}</span>
     </span>
-    <span className="visually-hidden">{label}</span>
   </div>;
 }
