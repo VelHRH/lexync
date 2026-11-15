@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 import { BrandMark } from './BrandArtwork';
-import { readDailyStreak, reportLearnerTimezone, streakDays, type DailyStreak } from '../lib/dailyStreak';
+import { newlyExtendedStreak, readDailyStreak, reportLearnerTimezone, streakDays, type DailyStreak } from '../lib/dailyStreak';
 import { StreakFlame } from './DailyStreak';
 import { AudioClipPlayer } from './VocabularyAudioClip';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
@@ -241,7 +241,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
     streakBeforeRef.current = null;
     void (async () => {
       const [prior, after] = await Promise.all([before, readDailyStreak()]);
-      if (prior && !prior.extendedToday && after?.extendedToday) setExtendedStreak(after.current);
+      setExtendedStreak(newlyExtendedStreak(prior, after));
     })();
   }
 
@@ -313,6 +313,11 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
     setSubmitting(true);
     setError('');
     await reportLearnerTimezone();
+    if (lesson.questions.every((candidate) => candidate.id === question.id || candidate.continued_at)) {
+      const before = readDailyStreak();
+      streakBeforeRef.current = before;
+      await before;
+    }
     const { data, error: submitError } = await supabase.rpc('submit_lesson_answer', {
       p_question_id: question.id,
       p_selected_choice: choice,
@@ -339,6 +344,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
     if (!lesson || !questionId || advancing || submitting) return;
     setAdvancing(true);
     setError('');
+    await reportLearnerTimezone();
     const { data, error: continueError } = await supabase.rpc('continue_lesson_question', {
       p_question_id: questionId,
       p_lesson_id: lesson.id,

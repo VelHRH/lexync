@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export type DailyStreak = { current: number; longest: number; extendedToday: boolean };
+export type DailyStreak = { current: number; extendedToday: boolean };
 
 let timezoneReport: Promise<void> | null = null;
 
@@ -27,15 +27,18 @@ export function parseDailyStreak(value: unknown): DailyStreak | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   const current = Number(record.current);
-  const longest = Number(record.longest);
-  if (!Number.isFinite(current) || !Number.isFinite(longest) || typeof record.extended_today !== 'boolean') return null;
-  return { current, longest, extendedToday: record.extended_today };
+  if (!Number.isFinite(current) || typeof record.extended_today !== 'boolean') return null;
+  return { current, extendedToday: record.extended_today };
 }
 
 export async function readDailyStreak() {
   const { data, error } = await supabase.rpc('daily_streak');
   if (error) return null;
   return parseDailyStreak(data);
+}
+
+export function newlyExtendedStreak(before: DailyStreak | null, after: DailyStreak | null) {
+  return before && !before.extendedToday && after?.extendedToday ? after.current : null;
 }
 
 export function streakDays(count: number) {
