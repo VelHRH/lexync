@@ -127,3 +127,19 @@ The one state each unsuspended Vocabulary Entry occupies. It is `learned` while 
 ## Suspended Vocabulary Entry
 
 A Vocabulary Entry retained as known learning material but excluded from a Lesson until resumed.
+
+## Learner Timezone
+
+The IANA timezone a Learner's client most recently reported. It decides the local calendar date of Lesson completions from the moment it is reported; it never changes the date of a completion already recorded.
+
+## Active Day
+
+A local calendar date on which a Learner completed at least one Lesson, of either source, in any Learning Language. The date is fixed by the Learner Timezone in effect when the Lesson was completed and is never recomputed. A discarded or unfinished Lesson creates no Active Day. Active Days are durable and are never pruned.
+
+## Daily Streak
+
+The number of consecutive Active Days ending on the Learner's current local date, or on the day before it when the current date is not yet an Active Day. It spans every Learning Language of the Learner. A local day passing without becoming an Active Day returns the Daily Streak to zero. It is distinct from a Practice Streak, which belongs to one Sense and counts correct Lesson Attempts.
+
+## Longest Daily Streak
+
+The greatest Daily Streak the Learner has ever reached.
