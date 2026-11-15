@@ -7,46 +7,19 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
-import { VocabularyAudioClipPlayer, VocabularyAudioClipRecorder } from './VocabularyAudioClip';
 import { normalizeSearchText } from '../lib/searchText';
 import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 import { VocabularyEntryDeleteDialog } from './VocabularyEntryDeleteDialog';
-import { PROGRESS_STATE_LABELS, VOCABULARY_PROGRESS_STATES, type VocabularyProgressState } from '../lib/vocabularyProgress';
+import { PROGRESS_STATE_LABELS } from '../lib/vocabularyProgress';
+import { ALL_VOCABULARY_SCOPE, LibraryCollectionShelf, NO_COLLECTION_SCOPE } from './LibraryCollectionShelf';
+import { LibraryFilterBar, type ProgressFilter, type VocabularyStatus } from './LibraryFilterBar';
+import { LibraryScopeBanner, PRACTICE_REASON_ID } from './LibraryScopeBanner';
+import { VocabularyEntryCard, membershipChangeKey } from './VocabularyEntryCard';
+import { VocabularyEntryEditor, toDraft, type EntryDraft } from './VocabularyEntryEditor';
 
 type LearningLanguage = { id: string; languageTag: string };
-type VocabularyStatus = 'active' | 'all' | 'suspended';
-type ProgressFilter = VocabularyProgressState | 'all';
-type DraftItem = { id: string | null; key: string; text: string };
-type DraftExampleTranslation = { id: string | null; key: string; text: string; answerLanguageTag: string | null };
-type DraftExample = DraftItem & { translations: DraftExampleTranslation[] };
-type DraftSense = { id: string | null; key: string; translations: DraftItem[]; examples: DraftExample[] };
-type EntryDraft = { id: string; expression: string; senses: DraftSense[] };
-
-const ALL_VOCABULARY_SCOPE = '';
-const NO_COLLECTION_SCOPE = 'none';
-
-function draftKey() {
-  return crypto.randomUUID();
-}
-
-function entryCountDetail(count: number) {
-  return `${count} ${count === 1 ? 'entry' : 'entries'}`;
-}
-
-function toDraft(entry: LibraryEntry): EntryDraft {
-  return {
-    id: entry.id,
-    expression: entry.expression,
-    senses: entry.senses.map((sense) => ({
-      id: sense.id,
-      key: sense.id,
-      translations: sense.translations.map((translation) => ({ ...translation, key: translation.id })),
-      examples: sense.examples.map((example) => ({ ...example, key: example.id, translations: example.translations.map((translation) => ({ ...translation, key: translation.id, answerLanguageTag: translation.answer_language_tag })) })),
-    })),
-  };
-}
 
 export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language, pairs }: { lessonInProgress: boolean; onEntriesChanged: () => Promise<void>; language: LearningLanguage; pairs: Array<StudyPair & { learningLanguageId: string }> }) {
   const searchParams = useSearchParams();
@@ -113,63 +86,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       }
     });
   }, []);
-
-  function updateSense(index: number, update: (sense: DraftSense) => DraftSense) {
-    setDraft((current) => current && ({ ...current, senses: current.senses.map((sense, senseIndex) => senseIndex === index ? update(sense) : sense) }));
-  }
-
-  function updateTranslationText(senseIndex: number, key: string, text: string) {
-    updateSense(senseIndex, (sense) => ({ ...sense, translations: sense.translations.map((item) => item.key === key ? { ...item, text } : item) }));
-  }
-
-  function addTranslation(senseIndex: number) {
-    updateSense(senseIndex, (sense) => ({ ...sense, translations: [...sense.translations, { id: null, key: draftKey(), text: '' }] }));
-  }
-
-  function removeTranslation(senseIndex: number, key: string) {
-    updateSense(senseIndex, (sense) => ({ ...sense, translations: sense.translations.filter((item) => item.key !== key) }));
-  }
-
-  function updateExampleText(senseIndex: number, key: string, text: string) {
-    updateSense(senseIndex, (sense) => ({ ...sense, examples: sense.examples.map((item) => item.key === key ? { ...item, text } : item) }));
-  }
-
-  function updateExampleTranslationText(senseIndex: number, key: string, text: string) {
-    updateSense(senseIndex, (sense) => ({
-      ...sense,
-      examples: sense.examples.map((item) => item.key !== key ? item : {
-        ...item,
-        translations: item.translations.length
-          ? item.translations.map((translation, index) => index === 0 ? { ...translation, text } : translation)
-          : [{ id: null, key: draftKey(), text, answerLanguageTag: null }],
-      }),
-    }));
-  }
-
-  function addExample(senseIndex: number) {
-    updateSense(senseIndex, (sense) => ({ ...sense, examples: [...sense.examples, { id: null, key: draftKey(), text: '', translations: [] }] }));
-  }
-
-  function removeExample(senseIndex: number, key: string) {
-    updateSense(senseIndex, (sense) => ({ ...sense, examples: sense.examples.filter((item) => item.key !== key) }));
-  }
-
-  function moveExample(exampleKey: string, senseKey: string) {
-    setDraft((current) => {
-      if (!current) return current;
-      const moved = current.senses.flatMap((sense) => sense.examples).find((item) => item.key === exampleKey);
-      if (!moved) return current;
-      return {
-        ...current,
-        senses: current.senses.map((sense) => ({
-          ...sense,
-          examples: sense.key === senseKey
-            ? [...sense.examples.filter((item) => item.key !== exampleKey), moved]
-            : sense.examples.filter((item) => item.key !== exampleKey),
-        })),
-      };
-    });
-  }
 
   async function saveDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -261,7 +177,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   }
 
   async function changeMembership(entry: LibraryEntry, collection: Collection, member: boolean) {
-    setChangingMembership(`${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`);
+    setChangingMembership(membershipChangeKey(member, collection, entry));
     setNotice('');
     const { error } = member
       ? await supabase.rpc('remove_collection_membership', {
@@ -292,13 +208,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     return collections.filter((collection) => !isMember(entry, collection));
   }
 
-  function renderCollectionChip(entry: LibraryEntry, collection: Collection) {
-    const member = isMember(entry, collection);
-    const changing = changingMembership === `${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`;
-    return <button className={`collection-chip${member ? ' selected' : ''}`} type="button" key={collection.id} aria-pressed={member} aria-label={member ? `Remove ${entry.expression} from ${collection.name}` : `Add ${entry.expression} to ${collection.name}`} disabled={!online || changing} aria-describedby={offlineReason} onClick={() => void changeMembership(entry, collection, member)}>{changing ? `${member ? 'Removing' : 'Adding'}…` : collection.name}</button>;
-  }
-
-  const draftExamples = draft?.senses.flatMap((sense) => sense.examples) ?? [];
   const normalizedQuery = normalizeSearchText(query);
   const scopeParam = searchParams.get('collection') ?? '';
   const scopeIsKnown = scopeParam === ALL_VOCABULARY_SCOPE || scopeParam === NO_COLLECTION_SCOPE || collections.some((collection) => collection.id === scopeParam);
@@ -347,8 +256,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     : selectedCollection && !selectedCollection.canPractise ? 'This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Resume suspended Vocabulary Entries or add translations to practise it.'
     : lessonInProgress ? 'Finish the Lesson in progress first.'
     : '';
-  const practiceReasonId = 'library-collection-practice-reason';
-  const practiceDescribedBy = lessonInProgress && offlineReason ? `${practiceReasonId} ${offlineReason}` : lessonInProgress ? practiceReasonId : offlineReason;
+  const practiceDescribedBy = lessonInProgress && offlineReason ? `${PRACTICE_REASON_ID} ${offlineReason}` : lessonInProgress ? PRACTICE_REASON_ID : offlineReason;
 
   function toggleEntrySelected(entry: LibraryEntry, selected: boolean) {
     setFileNotice('');
@@ -466,12 +374,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     return true;
   }
 
-  function collectionState(collection: Collection) {
-    if (collection.canPractise) return `${entryCountDetail(collection.entryCount)} · ready to practise`;
-    if (collection.entryCount < minimumEntries) return `${entryCountDetail(collection.entryCount)} · needs ${minimumEntries - collection.entryCount} more`;
-    return `${entryCountDetail(collection.entryCount)} · not practisable yet`;
-  }
-
   return (
     <section className="vocabulary-library" aria-labelledby="app-heading">
       <div className="library-toolbar">
@@ -483,69 +385,44 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       </div>
       {!online && <p className="form-notice" role="status" id="library-offline-notice">You are offline. Vocabulary and Collection changes require a connection.</p>}
 
-      <div className="library-shelf" data-ui="collection-shelf" role="group" aria-label="Collections">
-        <div className="library-shelf-track">
-          <button aria-label="All vocabulary" aria-pressed={selectedCollectionId === ALL_VOCABULARY_SCOPE} className="collection-card" type="button" onClick={() => selectCollectionScope(ALL_VOCABULARY_SCOPE)}>
-            <span className="collection-card-name">All vocabulary</span>
-            <span className="collection-card-state">{entryCountDetail(entries.length)}</span>
-          </button>
-          {collections.length > 0 && <button aria-label="Not in a Collection" aria-pressed={selectedCollectionId === NO_COLLECTION_SCOPE} className="collection-card quiet" type="button" onClick={() => selectCollectionScope(NO_COLLECTION_SCOPE)}>
-            <span className="collection-card-name">Not in a Collection</span>
-            <span className="collection-card-state">{entryCountDetail(entries.filter((entry) => !collectedEntryIds.has(entry.learningVocabularyEntryId)).length)}</span>
-          </button>}
-          {collections.map((collection) => <button
-            aria-label={collection.name}
-            aria-pressed={selectedCollectionId === collection.id}
-            className="collection-card"
-            key={collection.id}
-            type="button"
-            onClick={() => selectCollectionScope(collection.id)}
-          >
-            <span className="collection-card-name">{collection.name}</span>
-            <span className="collection-card-state">{collectionState(collection)}</span>
-          </button>)}
-          <button aria-label="New Collection" className="collection-card new" type="button" ref={newCollectionRef} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'create' }); }}>
-            <span aria-hidden="true" className="collection-card-plus">+</span>
-            <span className="collection-card-name">New Collection</span>
-          </button>
-        </div>
-      </div>
+      <LibraryCollectionShelf
+        collections={collections}
+        entryCount={entries.length}
+        unfiledCount={entries.filter((entry) => !collectedEntryIds.has(entry.learningVocabularyEntryId)).length}
+        minimumEntries={minimumEntries}
+        selectedCollectionId={selectedCollectionId}
+        online={online}
+        offlineReason={offlineReason}
+        newCollectionRef={newCollectionRef}
+        onSelect={selectCollectionScope}
+        onCreate={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'create' }); }}
+      />
 
-      {selectedCollection && <div className="library-scope">
-        <div className="library-scope-identity">
-          <span role="status">Filtered by {selectedCollection.name}</span>
-          {practiceReason && <span className="library-scope-reason" role="status" id={practiceReasonId}>{practiceReason}</span>}
-        </div>
-        <div className="library-scope-actions">
-          {selectedCollection.canPractise && <button className="primary-button" data-ui="practise-collection" type="button" disabled={!online || lessonInProgress || practiceStarting} aria-describedby={practiceDescribedBy} onClick={() => void practiseCollection(selectedCollection.id)}>{practiceStarting ? 'Opening Lesson…' : 'Practise this Collection'}</button>}
-          <button className="text-button" type="button" aria-label={`Rename ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}>Rename</button>
-          <button className="text-button danger" type="button" aria-label={`Delete ${selectedCollection.name}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection: selectedCollection }); }}>Delete</button>
-        </div>
-        {practiceError && <p className="form-notice error library-scope-error" role="alert">{practiceError}</p>}
-      </div>}
+      {selectedCollection && <LibraryScopeBanner
+        collection={selectedCollection}
+        practiceReason={practiceReason}
+        practiceDescribedBy={practiceDescribedBy}
+        practiceError={practiceError}
+        practiceStarting={practiceStarting}
+        lessonInProgress={lessonInProgress}
+        online={online}
+        offlineReason={offlineReason}
+        onPractise={() => void practiseCollection(selectedCollection.id)}
+        onRename={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}
+        onDelete={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection: selectedCollection }); }}
+      />}
 
-      <div className="vocabulary-discovery-controls">
-        <div className="field">
-          <label htmlFor="vocabulary-search">Search vocabulary</label>
-          <input id="vocabulary-search" type="search" value={query} placeholder="expression or translation" onChange={(event) => setQuery(event.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="vocabulary-status">Vocabulary status</label>
-          <select id="vocabulary-status" value={status} onChange={(event) => setStatus(event.target.value as VocabularyStatus)}>
-            <option value="all">All entries</option>
-            <option value="active">Active entries</option>
-            <option value="suspended">Suspended entries</option>
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="vocabulary-progress-state">Vocabulary Progress State</label>
-          <select id="vocabulary-progress-state" value={progress} onChange={(event) => setProgress(event.target.value as ProgressFilter)}>
-            <option value="all">All states</option>
-            {VOCABULARY_PROGRESS_STATES.map((state) => <option key={state} value={state}>{PROGRESS_STATE_LABELS[state]}</option>)}
-          </select>
-        </div>
-        <button aria-pressed={selecting} className="secondary-button library-select-toggle" type="button" disabled={filing} onClick={toggleSelecting}>{selecting ? 'Done' : 'Select'}</button>
-      </div>
+      <LibraryFilterBar
+        query={query}
+        status={status}
+        progress={progress}
+        selecting={selecting}
+        filing={filing}
+        onQueryChange={setQuery}
+        onStatusChange={setStatus}
+        onProgressChange={setProgress}
+        onToggleSelecting={toggleSelecting}
+      />
 
       {selectedCollection && <div className="library-entry-add">
         <SearchablePicker id="library-entry-to-add" label="Vocabulary Entry to add" value={entryToAddId} options={addableEntryOptions} onChange={(id) => void addEntryToScopedCollection(id)} emptyMessage="No Vocabulary Entries match" disabled={!online || filing} describedBy={offlineReason} />
@@ -598,116 +475,37 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       {snapshot.error && <p className="form-notice error" role="alert">{snapshot.error}</p>}
       <p className="visually-hidden" role="status">{selectionAnnouncement}</p>
       <div className="vocabulary-entry-list" data-selecting={selecting ? 'true' : undefined}>
-        {visibleEntries.map((entry, index) => <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} key={entry.id} data-selected={selectedEntryIds.includes(entry.learningVocabularyEntryId)} data-has-clip={entry.audioClipPath ? 'true' : undefined}>
-          {selecting && <label className="vocabulary-entry-select">
-            <input
-              type="checkbox"
-              checked={selectedEntryIds.includes(entry.learningVocabularyEntryId)}
-              disabled={filing}
-              aria-label={`Select ${entry.expression}`}
-              onClick={(event) => { if (event.shiftKey && selectRange(index, !selectedEntryIds.includes(entry.learningVocabularyEntryId))) event.preventDefault(); }}
-              onChange={(event) => { lastSelectedIndex.current = index; toggleEntrySelected(entry, event.target.checked); }}
-            />
-            <span className="vocabulary-entry-select-mark" aria-hidden="true" />
-          </label>}
-          {entry.audioClipPath && <span className="vocabulary-entry-audio" data-ui="vocabulary-row-audio"><VocabularyAudioClipPlayer entry={entry} /></span>}
-          <details className="vocabulary-entry" open={draft?.id === entry.id || undefined}>
-            <summary>
-              <span className="vocabulary-entry-identity">
-                <h3 className="vocabulary-entry-expression"><span className="marked">{entry.expression}</span></h3>
-                <span className="vocabulary-entry-gloss">{entry.senses.flatMap((sense) => sense.translations.map((item) => item.text)).join(' · ') || 'No translation yet'}</span>
-              </span>
-              <span className="vocabulary-entry-marks">
-                {entry.suspended
-                  ? <span className="vocabulary-status-badge">Suspended</span>
-                  : entry.progressState && <span className="vocabulary-progress-badge" data-ui="entry-progress-state" data-state={entry.progressState}>{PROGRESS_STATE_LABELS[entry.progressState]}</span>}
-                {!entry.suspended && entry.senses.length > 1 && <span className="surface-tally">{entry.senses.length}</span>}
-              </span>
-            </summary>
-            <div>
-            {draft?.id === entry.id ? <form className="vocabulary-editor" onSubmit={saveDraft}>
-              <div className="field vocabulary-editor-expression">
-                <label htmlFor={`edit-expression-${entry.id}`}>Expression</label>
-                <input id={`edit-expression-${entry.id}`} value={draft.expression} disabled={!online} onChange={(event) => setDraft({ ...draft, expression: event.target.value })} />
-              </div>
-              {draft.senses.map((sense, senseIndex) => <section className="vocabulary-sense-editor" key={sense.key} role="group" aria-labelledby={`sense-heading-${sense.key}`}>
-                <div className="vocabulary-editor-head">
-                  <h4 className="surface-meta" id={`sense-heading-${sense.key}`}>Sense {senseIndex + 1}</h4>
-                  <button className="inline-button danger" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Remove Sense ${senseIndex + 1}`} onClick={() => setDraft({ ...draft, senses: draft.senses.filter((item) => item.key !== sense.key) })}>Remove</button>
-                </div>
-                {sense.translations.map((item, translationIndex) => <div className="vocabulary-editor-row" key={item.key}>
-                  <div className="field">
-                    <label htmlFor={`translation-${item.key}`}>Sense {senseIndex + 1} translation {translationIndex + 1}</label>
-                    <input id={`translation-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateTranslationText(senseIndex, item.key, event.target.value)} />
-                  </div>
-                  <button className="icon-button" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Remove translation ${translationIndex + 1} from Sense ${senseIndex + 1}`} onClick={() => removeTranslation(senseIndex, item.key)}>
-                    <span aria-hidden="true">✕</span>
-                  </button>
-                </div>)}
-                <button className="inline-button" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Add translation to Sense ${senseIndex + 1}`} onClick={() => addTranslation(senseIndex)}>Add translation</button>
-                {sense.examples.map((item) => {
-                  const exampleIndex = draftExamples.findIndex((exampleItem) => exampleItem.key === item.key);
-                  return <div className="vocabulary-example-editor" key={item.key} role="group" aria-label={`Example ${exampleIndex + 1}`}>
-                    <button className="icon-button vocabulary-example-remove" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Remove Example ${exampleIndex + 1}`} onClick={() => removeExample(senseIndex, item.key)}>
-                      <span aria-hidden="true">✕</span>
-                    </button>
-                    <div className="vocabulary-example-fields">
-                      <div className="field">
-                        <label htmlFor={`example-text-${item.key}`}>Example {exampleIndex + 1} text</label>
-                        <textarea id={`example-text-${item.key}`} value={item.text} disabled={!online} onChange={(event) => updateExampleText(senseIndex, item.key, event.target.value)} />
-                      </div>
-                      <div className="field">
-                        <label htmlFor={`example-translation-${item.key}`}>Example {exampleIndex + 1} translation</label>
-                        <textarea id={`example-translation-${item.key}`} value={item.translations[0]?.text ?? ''} disabled={!online} onChange={(event) => updateExampleTranslationText(senseIndex, item.key, event.target.value)} />
-                      </div>
-                    </div>
-                    <div className="field vocabulary-example-sense">
-                      <label htmlFor={`example-sense-${item.key}`}>Example {exampleIndex + 1} Sense</label>
-                      <select id={`example-sense-${item.key}`} value={sense.key} disabled={!online} onChange={(event) => moveExample(item.key, event.target.value)}>
-                        {draft.senses.map((option, optionIndex) => <option key={option.key} value={option.key}>Sense {optionIndex + 1} · {option.translations[0]?.text || 'New Sense'}</option>)}
-                      </select>
-                    </div>
-                  </div>;
-                })}
-                <button className="inline-button" type="button" disabled={!online} aria-describedby={offlineReason} aria-label={`Add Example to Sense ${senseIndex + 1}`} onClick={() => addExample(senseIndex)}>Add Example</button>
-              </section>)}
-              <button className="secondary-button vocabulary-add-sense" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => setDraft({ ...draft, senses: [...draft.senses, { id: null, key: draftKey(), translations: [{ id: null, key: draftKey(), text: '' }], examples: [] }] })}>Add Sense</button>
-              <VocabularyAudioClipRecorder entry={entry} online={online} onChanged={() => void reload()} />
-              {notice && <p className="form-notice error" role="alert">{notice}</p>}
-              <div className="vocabulary-editor-actions">
-                <button className="primary-button" type="submit" disabled={saving || !online} aria-describedby={offlineReason}>{saving ? 'Saving…' : 'Save changes'}</button>
-                <button className="secondary-button" type="button" disabled={saving} onClick={() => { setDraft(null); setNotice(''); }}>Cancel</button>
-              </div>
-            </form> : <>
-              {entry.senses.map((sense, index) => <section className="vocabulary-sense" key={sense.id} role="group" aria-labelledby={`sense-${sense.id}`}>
-                <h4 className={entry.senses.length > 1 ? undefined : 'visually-hidden'} id={`sense-${sense.id}`}>Sense {index + 1}</h4>
-                {sense.translations.map((item) => <p key={item.id}>{item.text} <span>{item.answer_language_tag}</span></p>)}
-                {sense.examples.map((item) => <div className="vocabulary-sense-example" key={item.id}>
-                  <p className="vocabulary-example">{item.text}</p>
-                  {item.translations.map((translation) => <p className="vocabulary-example-translation" key={translation.id}>{translation.text} <span>{translation.answer_language_tag}</span></p>)}
-                </div>)}
-              </section>)}
-              <VocabularyAudioClipRecorder entry={entry} online={online} onChanged={() => void reload()} />
-              {collections.length > 0 && <div className="entry-collections" role="group" aria-labelledby={`entry-collections-${entry.id}`}>
-                <h4 id={`entry-collections-${entry.id}`}>Collections</h4>
-                {filedIn(entry).length > 0 && <div className="entry-collections-member">
-                  {filedIn(entry).map((collection) => renderCollectionChip(entry, collection))}
-                </div>}
-                {notFiledIn(entry).length > 0 && <div className="entry-collections-rest">
-                  {notFiledIn(entry).map((collection) => renderCollectionChip(entry, collection))}
-                </div>}
-              </div>}
-              <div className="vocabulary-entry-actions">
-                <div className="vocabulary-entry-actions-main">
-                  <button className="secondary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}>Edit</button>
-                  <button className="inline-button" type="button" aria-label={`${entry.suspended ? 'Resume' : 'Suspend'} ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => void setSuspended(entry, !entry.suspended)}>{entry.suspended ? 'Resume' : 'Suspend'}</button>
-                </div>
-                <button className="inline-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setEntryToDelete(entry); }}>Delete</button>
-              </div>
-            </>}
-            </div>
-          </details>
-        </article>)}
+        {visibleEntries.map((entry, index) => <VocabularyEntryCard
+          key={entry.id}
+          entry={entry}
+          editor={draft?.id === entry.id ? <VocabularyEntryEditor
+            entry={entry}
+            draft={draft}
+            setDraft={setDraft}
+            saving={saving}
+            notice={notice}
+            online={online}
+            offlineReason={offlineReason}
+            onSubmit={saveDraft}
+            onCancel={() => { setDraft(null); setNotice(''); }}
+            onClipChanged={() => void reload()}
+          /> : null}
+          selecting={selecting}
+          selected={selectedEntryIds.includes(entry.learningVocabularyEntryId)}
+          filing={filing}
+          memberCollections={filedIn(entry)}
+          otherCollections={notFiledIn(entry)}
+          changingMembership={changingMembership}
+          online={online}
+          offlineReason={offlineReason}
+          onSelectClick={(event) => { if (event.shiftKey && selectRange(index, !selectedEntryIds.includes(entry.learningVocabularyEntryId))) event.preventDefault(); }}
+          onSelectChange={(selected) => { lastSelectedIndex.current = index; toggleEntrySelected(entry, selected); }}
+          onChangeMembership={(collection, member) => void changeMembership(entry, collection, member)}
+          onEdit={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}
+          onToggleSuspended={() => void setSuspended(entry, !entry.suspended)}
+          onDelete={() => { setNotice(''); setEntryToDelete(entry); }}
+          onClipChanged={() => void reload()}
+        />)}
       </div>
       {selectedEntries.length > 0 && <div className="library-selection" data-ui="bulk-actions" aria-busy={filing}>
         <p className="library-selection-count">{selectionAnnouncement}</p>
