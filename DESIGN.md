@@ -115,7 +115,7 @@ The palette is derived from the whole brand artwork rather than from one glance 
 - **Ember:** The warm accent. It lives in gradients, illustrative fills, and decorative plates.
 - **Ember Readable:** The darkened sibling used whenever ember must carry text or an icon.
 
-**The Ember Never Clicks Rule.** Ember marks warmth, atmosphere, and at most one semantic layer (the learner's own captured language and its counters). It never colors a button, a link, a focus ring, or a selected state — those are always violet. Two competing calls to action is the failure this rule prevents.
+**The Ember Never Clicks Rule.** Ember marks warmth, atmosphere, and at most one semantic layer (the learner's own captured language and its counters, including the Daily Streak). It never colors a button, a link, a focus ring, or a selected state — those are always violet. Two competing calls to action is the failure this rule prevents.
 
 **The Two-Stop Rule.** A gradient on anything the Learner acts on — an active navigation item, an avatar, a counter — runs navy into violet and stops there. The three-stop sweep that ends in ember is reserved for large decorative brand panels, such as the aside beside the sign-in form. Three brand colors inside a control the width of a word read as decoration fighting the label.
 

@@ -102,6 +102,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-daily-streak',
+      testMatch: /web-daily-streak\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-daily-streak-mobile',
+      testMatch: /web-daily-streak\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-collections',
       testMatch: /web-collections\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },

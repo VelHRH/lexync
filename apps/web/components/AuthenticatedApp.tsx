@@ -22,6 +22,7 @@ import { VocabularyProgressSurface } from './VocabularyProgressSurface';
 import { LessonInProgressActions } from './LessonInProgressActions';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { DailyStreakBadge } from './DailyStreak';
 
 const destinations = [
   ['Lessons', '/lessons'],
@@ -400,6 +401,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
   return (
     <main className="app-shell" data-design="app-shell" data-ui="product-shell">
       <AppSidebar activeSection={activeSection} collapsed={navigationCollapsed} onToggle={toggleNavigation}>
+        <DailyStreakBadge key={session.user.id} />
         <LanguageSwitcher languages={languages} value={displayedLanguage.id} onChange={(languageId) => void setActiveLanguage(languageId)} />
         <div className="profile-region" data-ui="profile-account" aria-label="Profile and account controls">
           <Link aria-current={activeSection === 'Profile' ? 'page' : undefined} aria-label="Profile" className="profile-button" href="/profile">
