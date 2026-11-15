@@ -6,7 +6,7 @@ create table public.learner_timezones (
 
 alter table public.learner_timezones enable row level security;
 
-create policy learner_reads_learner_timezone
+create policy learner_reads_learner_timezones
 on public.learner_timezones
 for select
 to authenticated
@@ -84,7 +84,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  learner_timezone text;
+  effective_timezone text;
 begin
   if new.status <> 'completed' or (tg_op = 'UPDATE' and old.status = 'completed') then
     return null;
@@ -94,10 +94,10 @@ begin
     (select timezone from public.learner_timezones where learner_id = new.learner_id),
     'UTC'
   )
-  into learner_timezone;
+  into effective_timezone;
 
   insert into public.active_days (learner_id, local_date, timezone)
-  values (new.learner_id, (new.completed_at at time zone learner_timezone)::date, learner_timezone)
+  values (new.learner_id, (new.completed_at at time zone effective_timezone)::date, effective_timezone)
   on conflict (learner_id, local_date) do nothing;
 
   return null;
