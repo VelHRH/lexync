@@ -24,6 +24,12 @@ class LibraryRepository(private val client: SupabaseClient) {
         return client.postgrest.rpc("account_vocabulary_snapshot").decodeAs()
     }
 
+    suspend fun dailyStreak(): DailyStreak {
+        client.auth.awaitInitialization()
+        requireNotNull(client.auth.currentSessionOrNull()) { "Sign in is required" }
+        return client.postgrest.rpc("daily_streak").decodeAs()
+    }
+
     suspend fun close() = client.close()
 
     companion object {

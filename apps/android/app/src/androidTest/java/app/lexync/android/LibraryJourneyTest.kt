@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -52,6 +53,7 @@ class LibraryJourneyTest {
         signIn()
         compose.waitUntilAtLeastOneExists(hasText("Synchronization complete"), 15_000)
         compose.onNodeWithText(email).assertIsDisplayed()
+        compose.waitUntilAtLeastOneExists(hasContentDescription("Daily Streak: 0 days, not yet today"), 15_000)
         compose.onNodeWithText("Spanish · English").assertIsDisplayed()
         compose.onNodeWithContentDescription("Open Vocabulary Entry caminar").performClick()
         compose.onNodeWithText("to walk").assertIsDisplayed()
