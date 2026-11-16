@@ -19,15 +19,18 @@ class LibraryRepository(private val client: SupabaseClient) {
     }
 
     suspend fun snapshot(): AccountVocabularySnapshot {
-        client.auth.awaitInitialization()
-        requireNotNull(client.auth.currentSessionOrNull()) { "Sign in is required" }
+        requireSession()
         return client.postgrest.rpc("account_vocabulary_snapshot").decodeAs()
     }
 
     suspend fun dailyStreak(): DailyStreak {
+        requireSession()
+        return client.postgrest.rpc("daily_streak").decodeAs()
+    }
+
+    private suspend fun requireSession() {
         client.auth.awaitInitialization()
         requireNotNull(client.auth.currentSessionOrNull()) { "Sign in is required" }
-        return client.postgrest.rpc("daily_streak").decodeAs()
     }
 
     suspend fun close() = client.close()
