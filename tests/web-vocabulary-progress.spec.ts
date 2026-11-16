@@ -78,7 +78,7 @@ async function completeOneLesson(page: Page) {
     const choice = question.getByRole('radio').first();
     await expect(choice).toBeEnabled();
     await choice.check();
-    await expect(page.getByRole('main').getByRole('status')).toContainText(/Correct|Incorrect/);
+    await expect(page.getByRole('main').getByRole('status')).toContainText(/Correct|Not quite/);
     const advance = page.getByRole('main').getByRole('button', { name: 'Continue' });
     await expect(advance).toBeEnabled();
     await advance.click();

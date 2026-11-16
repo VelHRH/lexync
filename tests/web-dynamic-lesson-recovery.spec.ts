@@ -159,7 +159,7 @@ async function selectAnswer(page: Page, choice: Locator) {
   await choice.check();
   await expect(lessonQuestion(page).getByRole('radio', { name: selectedValue, exact: true })).toBeChecked();
   await expect(answerChoices(page).first()).toBeDisabled();
-  await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+  await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Not quite/);
   await expect(continueButton(page)).toBeEnabled();
 }
 

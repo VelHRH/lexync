@@ -180,7 +180,7 @@ async function selectAnswer(page: Page, choice: Locator) {
   await choice.check();
   await expect(lessonQuestion(page).getByRole('radio', { name: selectedValue, exact: true })).toBeChecked();
   await expect(answerChoices(page).first()).toBeDisabled();
-  await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+  await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Not quite/);
   await expect(continueButton(page)).toBeEnabled();
 }
 
@@ -269,6 +269,16 @@ async function driveToClozeQuestion(page: Page, client: SupabaseClient, learning
     await answerCurrentQuestion(page);
     await continueToNextQuestion(page);
     if (!(await lessonQuestion(page).count())) throw new Error('The Lesson fixture did not produce a Cloze Question.');
+  }
+  const pendingQuestion = await pendingLessonQuestion(client, learningLanguageId);
+  return { pendingQuestion, questionEntry: askedEntry(captured, pendingQuestion) };
+}
+
+async function driveToTranslationQuestion(page: Page, client: SupabaseClient, learningLanguageId: string, captured: CapturedEntry[]) {
+  while ((await questionSnapshot(page)).type === 'cloze') {
+    await answerCurrentQuestion(page);
+    await continueToNextQuestion(page);
+    if (!(await lessonQuestion(page).count())) throw new Error('The Lesson fixture did not produce a translation question.');
   }
   const pendingQuestion = await pendingLessonQuestion(client, learningLanguageId);
   return { pendingQuestion, questionEntry: askedEntry(captured, pendingQuestion) };
@@ -583,7 +593,7 @@ test.describe('web Lesson', () => {
       const firstChoice = answerChoices(page).first();
       await selectAnswer(page, firstChoice);
       await expect(firstChoice).toBeDisabled();
-      await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+      await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Not quite/);
       await expect(continueButton(page)).toBeEnabled();
       await continueToNextQuestion(page);
       await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
@@ -647,7 +657,7 @@ test.describe('web Lesson', () => {
     if (!wrongChoice) throw new Error('The Cloze meaning fixture needs at least two choices.');
     await answerCurrentQuestion(page, wrongChoice);
     const status = lessonShell(page).getByRole('status');
-    await expect(status).toContainText('Incorrect');
+    await expect(status).toContainText('Not quite');
     await expect(lessonQuestion(page).getByText('Correct answer', { exact: true })).toBeVisible();
     await expect(lessonQuestion(page).locator('.lesson-correction-answer')).toHaveText(questionEntry.expression);
     const meaning = lessonQuestion(page).locator('.lesson-correction-meaning');
@@ -714,12 +724,11 @@ test.describe('web Lesson', () => {
     const fixture = await seedExampleEntries('lesson-example', vocabulary.slice(0, 8), { translateExample: true });
     await signIn(page, fixture.account);
     await startFromHome(page);
+    const { pendingQuestion, questionEntry } = await driveToTranslationQuestion(page, fixture.client, fixture.learningLanguageId, fixture.captured);
     await expect(revealedExample(page)).toHaveCount(0);
-    const pendingQuestion = await pendingLessonQuestion(fixture.client, fixture.learningLanguageId);
     expect(pendingQuestion.revealed_example).toBeNull();
     expect(pendingQuestion.revealed_example_translation).toBeNull();
     expect(pendingQuestion.revealed_example_translation_answer_language_tag).toBeNull();
-    const questionEntry = askedEntry(fixture.captured, pendingQuestion);
     await answerCurrentQuestion(page);
     await expect(lessonQuestion(page).getByText('Example', { exact: true })).toBeVisible();
     await expect(revealedExample(page)).toHaveText(`Esta frase contiene ${questionEntry.expression}.`);
@@ -738,14 +747,14 @@ test.describe('web Lesson', () => {
       const snapshot = await questionSnapshot(page);
       const questionEntry = askedEntry(fixture.captured, await pendingLessonQuestion(fixture.client, fixture.learningLanguageId));
       await answerCurrentQuestion(page);
-      await expect(revealedExample(page)).toHaveText(`Esta frase contiene ${questionEntry.expression}.`);
+      if (snapshot.type !== 'cloze') await expect(revealedExample(page)).toHaveText(`Esta frase contiene ${questionEntry.expression}.`);
       if (snapshot.direction) seenDirections.add(snapshot.direction.toLowerCase());
       await continueToNextQuestion(page);
     }
     expect([...seenDirections].sort()).toEqual(['recall', 'recognition']);
   });
 
-  test('re-shows the cloze sentence with the blank filled in after a cloze answer', async ({ page }) => {
+  test('reveals the sentence translation and meaning without repeating the sentence after a cloze answer', async ({ page }) => {
     const fixture = await seedExampleEntries('lesson-example-cloze', vocabulary.slice(0, 10), { translateExample: true });
     await signIn(page, fixture.account);
     await startFromHome(page);
@@ -754,14 +763,19 @@ test.describe('web Lesson', () => {
     expect(snapshot.prompt).toContain('_____');
     await answerCurrentQuestion(page, questionEntry.expression);
     await expect(lessonShell(page).getByRole('status')).toContainText('Correct');
-    await expect(revealedExample(page)).toHaveText(snapshot.prompt.replace('_____', questionEntry.expression));
+    await expect(revealedExampleTranslation(page)).toHaveText(`This sentence contains ${questionEntry.expression}.`);
+    await expect(revealedExampleTranslation(page)).toHaveAttribute('lang', 'en');
+    await expect(lessonQuestion(page).locator('.lesson-correction-meaning')).toContainText(questionEntry.translation);
+    await expect(revealedExample(page)).toHaveCount(0);
+    await expect(lessonQuestion(page).getByText('Example', { exact: true })).toHaveCount(0);
+    await expect(lessonQuestion(page).getByText(snapshot.prompt.replace('_____', questionEntry.expression), { exact: true })).toHaveCount(0);
   });
 
   test('shows the Example sentence alone when it carries no Example Translation', async ({ page }) => {
     const fixture = await seedExampleEntries('lesson-example-untranslated', vocabulary.slice(0, 8));
     await signIn(page, fixture.account);
     await startFromHome(page);
-    const questionEntry = askedEntry(fixture.captured, await pendingLessonQuestion(fixture.client, fixture.learningLanguageId));
+    const { questionEntry } = await driveToTranslationQuestion(page, fixture.client, fixture.learningLanguageId, fixture.captured);
     await answerCurrentQuestion(page);
     await expect(revealedExample(page)).toHaveText(`Esta frase contiene ${questionEntry.expression}.`);
     await expect(revealedExampleTranslation(page)).toHaveCount(0);
@@ -772,7 +786,7 @@ test.describe('web Lesson', () => {
     await signIn(page, fixture.account);
     await startFromHome(page);
     await answerCurrentQuestion(page);
-    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Not quite/);
     await expect(revealedExample(page)).toHaveCount(0);
     await expect(lessonQuestion(page).getByText('Example', { exact: true })).toHaveCount(0);
   });
@@ -781,8 +795,7 @@ test.describe('web Lesson', () => {
     const fixture = await seedExampleEntries('lesson-example-stable', vocabulary.slice(0, 8), { translateExample: true });
     await signIn(page, fixture.account);
     await startFromHome(page);
-    const pendingQuestion = await pendingLessonQuestion(fixture.client, fixture.learningLanguageId);
-    const questionEntry = askedEntry(fixture.captured, pendingQuestion);
+    const { questionEntry } = await driveToTranslationQuestion(page, fixture.client, fixture.learningLanguageId, fixture.captured);
     await answerCurrentQuestion(page);
     await expect(revealedExample(page)).toHaveText(`Esta frase contiene ${questionEntry.expression}.`);
     const editedBridgeId = await bridgeEntryId(fixture.client, questionEntry.vocabularyEntryId);
@@ -827,7 +840,7 @@ test.describe('web Lesson', () => {
     await startFromHome(page);
     const questionEntry = askedEntry(fixture.captured, await pendingLessonQuestion(fixture.client, fixture.learningLanguageId));
     await answerCurrentQuestion(page);
-    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Not quite/);
     await expect(pronunciationRegion(page)).toHaveCount(0);
     await expect(pronunciationAudio(page)).toHaveCount(0);
     await expect(playPronunciation(page, questionEntry.expression)).toHaveCount(0);
@@ -874,7 +887,7 @@ test.describe('web Lesson', () => {
     await expect(lessonQuestion(page)).toBeVisible();
 
     await answerCurrentQuestion(page);
-    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Not quite/);
     await expect(pronunciationRegion(page)).toHaveCount(0);
     await expect(playPronunciation(page, 'casa')).toHaveCount(0);
   });
@@ -892,13 +905,37 @@ test.describe('web Lesson', () => {
     const colorBefore = await wrong.evaluate((element) => getComputedStyle(element.closest('label') ?? element).borderColor);
     await selectAnswer(page, wrong);
     expect(await questionSnapshot(page)).toEqual(expect.objectContaining({ prompt: before.prompt }));
-    await expect(lessonShell(page).getByText('Incorrect', { exact: true })).toBeVisible();
+    await expect(lessonShell(page).getByText('Not quite', { exact: true })).toBeVisible();
     await expect(lessonShell(page).getByText('Correct answer', { exact: true })).toBeVisible();
+    const correction = lessonQuestion(page).locator('.lesson-correction-answer');
+    await expect(correction).toHaveText(correct);
+    expect(Number(await correction.evaluate((element) => getComputedStyle(element).fontWeight))).toBeGreaterThanOrEqual(700);
     await expect(lessonQuestion(page).locator('svg, img').first()).toBeVisible();
     const colorAfter = await lessonQuestion(page).getByRole('radio', { name: wrongValue, exact: true }).evaluate((element) => getComputedStyle(element.closest('label') ?? element).borderColor);
     expect(colorAfter).not.toBe(colorBefore);
     await advance(page);
     expect((await questionSnapshot(page)).prompt).not.toBe(before.prompt);
+  });
+
+  test('slides the feedback card in under the choices and skips the slide when reduced motion is preferred', async ({ page }) => {
+    const fixture = await seedEntries('lesson-feedback-motion');
+    await signIn(page, fixture.account);
+    await startFromHome(page);
+    await answerCurrentQuestion(page);
+    const card = lessonQuestion(page).locator('[data-ui="lesson-feedback-card"]');
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(/^(Correct|Not quite)/);
+    await expect(card.locator('svg')).toBeVisible();
+    expect(await card.evaluate((element) => getComputedStyle(element).animationName)).not.toBe('none');
+    const [choicesBottom, cardTop] = await Promise.all([
+      lessonQuestion(page).locator('.lesson-choices').evaluate((element) => element.getBoundingClientRect().bottom),
+      card.evaluate((element) => element.getBoundingClientRect().top),
+    ]);
+    expect(cardTop).toBeGreaterThanOrEqual(choicesBottom);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await expect(card).toBeVisible();
+    expect(await card.evaluate((element) => getComputedStyle(element).animationName)).toBe('none');
   });
 
   test('marks only the correct choice with a tick and the chosen wrong choice with a cross on an incorrect translation Question, then marks solely the chosen choice on a correct one', async ({ page }) => {
@@ -931,7 +968,7 @@ test.describe('web Lesson', () => {
     expect(wrongColor).not.toBe(unmarkedColor);
 
     const status = lessonShell(page).getByRole('status');
-    await expect(status).toContainText('Incorrect');
+    await expect(status).toContainText('Not quite');
     await expect(status).toContainText('Correct answer');
     await expect(status).toContainText(correctFirst);
 
@@ -975,7 +1012,7 @@ test.describe('web Lesson', () => {
     await expectChoiceMarks(correctChoice, wrongChoice, unmarkedChoice);
 
     const status = lessonShell(page).getByRole('status');
-    await expect(status).toContainText('Incorrect');
+    await expect(status).toContainText('Not quite');
     await expect(status).toContainText('Correct answer');
     await expect(status).toContainText(correctChoiceValue);
   });
@@ -997,8 +1034,8 @@ test.describe('web Lesson', () => {
       expect(await questionSnapshot(restartedPage)).toEqual(initial);
       await Promise.all([answerChoices(page).first().check(), answerChoices(concurrentPage).first().check()]);
       await Promise.all([
-        expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/),
-        expect(lessonShell(concurrentPage).getByRole('status')).toContainText(/Correct|Incorrect/),
+        expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Not quite/),
+        expect(lessonShell(concurrentPage).getByRole('status')).toContainText(/Correct|Not quite/),
       ]);
       const { data: lesson, error: lessonError } = await fixture.client.rpc('lesson_overview', { p_learning_language_id: fixture.learningLanguageId });
       if (lessonError) throw lessonError;

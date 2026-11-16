@@ -21,7 +21,13 @@ async function locateWordCenter(locator: Locator, word: string) {
 }
 
 export async function selectWord(page: Page, locator: Locator, word: string) {
-  const point = await locateWordCenter(locator, word);
+  let point = await locateWordCenter(locator, word);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await page.waitForTimeout(50);
+    const next = await locateWordCenter(locator, word);
+    if (point && next && point.x === next.x && point.y === next.y) break;
+    point = next;
+  }
   if (!point) throw new Error(`"${word}" was not found inside the element.`);
   await page.mouse.dblclick(point.x, point.y);
 }
