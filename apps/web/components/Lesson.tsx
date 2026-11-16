@@ -182,6 +182,7 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
   const captureContainerRef = useRef<HTMLElement | null>(null);
   const captureSaveButtonRef = useRef<HTMLButtonElement | null>(null);
   const captureRegionRef = useRef<HTMLElement | null>(null);
+  const feedbackCardRef = useRef<HTMLDivElement | null>(null);
   const justCapturedRef = useRef(false);
   const pendingCaptureFocusRef = useRef<'save' | 'region' | null>(null);
   const online = useOnlineStatus();
@@ -402,7 +403,10 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
     return () => cancelAnimationFrame(frame);
   }, [extendedStreak, isComplete]);
 
-  const feedback = question?.is_correct === true ? 'Correct' : question?.is_correct === false ? 'Incorrect' : '';
+  const feedback = question?.is_correct === true ? 'correct' : question?.is_correct === false ? 'incorrect' : '';
+  useEffect(() => {
+    if (feedback) feedbackCardRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [feedback, question?.id]);
 
   return <main className="lesson-shell" aria-label="Lesson">
     <header className="lesson-header">
@@ -447,8 +451,13 @@ export function Lesson({ lessonId, languages, onExit, onPractiseSomethingElse, o
               </label>;
             })}
           </fieldset>
-          <div className={`lesson-feedback${feedback ? ` ${feedback.toLowerCase()}` : ''}`} aria-live="polite" role="status">
-            {feedback && <><span className="lesson-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'Correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span><span>{feedback}</span>{feedback === 'Incorrect' && question.correct_answer && <><span className="lesson-correction-label">Correct answer</span><span className="lesson-correction-answer">{question.correct_answer}</span></>}{question.revealed_meaning && <><span className="lesson-correction-label">Meaning</span><span className="lesson-correction-meaning" lang={question.revealed_meaning_answer_language_tag ?? undefined}>{question.revealed_meaning}</span></>}{question.revealed_example && <span className="lesson-correction-example"><span className="lesson-correction-label">Example</span><span className="lesson-correction-example-sentence" lang={lessonLanguageTag || undefined}>{question.revealed_example}</span>{question.revealed_example_translation && <span className="lesson-correction-example-translation" lang={question.revealed_example_translation_answer_language_tag ?? undefined}>{question.revealed_example_translation}</span>}</span>}</>}
+          <div className={`lesson-feedback${feedback ? ` ${feedback}` : ''}`} aria-live="polite" role="status">
+            {feedback && <div className="lesson-feedback-card" data-ui="lesson-feedback-card" ref={feedbackCardRef}>
+              <p className="lesson-feedback-heading"><span className="lesson-feedback-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d={feedback === 'correct' ? 'm3 8 3 3 7-7' : 'm4 4 8 8m0-8-8 8'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></span>{feedback === 'correct' ? 'Correct' : 'Not quite'}</p>
+              {feedback === 'incorrect' && question.correct_answer && <p className="lesson-feedback-row"><span className="lesson-correction-label">Correct answer</span><strong className="lesson-correction-answer">{question.correct_answer}</strong></p>}
+              {question.revealed_meaning && <p className="lesson-feedback-row"><span className="lesson-correction-label">Meaning</span><span className="lesson-correction-meaning" lang={question.revealed_meaning_answer_language_tag ?? undefined}>{question.revealed_meaning}</span></p>}
+              {question.question_type === 'cloze' ? question.revealed_example_translation && <p className="lesson-correction-example"><span className="lesson-correction-example-translation" lang={question.revealed_example_translation_answer_language_tag ?? undefined}>{question.revealed_example_translation}</span></p> : question.revealed_example && <p className="lesson-correction-example"><span className="lesson-correction-label">Example</span><span className="lesson-correction-example-sentence" lang={lessonLanguageTag || undefined}>{question.revealed_example}</span>{question.revealed_example_translation && <span className="lesson-correction-example-translation" lang={question.revealed_example_translation_answer_language_tag ?? undefined}>{question.revealed_example_translation}</span>}</p>}
+            </div>}
           </div>
           {question.audio_clip_path && question.audio_clip_expression && <div className="lesson-correction-audio"><span className="lesson-correction-label">Pronunciation</span><AudioClipPlayer dataUi="lesson-audio-clip" durationMs={question.audio_clip_duration_ms} expression={question.audio_clip_expression} path={question.audio_clip_path} /></div>}
         </section>

@@ -193,7 +193,7 @@ async function selectAnswer(page: Page, choice: Locator) {
   await choice.check();
   await expect(lessonQuestion(page).getByRole('radio', { name: selectedValue, exact: true })).toBeChecked();
   await expect(answerChoices(page).first()).toBeDisabled();
-  await expect(lessonQuestion(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+  await expect(lessonQuestion(page).getByRole('status')).toContainText(/Correct|Not quite/);
   await expect(continueButton(page)).toBeEnabled();
 }
 
@@ -283,8 +283,8 @@ async function answerQuestionIncorrectly(page: Page, maxAttempts = 20) {
       throw new Error('The Lesson reached completion before any question was answered incorrectly.');
     }
     await selectAnswer(page, answerChoices(page).nth(1));
-    const status = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim();
-    if (status.includes('Incorrect')) return;
+    const status = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Not quite/ }).innerText()).trim();
+    if (status.includes('Not quite')) return;
     await continueToNextQuestion(page);
   }
   throw new Error(`No Lesson question was answered incorrectly within ${maxAttempts} attempts.`);
@@ -307,7 +307,7 @@ test.describe('web Dynamic Lesson', () => {
 
     await answerCurrentQuestion(page);
     const positionTextBefore = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
-    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim();
+    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Not quite/ }).innerText()).trim();
     const directionText = (await lessonQuestion(page).locator('.lesson-direction').innerText()).trim();
     const promptHeading = lessonQuestion(page).getByRole('heading', { level: 1 });
     const promptText = (await promptHeading.innerText()).trim();
@@ -328,7 +328,7 @@ test.describe('web Dynamic Lesson', () => {
     await expect(dialog).toHaveCount(0);
     await expect(captureBar.getByRole('status')).toContainText(`Saved “${capturedWord}” to your vocabulary.`);
     await expect(promptHeading).toHaveText(promptText);
-    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ })).toHaveText(feedbackTextBefore);
+    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Not quite/ })).toHaveText(feedbackTextBefore);
     await expect(answerChoices(page).first()).toBeChecked();
     await expect(answerChoices(page).first()).toBeDisabled();
     const positionTextAfter = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
@@ -596,7 +596,7 @@ test.describe('web Dynamic Lesson', () => {
     await expect(lessonQuestion(page)).toBeVisible();
     await answerCurrentQuestion(page);
     const positionTextBefore = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
-    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim();
+    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Not quite/ }).innerText()).trim();
     const choice = answerChoices(page).nth(1);
     const choiceValue = await choice.inputValue();
     const choiceLabel = choice.locator('..');
@@ -613,7 +613,7 @@ test.describe('web Dynamic Lesson', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toHaveCount(0);
     await expect(answerChoices(page).first()).toBeChecked();
-    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ })).toHaveText(feedbackTextBefore);
+    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Not quite/ })).toHaveText(feedbackTextBefore);
     let positionTextAfter = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
     expect(positionTextAfter).toBe(positionTextBefore);
 
@@ -624,7 +624,7 @@ test.describe('web Dynamic Lesson', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(answerChoices(page).first()).toBeChecked();
-    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ })).toHaveText(feedbackTextBefore);
+    await expect(lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Not quite/ })).toHaveText(feedbackTextBefore);
     positionTextAfter = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
     expect(positionTextAfter).toBe(positionTextBefore);
 
@@ -644,7 +644,7 @@ test.describe('web Dynamic Lesson', () => {
     await expect(lessonQuestion(page)).toBeVisible();
     await answerQuestionIncorrectly(page);
     const positionTextBefore = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();
-    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim();
+    const feedbackTextBefore = (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Not quite/ }).innerText()).trim();
     const correctAnswer = lessonQuestion(page).locator('.lesson-correction-answer');
     await expect(correctAnswer).toBeVisible();
     const correctAnswerText = (await correctAnswer.innerText()).trim();
@@ -657,7 +657,7 @@ test.describe('web Dynamic Lesson', () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel('Expression', { exact: true })).toHaveValue(capturedWord);
     await expect(dialog.getByLabel('Example (optional)', { exact: true })).toHaveValue(correctAnswerText);
-    expect(correctAnswerText).not.toContain('Incorrect');
+    expect(correctAnswerText).not.toContain('Not quite');
     expect(correctAnswerText).not.toContain('Correct answer');
     await expect(dialog.getByLabel('Translation', { exact: true })).toHaveValue('');
     const capturedTranslation = 'a short burst of rain';
@@ -665,7 +665,7 @@ test.describe('web Dynamic Lesson', () => {
     await submitCaptureForm(dialog);
     await expect(dialog).toHaveCount(0);
     await expect(captureBar.getByRole('status')).toContainText(`Saved “${capturedWord}” to your vocabulary.`);
-    await expect.poll(async () => (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Incorrect/ }).innerText()).trim()).toBe(feedbackTextBefore);
+    await expect.poll(async () => (await lessonQuestion(page).getByRole('status').filter({ hasText: /Correct|Not quite/ }).innerText()).trim()).toBe(feedbackTextBefore);
     await expect(answerChoices(page).nth(1)).toBeChecked();
     await expect(answerChoices(page).nth(1)).toBeDisabled();
     const positionTextAfter = (await lessonShell(page).getByText(/^Lesson question \d+ of \d+$/).innerText()).trim();

@@ -108,7 +108,7 @@ async function completeLesson(page: Page, answerFirst = true) {
   while (await lessonQuestion(page).count()) {
     const choices = lessonQuestion(page).getByRole('radio');
     await choices.nth(answerFirst ? 0 : Math.min(1, (await choices.count()) - 1)).check();
-    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Incorrect/);
+    await expect(lessonShell(page).getByRole('status')).toContainText(/Correct|Not quite/);
     await continueQuestion(page);
     answered += 1;
   }
