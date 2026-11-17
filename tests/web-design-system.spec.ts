@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { glob, readFile } from 'node:fs/promises';
 import { materialsLinkName } from './support/navigation';
+import { chooseOption, expectSelectValue, themedSelect, themedSelectListbox } from './support/select';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -21,6 +23,7 @@ async function register(account: ReturnType<typeof credentials>, languages = ['e
     const result = await client.rpc('create_learning_language', { p_language_tag: language });
     if (result.error) throw result.error;
   }
+  return client;
 }
 
 async function signIn(page: Page, account: ReturnType<typeof credentials>) {
@@ -256,6 +259,81 @@ test.describe('web design system surfaces', () => {
     await expect(page).toHaveURL('/library');
     await expect(page.locator('[data-ui="empty-state"]')).toBeVisible();
     await expect(page.locator('[data-ui="empty-state"]')).toHaveRole('status');
+  });
+
+  test('operates the themed Select by keyboard and mouse and leaves no native select in the web app', async ({ page }) => {
+    const account = credentials('web-design-system-select');
+    const client = await register(account, []);
+    const { data: pair, error: pairError } = await client.rpc('create_study_pair', { p_target_language_tag: 'es', p_reference_language_tag: 'en' });
+    if (pairError) throw pairError;
+    const { error } = await client.rpc('capture_manual_entry', { p_example: 'Mi casa es azul.', p_expression: 'casa', p_study_pair_id: (pair as { id: string }).id, p_translation: 'house' });
+    if (error) throw error;
+    await signIn(page, account);
+    await page.goto('/library');
+
+    const label = 'Vocabulary Progress State';
+    const trigger = themedSelect(page, label);
+    const listbox = themedSelectListbox(page, label);
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(trigger).toHaveAccessibleName(`${label} All states`);
+    await expectSelectValue(page, label, 'all');
+
+    await trigger.focus();
+    await trigger.press('ArrowDown');
+    await expect(listbox).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(listbox.getByRole('option', { name: 'All states' })).toBeFocused();
+    await expect(listbox.getByRole('option', { name: 'All states' })).toHaveAttribute('aria-selected', 'true');
+    await expect(listbox.getByRole('option', { name: 'All states' }).locator('[data-ui="select-check"]')).toBeVisible();
+    await page.keyboard.press('ArrowDown');
+    await expect(listbox.getByRole('option', { name: 'New' })).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(listbox.getByRole('option', { name: 'Learned' })).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(listbox.getByRole('option', { name: 'All states' })).toBeFocused();
+    await page.keyboard.press('i');
+    await expect(listbox.getByRole('option', { name: 'In practice' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(listbox).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expectSelectValue(page, label, 'in-practice');
+    await expect(trigger).toHaveAccessibleName(`${label} In practice`);
+
+    await page.keyboard.press('Space');
+    await expect(listbox).toBeVisible();
+    await expect(listbox.getByRole('option', { name: 'In practice' })).toBeFocused();
+    await page.keyboard.press('l');
+    await expect(listbox.getByRole('option', { name: 'Learned' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(listbox).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expectSelectValue(page, label, 'in-practice');
+
+    await page.keyboard.press('n');
+    await expect(listbox).toBeVisible();
+    await expect(listbox.getByRole('option', { name: 'New' })).toBeFocused();
+    await page.keyboard.press(' ');
+    await expect(listbox).toBeHidden();
+    await expectSelectValue(page, label, 'new');
+
+    await chooseOption(page, label, { label: 'All states' });
+    await expectSelectValue(page, label, 'all');
+    await trigger.click();
+    await expect(listbox).toBeVisible();
+    await page.locator('.vocabulary-discovery-controls').click({ position: { x: 2, y: 2 } });
+    await expect(listbox).toBeHidden();
+    await expectSelectValue(page, label, 'all');
+
+    await page.locator('summary').filter({ hasText: 'casa' }).click();
+    await page.getByRole('button', { name: 'Edit casa' }).click();
+    await expect(themedSelect(page, 'Example 1 Sense')).toBeVisible();
+    await expect(page.locator('select')).toHaveCount(0);
+
+    const sources: string[] = [];
+    for await (const file of glob('apps/web/{app,components}/**/*.tsx')) sources.push(await readFile(String(file), 'utf8'));
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources.filter((source) => /<select[\s>]/.test(source))).toHaveLength(0);
   });
 
   test('keeps public and authenticated surfaces responsive and accessible', async ({ page }) => {

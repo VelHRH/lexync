@@ -4,6 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./select": "./src/Select.tsx",
+    "./select.css": "./src/select.css",
     "./tokens": "./src/tokens.ts",
     "./tokens.css": "./src/tokens.css",
     "./styles.css": "./src/tokens.css",
@@ -15,6 +17,11 @@
     "check": "tsc --noEmit && node scripts/generate-css.mjs --check"
   },
   "devDependencies": {
+    "@types/react": "19.2.10",
+    "react": "19.2.4",
     "typescript": "5.9.2"
+  },
+  "peerDependencies": {
+    "react": "^19.2.4"
   }
 }

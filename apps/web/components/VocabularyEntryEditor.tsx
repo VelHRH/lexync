@@ -2,6 +2,7 @@
 
 import type { Dispatch, FormEvent, SetStateAction } from 'react';
 import type { LibraryEntry } from '../lib/libraryStore';
+import { Select } from '@lexync/design-system/select';
 import { VocabularyAudioClipRecorder } from './VocabularyAudioClip';
 
 type DraftItem = { id: string | null; key: string; text: string };
@@ -136,10 +137,8 @@ export function VocabularyEntryEditor({ entry, draft, setDraft, saving, notice, 
               </div>
             </div>
             <div className="field vocabulary-example-sense">
-              <label htmlFor={`example-sense-${item.key}`}>Example {exampleIndex + 1} Sense</label>
-              <select id={`example-sense-${item.key}`} value={sense.key} disabled={!online} onChange={(event) => moveExample(item.key, event.target.value)}>
-                {draft.senses.map((option, optionIndex) => <option key={option.key} value={option.key}>Sense {optionIndex + 1} · {option.translations[0]?.text || 'New Sense'}</option>)}
-              </select>
+              <label id={`example-sense-${item.key}-label`}>Example {exampleIndex + 1} Sense</label>
+              <Select id={`example-sense-${item.key}`} labelId={`example-sense-${item.key}-label`} value={sense.key} disabled={!online} onChange={(senseKey) => moveExample(item.key, senseKey)} options={draft.senses.map((option, optionIndex) => ({ value: option.key, label: `Sense ${optionIndex + 1} · ${option.translations[0]?.text || 'New Sense'}` }))} />
             </div>
           </div>;
         })}
