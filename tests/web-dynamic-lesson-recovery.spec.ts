@@ -84,15 +84,17 @@ function materialsRegion(page: Page) {
 async function uploadMaterial(page: Page, name: string, buffer: Buffer) {
   await openMaterials(page);
   const region = materialsRegion(page);
-  await region.getByLabel('Learning Material file').setInputFiles({ name, mimeType: 'text/plain', buffer });
-  await region.getByRole('button', { name: 'Upload Learning Material' }).click();
+  const input = region.getByLabel('Learning Material file');
+  await expect(input).toBeEnabled();
+  await input.setInputFiles({ name, mimeType: 'text/plain', buffer });
 }
 
 async function expectReadyMaterial(page: Page, name: string) {
   await openMaterials(page);
   const region = materialsRegion(page);
   const material = region.getByRole('listitem').filter({ hasText: name });
-  await expect(material).toContainText(/ready/i, { timeout: 30_000 });
+  await expect(material).toBeVisible();
+  await expect(material.getByText(/^(Processing|Failed)$/)).toHaveCount(0, { timeout: 30_000 });
 }
 
 function dynamicLessonRegion(page: Page) {
@@ -326,10 +328,8 @@ test.describe('web Dynamic Lesson recovery', () => {
 
     await openMaterials(page);
     const materialItem = materialsRegion(page).getByRole('listitem').filter({ hasText: materialName });
-    const deleteButton = materialItem.getByRole('button', { name: /^Delete\b/i });
-    await deleteButton.focus();
-    await expect(deleteButton).toBeFocused();
-    await page.keyboard.press('Enter');
+    await materialItem.getByRole('button', { name: /^More actions for\b/ }).click();
+    await materialItem.getByRole('menuitem', { name: 'Delete' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: /^Delete\b/i }).click();
