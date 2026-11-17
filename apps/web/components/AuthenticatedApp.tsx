@@ -447,10 +447,10 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
               <p className="lesson-tile-state">Open history</p>
             </Link>
           </div>}
-          {activeSection === 'Learning Materials' && <>
+          {activeSection === 'Learning Materials' && <div className="learning-materials-page">
             <p className="page-lede">Learning Materials are the private reading texts your Dynamic Lessons are built from. Add one here, then ask for practice on <Link className="text-link" href="/lessons/dynamic">Dynamic Lesson</Link>.</p>
             <LearningMaterials key={`learning-materials-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} onMaterialsChanged={setReadyMaterialCount} />
-          </>}
+          </div>}
           {activeSection === 'Profile' && <section className="panel" aria-labelledby="profile-heading">
             <div className="panel-header"><h2 id="profile-heading">Account</h2></div>
             <div className="panel-body">

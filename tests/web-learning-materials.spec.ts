@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -54,23 +54,48 @@ function materialsRegion(page: Page) {
 async function uploadMaterial(page: Page, name: string, buffer: Buffer) {
   await openMaterials(page);
   const region = materialsRegion(page);
-  await region.getByLabel('Learning Material file').setInputFiles({ name, mimeType: 'text/plain', buffer });
-  await region.getByRole('button', { name: 'Upload Learning Material' }).click();
+  const input = region.getByLabel('Learning Material file');
+  await expect(input).toBeEnabled();
+  await input.setInputFiles({ name, mimeType: 'text/plain', buffer });
+}
+
+function statusPill(material: Locator) {
+  return material.getByText(/^(Processing|Failed)$/);
 }
 
 async function expectReadyMaterial(page: Page, name: string) {
   await openMaterials(page);
   const region = materialsRegion(page);
   const material = region.getByRole('listitem').filter({ hasText: name });
-  await expect(material).toContainText(/ready/i, { timeout: 30_000 });
-  await expect(material).toContainText(name);
+  await expect(material).toBeVisible();
+  await expect(statusPill(material)).toHaveCount(0, { timeout: 30_000 });
+  return material;
 }
 
 async function expectMaterialStatus(page: Page, name: string, status: 'processing' | 'failed' | 'ready') {
+  if (status === 'ready') return expectReadyMaterial(page, name);
   await openMaterials(page);
   const material = materialsRegion(page).getByRole('listitem').filter({ hasText: name });
-  await expect(material).toContainText(new RegExp(`\\b${status}\\b`, 'i'));
+  await expect(statusPill(material)).toHaveText(status === 'processing' ? 'Processing' : 'Failed');
   return material;
+}
+
+function materialActions(material: Locator) {
+  return material.getByRole('button', { name: /^More actions for\b/ });
+}
+
+async function dropMaterial(page: Page, name: string, text: string) {
+  await openMaterials(page);
+  const zone = materialsRegion(page).locator('.learning-materials-dropzone');
+  await expect(materialsRegion(page).getByLabel('Learning Material file')).toBeEnabled();
+  const dataTransfer = await page.evaluateHandle(([fileName, content]) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([content], fileName, { type: 'text/plain' }));
+    return transfer;
+  }, [name, text] as const);
+  await zone.dispatchEvent('dragenter', { dataTransfer });
+  await zone.dispatchEvent('dragover', { dataTransfer });
+  await zone.dispatchEvent('drop', { dataTransfer });
 }
 
 async function seedMaterial(
@@ -121,16 +146,53 @@ test.describe('web Learning Materials', () => {
     await expect(page.getByRole('heading', { name: 'Dynamic Lesson' })).toBeVisible();
     await selectLearningLanguage(page, spanish.id);
     const filename = 'morning-notes.TXT';
-    await uploadMaterial(page, filename, Buffer.from('Buenos días. Esta es una lectura breve para estudiar.', 'utf8'));
+    const content = Buffer.from('Buenos días. Esta es una lectura breve para estudiar.', 'utf8');
+    await uploadMaterial(page, filename, content);
 
     const status = page.getByRole('status').filter({ hasText: filename });
     await expect(status).toContainText(/processing/i);
-    await expectReadyMaterial(page, filename);
+    const material = await expectReadyMaterial(page, filename);
+    await expect(material).toContainText(`${content.byteLength} B`);
+    await expect(material).toContainText(String(new Date().getFullYear()));
     await expectNoLearnerFacingTechnicalTerms(page);
 
     await page.reload();
-    await expectReadyMaterial(page, filename);
+    const reloaded = await expectReadyMaterial(page, filename);
+    await expect(reloaded).toContainText(`${content.byteLength} B`);
     await expectNoLearnerFacingTechnicalTerms(page);
+  });
+
+  test('uploads a dropped TXT file without any further click', async ({ page }) => {
+    const account = credentials('web-learning-material-drop');
+    const setup = await register(account, ['es']);
+    const spanish = setup.languages.find((language) => language.language_tag === 'es');
+    if (!spanish) throw new Error('The Spanish Learning Language fixture is missing.');
+
+    await signIn(page, account);
+    await selectLearningLanguage(page, spanish.id);
+    const filename = 'dropped-story.txt';
+    await dropMaterial(page, filename, 'Una historia que llegó arrastrando el archivo.');
+    await expect(page.getByRole('status').filter({ hasText: filename })).toContainText(/processing/i);
+    await expectReadyMaterial(page, filename);
+    await expect(materialsRegion(page).getByRole('button', { name: /upload/i })).toHaveCount(0);
+  });
+
+  test('rejects a dropped file of the wrong type inline without contacting the server', async ({ page }) => {
+    const account = credentials('web-learning-material-drop-rejected');
+    const setup = await register(account, ['es']);
+    const spanish = setup.languages.find((language) => language.language_tag === 'es');
+    if (!spanish) throw new Error('The Spanish Learning Language fixture is missing.');
+
+    await signIn(page, account);
+    await selectLearningLanguage(page, spanish.id);
+    const uploadRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/learning-materials') uploadRequests.push(request.url());
+    });
+    await dropMaterial(page, 'dropped-notes.pdf', 'Text with the wrong extension.');
+    await expect(materialsRegion(page).getByRole('alert')).toContainText(/Learning Material files must use the \.txt extension\./i);
+    await expect(materialsRegion(page).getByText('dropped-notes.pdf', { exact: true })).toHaveCount(0);
+    expect(uploadRequests).toHaveLength(0);
   });
 
   test('accepts a TXT file whose raw content is exactly 1 MiB', async ({ page }) => {
@@ -152,31 +214,37 @@ test.describe('web Learning Materials', () => {
       name: 'empty.txt',
       buffer: Buffer.alloc(0),
       message: /Learning Material files cannot be empty\./i,
+      rejectedInBrowser: true,
     },
     {
       name: 'blank.txt',
       buffer: Buffer.from('\uFEFF \n\t', 'utf8'),
       message: /Learning Material files cannot be empty\./i,
+      rejectedInBrowser: false,
     },
     {
       name: 'notes.pdf',
       buffer: Buffer.from('This is text with the wrong extension.', 'utf8'),
       message: /Learning Material files must use the \.txt extension\./i,
+      rejectedInBrowser: true,
     },
     {
       name: 'malformed.txt',
       buffer: Buffer.from([0xc3, 0x28]),
       message: /Learning Material files must be valid UTF-8 text\./i,
+      rejectedInBrowser: false,
     },
     {
       name: 'binary.txt',
       buffer: Buffer.from([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]),
       message: /Learning Material files must contain readable text\./i,
+      rejectedInBrowser: false,
     },
     {
       name: 'too-large.txt',
       buffer: Buffer.alloc(maxLearningMaterialBytes + 1, 'a'),
       message: /Learning Material files must be 1 MiB or smaller\./i,
+      rejectedInBrowser: true,
     },
   ] as const;
 
@@ -189,11 +257,16 @@ test.describe('web Learning Materials', () => {
 
       await signIn(page, account);
       await selectLearningLanguage(page, spanish.id);
+      const uploadRequests: string[] = [];
+      page.on('request', (request) => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/learning-materials') uploadRequests.push(request.url());
+      });
       await uploadMaterial(page, fixture.name, fixture.buffer);
 
       const region = materialsRegion(page);
       await expect(region.getByRole('alert')).toContainText(fixture.message);
       await expect(region.getByText(fixture.name, { exact: true })).toHaveCount(0);
+      if (fixture.rejectedInBrowser) expect(uploadRequests).toHaveLength(0);
       await expectNoLearnerFacingTechnicalTerms(page);
     });
   }
@@ -270,16 +343,24 @@ test.describe('web Learning Materials', () => {
     await signIn(page, account);
     await selectLearningLanguage(page, spanish.id);
     const material = await expectMaterialStatus(page, filename, 'failed');
-    await expect(material.getByRole('button', { name: /^Retry\b/i })).toBeVisible();
+    await expect(material.getByRole('button', { name: /^Retry\b/i })).toHaveCount(0);
+    await materialActions(material).click();
+    await expect(material.getByRole('menuitem', { name: 'Retry' })).toBeVisible();
+    await expect(material.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
     await expectNoLearnerFacingTechnicalTerms(page);
 
-    await material.getByRole('button', { name: /^Retry\b/i }).click();
+    await material.getByRole('menuitem', { name: 'Retry' }).click();
     await expect(page.getByRole('status').filter({ hasText: filename })).toContainText(new RegExp(`${filename}.*processing`, 'i'));
     await expectMaterialStatus(page, filename, 'ready');
     await expectNoLearnerFacingTechnicalTerms(page);
 
     const retriedMaterial = await expectMaterialStatus(page, filename, 'ready');
-    await expect(retriedMaterial.getByRole('button', { name: /^Retry\b/i })).toHaveCount(0);
+    await materialActions(retriedMaterial).click();
+    await expect(retriedMaterial.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
+    await expect(retriedMaterial.getByRole('menuitem', { name: 'Retry' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(retriedMaterial.getByRole('menu')).toHaveCount(0);
+    await expect(materialActions(retriedMaterial)).toBeFocused();
   });
 
   test('deletes failed, ready, and processing materials through a keyboard confirmation flow', async ({ page }) => {
@@ -298,17 +379,22 @@ test.describe('web Learning Materials', () => {
     await expectReadyMaterial(page, 'ready-delete.txt');
 
     const failedMaterial = await expectMaterialStatus(page, failedFilename, 'failed');
-    const failedDelete = failedMaterial.getByRole('button', { name: /^Delete\b/i });
-    await failedDelete.focus();
-    await expect(failedDelete).toBeFocused();
+    const failedActions = materialActions(failedMaterial);
+    await failedActions.focus();
+    await expect(failedActions).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(failedMaterial.getByRole('menuitem', { name: 'Retry' })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(failedMaterial.getByRole('menuitem', { name: 'Delete' })).toBeFocused();
     await page.keyboard.press('Enter');
     const failedDialog = page.getByRole('dialog');
     await expect(failedDialog).toBeVisible();
     await failedDialog.getByRole('button', { name: /cancel/i }).click();
     await expect(failedMaterial).toBeVisible();
-    const failedDeleteAfterCancel = failedMaterial.getByRole('button', { name: /^Delete\b/i });
-    await failedDeleteAfterCancel.focus();
-    await expect(failedDeleteAfterCancel).toBeFocused();
+    await expect(failedActions).toBeFocused();
+    await page.keyboard.press('Space');
+    await page.keyboard.press('End');
+    await expect(failedMaterial.getByRole('menuitem', { name: 'Delete' })).toBeFocused();
     await page.keyboard.press('Space');
     await expect(failedDialog).toBeVisible();
     await failedDialog.getByRole('button', { name: /^Delete\b/i }).click();
@@ -317,14 +403,16 @@ test.describe('web Learning Materials', () => {
     await expectSourceUnavailable(setup.client, failedSeed.storagePath);
 
     const readyMaterial = await expectMaterialStatus(page, 'ready-delete.txt', 'ready');
-    await readyMaterial.getByRole('button', { name: /^Delete\b/i }).click();
+    await materialActions(readyMaterial).click();
+    await readyMaterial.getByRole('menuitem', { name: 'Delete' }).click();
     const readyDialog = page.getByRole('dialog');
     await expect(readyDialog).toBeVisible();
     await readyDialog.getByRole('button', { name: /^Delete\b/i }).click();
     await expect(readyMaterial).toHaveCount(0);
 
     const processingMaterial = await expectMaterialStatus(page, processingFilename, 'processing');
-    await processingMaterial.getByRole('button', { name: /^Delete\b/i }).click();
+    await materialActions(processingMaterial).click();
+    await processingMaterial.getByRole('menuitem', { name: 'Delete' }).click();
     const processingDialog = page.getByRole('dialog');
     await expect(processingDialog).toBeVisible();
     await processingDialog.getByRole('button', { name: /^Delete\b/i }).click();
@@ -348,12 +436,13 @@ test.describe('web Learning Materials', () => {
     await expect(page.getByRole('listitem').filter({ hasText: filename })).toHaveCount(2);
 
     const firstMaterial = page.getByRole('listitem').filter({ hasText: filename }).first();
-    await firstMaterial.getByRole('button', { name: /^Delete\b/i }).click();
+    await materialActions(firstMaterial).click();
+    await firstMaterial.getByRole('menuitem', { name: 'Delete' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: /^Delete\b/i }).click();
     await expect(page.getByRole('listitem').filter({ hasText: filename })).toHaveCount(1);
-    await expect(page.getByRole('listitem').filter({ hasText: filename }).getByRole('button', { name: /^Delete\b/i })).toBeVisible();
+    await expect(materialActions(page.getByRole('listitem').filter({ hasText: filename }))).toBeVisible();
     await expectNoLearnerFacingTechnicalTerms(page);
   });
 });
