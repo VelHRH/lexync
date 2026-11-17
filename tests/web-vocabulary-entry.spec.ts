@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
 import { PROGRESS_STATE_COPY, defaultVocabulary, fileEntry, practiceStreaks, practiseToMixedStates, seedCollection, seedEntries, stateOf, statesOf, suspendEntry } from './support/vocabulary-progress';
+import { chooseOption, expectSelectValue, themedSelect } from './support/select';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -162,12 +163,12 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByRole('searchbox', { name: 'Search vocabulary' }).fill('nube');
     await expect(page.locator('summary').filter({ hasText: 'nube' })).toBeVisible();
     await expect(page.getByText('Suspended', { exact: true })).toBeVisible();
-    await page.getByLabel('Vocabulary status').selectOption('active');
+    await chooseOption(page, 'Vocabulary status', 'active');
     await expect(page.getByText('No active Vocabulary Entries match “nube”.')).toBeVisible();
     await page.getByRole('searchbox', { name: 'Search vocabulary' }).fill('');
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
     await expect(page.getByText('nube', { exact: true })).toHaveCount(0);
-    await page.getByLabel('Vocabulary status').selectOption('suspended');
+    await chooseOption(page, 'Vocabulary status', 'suspended');
     await expect(page.locator('summary').filter({ hasText: 'nube' })).toBeVisible();
     await expect(page.getByText('casa', { exact: true })).toHaveCount(0);
     const { data: languages, error: languagesError } = await client.from('learning_languages').select('id,language_tag');
@@ -175,11 +176,11 @@ test.describe('web Vocabulary Entry library', () => {
     const italian = languages?.find((language) => language.language_tag === 'it');
     if (!italian) throw new Error('The Italian Learning Language fixture is missing.');
     await selectLearningLanguage(page, italian.id);
-    await expect(page.getByLabel('Vocabulary status')).toHaveValue('all');
-    await page.getByLabel('Vocabulary status').selectOption('suspended');
-    await expect(page.getByLabel('Vocabulary status')).toHaveValue('suspended');
+    await expectSelectValue(page, 'Vocabulary status', 'all');
+    await chooseOption(page, 'Vocabulary status', 'suspended');
+    await expectSelectValue(page, 'Vocabulary status', 'suspended');
     await expect(page.getByText('No suspended Vocabulary Entries yet.')).toBeVisible();
-    await page.getByLabel('Vocabulary status').selectOption('all');
+    await chooseOption(page, 'Vocabulary status', 'all');
     await expect(page.locator('summary').filter({ hasText: 'casa italiana' })).toBeVisible();
     if (test.info().project.name === 'web-vocabulary-mobile') {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
@@ -241,17 +242,17 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(entries.length);
 
     for (const [state, expected] of [['learned', tally.learned], ['in-practice', tally.inPractice], ['new', tally.new]] as const) {
-      await page.getByLabel('Vocabulary Progress State').selectOption(state);
+      await chooseOption(page, 'Vocabulary Progress State', state);
       await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expected);
       await expect(page.locator(`[data-ui="entry-progress-state"][data-state="${state}"]`)).toHaveCount(expected);
       await expect(page.locator('.library-toolbar')).toContainText(`${expected} shown`);
     }
 
-    await page.getByLabel('Vocabulary Progress State').selectOption('all');
+    await chooseOption(page, 'Vocabulary Progress State', 'all');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(entries.length);
 
-    await page.getByLabel('Vocabulary status').selectOption('suspended');
-    await page.getByLabel('Vocabulary Progress State').selectOption('learned');
+    await chooseOption(page, 'Vocabulary status', 'suspended');
+    await chooseOption(page, 'Vocabulary Progress State', 'learned');
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     await expect(page.getByText('A suspended Vocabulary Entry carries no Vocabulary Progress State. Resume it to see where it stands.', { exact: true })).toBeVisible();
     if (test.info().project.name === 'web-vocabulary-mobile') {
@@ -337,8 +338,9 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Translation', { exact: true }).fill('to discover');
     await page.getByLabel('Example (optional)', { exact: true }).fill('Quiero descubrir la ciudad.');
 
-    await page.getByLabel('Vocabulary status').selectOption('active');
-    await expect(page.getByLabel('Vocabulary status')).toHaveValue('active');
+    await themedSelect(page, 'Vocabulary status').dispatchEvent('click');
+    await page.locator('#vocabulary-status-listbox [role="option"][data-value="active"]').dispatchEvent('click');
+    await expectSelectValue(page, 'Vocabulary status', 'active');
 
     const secondPage = await page.context().newPage();
     await secondPage.goto('/');
@@ -518,7 +520,7 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Sense 2 translation 1').fill('uncover');
     await page.getByRole('button', { name: 'Remove Example 2' }).click();
     await page.getByLabel('Example 1 text').fill('Quiero descubrir algo nuevo.');
-    await page.getByLabel('Example 1 Sense').selectOption({ label: 'Sense 2 · uncover' });
+    await chooseOption(page, 'Example 1 Sense', { label: 'Sense 2 · uncover' });
     await page.getByRole('button', { name: 'Add Example to Sense 2' }).click();
     await page.getByLabel('Example 2 text').fill('Descubrimos la respuesta.');
     await page.getByRole('button', { name: 'Save changes' }).press('Enter');

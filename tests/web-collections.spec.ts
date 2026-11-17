@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
 import { materialsLinkName } from './support/navigation';
 import { defaultVocabulary, practiceStreaks, practiseToMixedStates, seedEntries, stateOf } from './support/vocabulary-progress';
+import { chooseOption } from './support/select';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -386,15 +387,15 @@ test.describe('web Collections', () => {
     await chooseCollection(page, /Places/);
     await expect(page).toHaveURL(`/library?collection=${places}`);
 
-    await page.getByLabel('Vocabulary status').selectOption({ label: 'Active entries' });
+    await chooseOption(page, 'Vocabulary status', 'active');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'sol')).toHaveCount(0);
 
-    await page.getByLabel('Vocabulary status').selectOption({ label: 'Suspended entries' });
+    await chooseOption(page, 'Vocabulary status', 'suspended');
     await expect(entrySummary(page, 'sol')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
-    await page.getByLabel('Vocabulary status').selectOption({ label: 'All entries' });
+    await chooseOption(page, 'Vocabulary status', 'all');
     await page.getByLabel('Search vocabulary').fill('cas');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'sol')).toHaveCount(0);
@@ -408,7 +409,7 @@ test.describe('web Collections', () => {
     await expectCollectionScope(page, 'Places');
 
     await page.getByLabel('Search vocabulary').fill('');
-    await page.getByLabel('Vocabulary status').selectOption({ label: 'Suspended entries' });
+    await chooseOption(page, 'Vocabulary status', 'suspended');
     await chooseCollection(page, /Sky/);
     await expect(page).toHaveURL(`/library?collection=${sky}`);
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
@@ -440,7 +441,7 @@ test.describe('web Collections', () => {
     await signIn(page, account);
     await page.goto('/library');
     await chooseCollection(page, /Travel/);
-    await page.getByLabel('Vocabulary Progress State').selectOption('learned');
+    await chooseOption(page, 'Vocabulary Progress State', 'learned');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(learnedInTravel.length);
     for (const row of learnedInTravel) await expect(entrySummary(page, row.expression)).toBeVisible();
     for (const row of unfiled) await expect(entrySummary(page, row.expression)).toHaveCount(0);
@@ -462,7 +463,7 @@ test.describe('web Collections', () => {
 
     await chooseCollection(page, 'Not in a Collection');
     await expect(page.getByText('No learned Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
-    await page.getByLabel('Vocabulary Progress State').selectOption('new');
+    await chooseOption(page, 'Vocabulary Progress State', 'new');
     for (const row of unfiled) await expect(entrySummary(page, row.expression)).toBeVisible();
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(unfiled.length);
 

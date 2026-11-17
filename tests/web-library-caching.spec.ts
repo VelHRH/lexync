@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
 import { materialsLinkName } from './support/navigation';
+import { chooseOption } from './support/select';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -371,9 +372,9 @@ test.describe('web Library data lifetime', () => {
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
     expect(progressRequests.count(), 'the row states ride the Library snapshot rather than a read path of their own').toBe(0);
 
-    await page.getByLabel('Vocabulary Progress State').selectOption('new');
+    await chooseOption(page, 'Vocabulary Progress State', 'new');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
-    await page.getByLabel('Vocabulary Progress State').selectOption('learned');
+    await chooseOption(page, 'Vocabulary Progress State', 'learned');
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     expect(progressRequests.count()).toBe(0);
     expect(libraryRequests.count()).toBe(0);

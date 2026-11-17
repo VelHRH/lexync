@@ -1,4 +1,5 @@
 @import '@lexync/design-system/tokens.css';
+@import '@lexync/design-system/select.css';
 
 :root {
   --web-content-width: 78rem;
@@ -132,12 +133,11 @@ footer p { margin: 0; color: var(--web-muted); font-size: var(--lexync-type-size
 .web-auth-form { display: grid; gap: .55rem; margin-top: 1.75rem; }
 .web-auth-form .primary-button, .web-auth-form .secondary-button { margin-top: .5rem; }
 .web-auth-form label, .pair-selector-label, .vocabulary-discovery-controls label, .pair-language-form label, .pair-delete-dialog label, .vocabulary-move-panel label, .searchable-picker label { color: var(--web-ink); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); line-height: var(--lexync-type-line-tight); }
-.web-auth-form input, .web-auth-form select, .web-auth-form textarea, .app-content select, .pair-language-form input, .pair-delete-dialog input, .vocabulary-move-panel select, .vocabulary-discovery-controls input, .vocabulary-discovery-controls select, .vocabulary-editor input, .vocabulary-editor textarea, .vocabulary-editor select, .vocabulary-form textarea, .searchable-picker input { width: 100%; min-height: 3rem; padding: .7rem .8rem; border: var(--web-outline); border-radius: var(--lexync-radius-md); background-color: var(--web-surface); color: var(--web-ink); font-family: var(--lexync-type-family-body); }
+.web-auth-form input, .web-auth-form textarea, .pair-language-form input, .pair-delete-dialog input, .vocabulary-discovery-controls input, .vocabulary-editor input, .vocabulary-editor textarea, .vocabulary-form textarea, .searchable-picker input { width: 100%; min-height: 3rem; padding: .7rem .8rem; border: var(--web-outline); border-radius: var(--lexync-radius-md); background-color: var(--web-surface); color: var(--web-ink); font-family: var(--lexync-type-family-body); }
 .web-auth-form input::placeholder, .vocabulary-editor input::placeholder, .vocabulary-form textarea::placeholder, .vocabulary-discovery-controls input::placeholder { color: var(--web-muted); opacity: 1; }
 input[type='file'] { padding: .55rem .6rem; }
 input[type='file']::file-selector-button { min-height: 2.25rem; margin-right: .75rem; padding: 0 .85rem; border: var(--web-outline); border-radius: var(--lexync-radius-md); background: var(--web-strong); color: var(--web-ink); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); cursor: pointer; }
 input[type='file']::file-selector-button:hover { background: var(--web-strong); }
-.web-auth-form select, .app-content select, .vocabulary-move-panel select, .vocabulary-discovery-controls select, .vocabulary-editor select { appearance: none; padding-inline-end: 2.75rem; background-image: var(--web-chevron); background-position: right .85rem center; background-repeat: no-repeat; background-size: 1rem; }
 input:hover, select:hover, textarea:hover { border-color: var(--web-primary); }
 input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border-color: var(--web-line); background-color: var(--web-dim); color: var(--web-muted); }
 .primary-button, .secondary-button { min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; gap: .4rem; border: var(--web-outline); border-radius: var(--web-control-radius); padding: .7rem 1.15rem; color: var(--lexync-color-white); background: var(--web-primary); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer; box-shadow: var(--web-lift); transition: background var(--web-state), box-shadow var(--web-state), transform var(--web-state); }
@@ -233,7 +233,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .onboarding-loading-message:not(.error) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .pair-onboarding-actions, .pair-row-actions, .extension-recommendation-actions, .vocabulary-editor-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
 .pair-onboarding-actions { margin-top: 2rem; }
-.app-content select { margin-top: .25rem; }
+.app-content .lexync-select { margin-top: .25rem; }
 .app-content .web-auth-form { max-width: 34rem; }
 .app-content .web-auth-form .primary-button, .app-content .web-auth-form .secondary-button { justify-self: start; width: fit-content; }
 .page-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 1rem 1.5rem; margin-bottom: 2rem; }
@@ -388,7 +388,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-discovery-controls > .field { flex: 0 1 10rem; }
 .vocabulary-discovery-controls > .field:first-child { flex: 1 1 18rem; }
 .field { display: flex; min-width: 0; flex-direction: column; gap: .4rem; }
-.vocabulary-discovery-controls input, .vocabulary-discovery-controls select { margin: 0; }
+.vocabulary-discovery-controls input, .vocabulary-discovery-controls .lexync-select { margin: 0; }
 .library-entry-add { width: min(100%, 26rem); margin-top: 1.25rem; }
 .library-selection { display: grid; gap: .85rem; padding: 1rem 1.15rem; border-radius: var(--lexync-radius-lg); }
 @keyframes library-selection-enter { from { opacity: 0; transform: translateY(-.25rem); } }
@@ -443,7 +443,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-example-editor { display: grid; min-width: 0; gap: var(--lexync-space-3); padding: var(--lexync-space-3) var(--lexync-space-3) var(--lexync-space-4); border-radius: var(--lexync-radius-md); background: var(--web-subtle); }
 .vocabulary-example-remove { justify-self: end; margin: calc(var(--lexync-space-2) * -1) calc(var(--lexync-space-2) * -1) calc(var(--lexync-space-3) * -1) 0; }
 .vocabulary-example-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--lexync-space-3); }
-.vocabulary-example-sense select { width: min(100%, 22rem); }
+.vocabulary-example-sense .lexync-select { width: min(100%, 22rem); }
 @media (max-width: 44rem) { .vocabulary-example-fields { grid-template-columns: minmax(0, 1fr); } }
 .vocabulary-entry-list { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: var(--lexync-space-4); width: 100%; margin-top: 1.5rem; }
 .vocabulary-entry-item { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: .4rem; min-width: 0; }
