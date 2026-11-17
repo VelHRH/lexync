@@ -427,6 +427,7 @@ function MaterialActionsMenu({ material, open, disabled, canRetry, canDelete, on
   }
 
   function runAction(key: string) {
+    if (actions.find((action) => action.key === key)?.disabled) return;
     if (key === 'retry') {
       close(true);
       onRetry();
@@ -464,7 +465,7 @@ function MaterialActionsMenu({ material, open, disabled, canRetry, canDelete, on
     </button>
     {expanded && <ul className="learning-material-menu-list" id={menuId} role="menu" aria-label={`Actions for ${material.fileName}`} onKeyDown={menuKeyDown}>
       {actions.map((action, index) => <li key={action.label} role="none">
-        <button ref={(element) => { items.current[index] = element; }} className={action.danger ? 'learning-material-menu-item danger' : 'learning-material-menu-item'} type="button" role="menuitem" tabIndex={index === activeIndex ? 0 : -1} disabled={action.disabled} onClick={() => runAction(action.key)}>{action.label}</button>
+        <button ref={(element) => { items.current[index] = element; }} className={action.danger ? 'learning-material-menu-item danger' : 'learning-material-menu-item'} type="button" role="menuitem" tabIndex={index === activeIndex ? 0 : -1} aria-disabled={action.disabled || undefined} onClick={() => runAction(action.key)}>{action.label}</button>
       </li>)}
     </ul>}
   </div>;

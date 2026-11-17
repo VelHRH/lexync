@@ -177,6 +177,24 @@ test.describe('web Learning Materials', () => {
     await expect(materialsRegion(page).getByRole('button', { name: /upload/i })).toHaveCount(0);
   });
 
+  test('rejects a dropped file of the wrong type inline without contacting the server', async ({ page }) => {
+    const account = credentials('web-learning-material-drop-rejected');
+    const setup = await register(account, ['es']);
+    const spanish = setup.languages.find((language) => language.language_tag === 'es');
+    if (!spanish) throw new Error('The Spanish Learning Language fixture is missing.');
+
+    await signIn(page, account);
+    await selectLearningLanguage(page, spanish.id);
+    const uploadRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/learning-materials') uploadRequests.push(request.url());
+    });
+    await dropMaterial(page, 'dropped-notes.pdf', 'Text with the wrong extension.');
+    await expect(materialsRegion(page).getByRole('alert')).toContainText(/Learning Material files must use the \.txt extension\./i);
+    await expect(materialsRegion(page).getByText('dropped-notes.pdf', { exact: true })).toHaveCount(0);
+    expect(uploadRequests).toHaveLength(0);
+  });
+
   test('accepts a TXT file whose raw content is exactly 1 MiB', async ({ page }) => {
     const account = credentials('web-learning-material-limit');
     const setup = await register(account, ['es']);
