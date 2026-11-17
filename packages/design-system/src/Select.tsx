@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 export type SelectOption<Value extends string = string> = { value: Value; label: string };
