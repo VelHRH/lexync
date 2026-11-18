@@ -862,7 +862,7 @@ test.describe('web Vocabulary Entry library', () => {
 
     await captureWithClip(page, 'descubrir', 'to discover');
     await expect(page.getByRole('status').filter({ hasText: 'Saved “descubrir” to your vocabulary.' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Refreshing…' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Refreshing your vocabulary…' })).toBeAttached();
 
     holding = false;
     for (const release of held) release();

@@ -94,6 +94,19 @@ async function clickNavLink(page: Page, name: string | RegExp) {
   await page.getByRole('link', { name, exact: true }).click();
 }
 
+async function regainFocus(page: Page) {
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+}
+
+async function becomeVisibleAgain(page: Page) {
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+}
+
 async function assertNoHorizontalOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
 }
@@ -144,7 +157,7 @@ test.describe('web Library data lifetime', () => {
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'Loading your vocabulary…' })).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Refresh library' }).click();
+    await regainFocus(page);
     await expect(page.getByRole('status').filter({ hasText: 'Refreshing your vocabulary…' })).toBeVisible();
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'Loading your vocabulary…' })).toHaveCount(0);
@@ -263,8 +276,24 @@ test.describe('web Library data lifetime', () => {
     if (test.info().project.name === 'web-library-caching-mobile') await assertNoHorizontalOverflow(page);
   });
 
-  test('picks up an out-of-band capture only after pressing Refresh library (AC6)', async ({ page }) => {
-    const account = credentials('web-library-refresh-out-of-band');
+  test('picks up an out-of-band capture when the page regains focus, and has no Refresh library button (AC6)', async ({ page }) => {
+    const account = credentials('web-library-focus-out-of-band');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Refresh library' })).toHaveCount(0);
+
+    await createEntry(client, pairIds[0], 'perro', 'dog');
+    await expect(page.locator('summary').filter({ hasText: 'perro' })).toHaveCount(0);
+
+    await regainFocus(page);
+    await expect(page.locator('summary').filter({ hasText: 'perro' })).toBeVisible();
+  });
+
+  test('picks up an out-of-band capture when the page becomes visible again (AC6)', async ({ page }) => {
+    const account = credentials('web-library-visible-out-of-band');
     const { client, pairIds } = await register(account);
     await createEntry(client, pairIds[0], 'casa', 'house');
     await signIn(page, account);
@@ -274,8 +303,34 @@ test.describe('web Library data lifetime', () => {
     await createEntry(client, pairIds[0], 'perro', 'dog');
     await expect(page.locator('summary').filter({ hasText: 'perro' })).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Refresh library' }).click();
+    await becomeVisibleAgain(page);
     await expect(page.locator('summary').filter({ hasText: 'perro' })).toBeVisible();
+  });
+
+  test('does not start a second reload while one is already in flight', async ({ page }) => {
+    const account = credentials('web-library-focus-inflight');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
+
+    await page.route('**/rest/v1/vocabulary_entries*', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+    const entryRequests = trackRequests(page, /\/rest\/v1\/vocabulary_entries(?:[?/]|$)/);
+    entryRequests.reset();
+
+    await regainFocus(page);
+    await becomeVisibleAgain(page);
+    await regainFocus(page);
+    await expect(page.getByRole('status').filter({ hasText: 'Refreshing your vocabulary…' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Refreshing your vocabulary…' })).toHaveCount(0);
+    expect(entryRequests.count()).toBe(1);
+
+    await regainFocus(page);
+    await expect.poll(() => entryRequests.count()).toBe(2);
   });
 
   test('reloads Library data only after the 60-second staleness bound elapses on the next mount (AC7)', async ({ page }) => {
@@ -320,7 +375,7 @@ test.describe('web Library data lifetime', () => {
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
 
     await page.route('**/rest/v1/vocabulary_entries*', (route) => route.abort());
-    await page.getByRole('button', { name: 'Refresh library' }).click();
+    await regainFocus(page);
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
   });
@@ -357,10 +412,10 @@ test.describe('web Library data lifetime', () => {
     await page.goto('/library');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
 
-    const refresh = page.getByRole('button', { name: 'Refresh library' });
     progressRequests.reset();
-    await refresh.click();
-    await expect(refresh).toBeEnabled();
+    const progressResponse = page.waitForResponse(/\/rest\/v1\/rpc\/vocabulary_progress_states(?:[?/]|$)/);
+    await regainFocus(page);
+    await progressResponse;
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(expressions.length);
     expect(progressRequests.count(), 'one request reads every row state, however many rows there are').toBe(1);
 
