@@ -1,4 +1,5 @@
 @import '@lexync/design-system/styles.css';
+@import '@lexync/design-system/select.css';
 
 :root {
   color: var(--lexync-color-ink);
@@ -19,7 +20,6 @@ body {
 
 button,
 input,
-select,
 textarea { font: inherit; }
 
 button { cursor: pointer; }
@@ -280,10 +280,7 @@ label {
   font-weight: var(--lexync-type-weight-semibold);
 }
 
-.select-wrap { position: relative; }
-
 input,
-select,
 textarea {
   width: 100%;
   border: var(--lexync-border-regular) solid var(--lexync-color-border-strong);
@@ -295,26 +292,21 @@ textarea {
   transition: border-color var(--lexync-motion-duration-fast) var(--lexync-motion-easing-standard), box-shadow var(--lexync-motion-duration-fast) var(--lexync-motion-easing-standard);
 }
 
-input,
-select {
+input {
   height: 2.75rem;
   padding: 0 var(--lexync-space-3);
 }
 
-select {
-  appearance: none;
-  padding-inline-end: var(--lexync-space-10);
+.select-field .lexync-select-trigger {
+  min-height: 2.75rem;
+  padding-block: 0;
+  font-size: var(--lexync-type-size-sm);
 }
 
-.select-indicator {
-  position: absolute;
-  inset-inline-end: var(--lexync-space-3);
-  top: 50%;
-  color: var(--lexync-color-brand-primary);
-  font-size: var(--lexync-type-size-lg);
-  line-height: 1;
-  pointer-events: none;
-  transform: translateY(-54%);
+.select-field .lexync-select-listbox {
+  left: auto;
+  right: 0;
+  max-width: calc(100vw - 2 * var(--lexync-space-4));
 }
 
 textarea {
@@ -327,15 +319,12 @@ input::placeholder,
 textarea::placeholder { color: var(--lexync-color-ink-muted); opacity: 0.85; }
 
 input:focus,
-select:focus,
 textarea:focus { border-color: var(--lexync-color-brand-primary); box-shadow: var(--lexync-focus-ring); }
 
 input:hover,
-select:hover,
 textarea:hover { border-color: var(--lexync-color-brand-primary); }
 
 input:disabled,
-select:disabled,
 textarea:disabled { cursor: not-allowed; opacity: 0.6; }
 
 .primary,

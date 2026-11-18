@@ -109,6 +109,7 @@ export default defineUnlistedScript(() => {
         appearance: none;
         -webkit-appearance: none;
         padding-inline-end: var(--lexync-space-10);
+        background-color: var(--lexync-color-surface);
         background-image: linear-gradient(45deg, transparent 50%, var(--lexync-color-brand-primary) 50%), linear-gradient(135deg, var(--lexync-color-brand-primary) 50%, transparent 50%);
         background-position: calc(100% - var(--lexync-space-3)) center, calc(100% - var(--lexync-space-2)) center;
         background-repeat: no-repeat;

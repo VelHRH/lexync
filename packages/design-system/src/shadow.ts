@@ -51,6 +51,13 @@ const declarations = Object.entries(semanticTokens)
   )
   .join('\n');
 
+const darkSelectTokens = ['surface', 'ink', 'inkMuted', 'border', 'borderStrong', 'brandPrimary'] as const;
+
+const darkSelectDeclarations = [
+  ...darkSelectTokens.map((key) => `    ${tokenName('color', key)}: ${semanticTokens.dark.color[key]};`),
+  ...(['color', 'ring'] as const).map((key) => `    ${tokenName('focus', key)}: ${semanticTokens.dark.focus[key]};`),
+].join('\n');
+
 export const shadowTokenCss = `
 :host {
   all: initial;
@@ -60,6 +67,17 @@ ${declarations}
 
 :host, *, *::before, *::after {
   box-sizing: border-box;
+}
+
+select {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  select {
+    color-scheme: dark;
+${darkSelectDeclarations}
+  }
 }
 
 :where(button, input, select, textarea):focus-visible {

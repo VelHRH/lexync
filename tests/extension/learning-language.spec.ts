@@ -1,6 +1,7 @@
 import { expect, extensionId, test } from './fixtures';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { chooseOption, themedSelect, themedSelectListbox } from '../support/select';
 
 type StudyPairRow = {
   id: string;
@@ -172,6 +173,28 @@ function adapterLessonMarkup({
     </html>`;
 }
 
+async function activeLearningLanguageId(learnerClient: SupabaseClient) {
+  const { data, error } = await learnerClient
+    .from('learner_language_state')
+    .select('active_learning_language_id')
+    .single();
+  if (error) throw error;
+  return data.active_learning_language_id;
+}
+
+async function chooseByKeyboard(page: Page, label: string, key: string, option: string) {
+  const trigger = themedSelect(page, label);
+  await trigger.focus();
+  await page.keyboard.press('ArrowDown');
+  const listbox = themedSelectListbox(page, label);
+  await expect(listbox).toBeVisible();
+  await page.keyboard.press(key);
+  await expect(listbox.getByRole('option', { name: option, exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(listbox).toBeHidden();
+  await expect(trigger).toHaveAccessibleName(`${label} ${option}`);
+}
+
 test.describe('Learning Language extension journeys', () => {
   test('shows one compact synchronized Active Learning Language control and no Study Pair product UI', async ({
     extensionContext,
@@ -184,31 +207,34 @@ test.describe('Learning Language extension journeys', () => {
 
     await extensionPage.reload();
     await expect(extensionPage.locator('.identity')).toBeVisible();
-    const activeLanguage = extensionPage.getByLabel('Active Learning Language');
+    const label = 'Active Learning Language';
+    const activeLanguage = themedSelect(extensionPage, label);
     await expect(activeLanguage).toBeVisible();
-    await expect(activeLanguage.locator('option')).toHaveText(['Spanish', 'French']);
+    await expect(extensionPage.locator('select')).toHaveCount(0);
+    await activeLanguage.click();
+    await expect(themedSelectListbox(extensionPage, label).getByRole('option')).toHaveText(['Spanish', 'French']);
+    await extensionPage.keyboard.press('Escape');
+    await expect(themedSelectListbox(extensionPage, label)).toBeHidden();
+    await expect(activeLanguage).toBeFocused();
     await expect(extensionPage.getByText(/Study Pair/i)).toHaveCount(0);
     await expect(extensionPage.getByRole('button', { name: /Add Study Pair|Manage Study Pairs|Create Study Pair/i })).toHaveCount(0);
 
-    await activeLanguage.selectOption({ label: 'Spanish' });
-    await expect(activeLanguage.locator('option:checked')).toHaveText('Spanish');
-    await expect.poll(async () => {
-      const { data, error } = await learnerClient
-        .from('learner_language_state')
-        .select('active_learning_language_id')
-        .single();
-      if (error) throw error;
-      return data.active_learning_language_id;
-    }).toBe(spanish.learning_language_id);
+    await chooseOption(extensionPage, label, { label: 'French' });
+    await expect(activeLanguage).toHaveAccessibleName(`${label} French`);
+    await expect(extensionPage.getByText('Active Learning Language updated.')).toBeVisible();
+    await expect.poll(() => activeLearningLanguageId(learnerClient)).toBe(french.learning_language_id);
 
     const reopened = await extensionContext.newPage();
     const id = await extensionId(extensionContext);
     await reopened.goto(`chrome-extension://${id}/popup.html`);
-    await expect(reopened.getByLabel('Active Learning Language').locator('option:checked')).toHaveText('Spanish');
+    await expect(themedSelect(reopened, label)).toHaveAccessibleName(`${label} French`);
+
+    await chooseByKeyboard(reopened, label, 'Home', 'Spanish');
+    await expect.poll(() => activeLearningLanguageId(learnerClient)).toBe(spanish.learning_language_id);
 
     await setActiveLearningLanguage(learnerClient, french.learning_language_id);
     await reopened.reload();
-    await expect(reopened.getByLabel('Active Learning Language').locator('option:checked')).toHaveText('French');
+    await expect(themedSelect(reopened, label)).toHaveAccessibleName(`${label} French`);
   });
 
   test('shows editable confident Answer Language metadata and confirms uncertain fallback before save', async ({
