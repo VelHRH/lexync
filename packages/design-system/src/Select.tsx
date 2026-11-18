@@ -78,11 +78,11 @@ export function Select<Value extends string>({ id, labelId, options, value, onCh
     state.text += key.toLocaleLowerCase();
     state.timer = window.setTimeout(() => { state.text = ''; }, TYPEAHEAD_RESET_MS);
     const repeated = state.text.length > 1 && [...state.text].every((character) => character === state.text[0]);
-    const query = repeated ? state.text[0] : state.text;
+    const query = repeated ? state.text.charAt(0) : state.text;
     const start = query.length === 1 ? from + 1 : from;
     for (let offset = 0; offset < options.length; offset += 1) {
       const index = (start + offset) % options.length;
-      if (options[index].label.toLocaleLowerCase().startsWith(query)) return index;
+      if (options[index]?.label.toLocaleLowerCase().startsWith(query)) return index;
     }
     return -1;
   }
@@ -117,9 +117,10 @@ export function Select<Value extends string>({ id, labelId, options, value, onCh
       PageDown: Math.min(index + 10, last),
       PageUp: Math.max(index - 10, 0),
     };
-    if (event.key in moves) {
+    const move = moves[event.key];
+    if (move !== undefined) {
       event.preventDefault();
-      setActiveIndex(moves[event.key]);
+      setActiveIndex(move);
       return;
     }
     if (event.key === 'Escape') {

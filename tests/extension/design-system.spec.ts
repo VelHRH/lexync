@@ -1,6 +1,8 @@
 import { expect, extensionId, test } from './fixtures';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { glob, readFile } from 'node:fs/promises';
+import { themedSelect, themedSelectListbox } from '../support/select';
 
 async function createLearningLanguage(learnerClient: SupabaseClient, languageTag: string) {
   const { data, error } = await learnerClient.rpc('create_learning_language', { p_language_tag: languageTag });
@@ -51,13 +53,45 @@ async function expectVisibleFocusIndicator(locator: ReturnType<Page['locator']>)
   expect(result.indicator).toBe(true);
 }
 
-async function expectCustomSelect(field: ReturnType<Page['locator']>) {
+async function expectThemedSelect(page: Page, field: ReturnType<Page['locator']>, label: string, selected: string) {
   await expect(field).toBeVisible();
-  const select = field.getByLabel('Active Learning Language');
-  await expectStyledSelect(select);
-  const indicator = field.locator('[data-ui="select-indicator"]');
-  if (await indicator.count()) await expect(indicator).toBeVisible();
-  else expect((await select.evaluate((element) => getComputedStyle(element).backgroundImage))).not.toBe('none');
+  await expect(field.locator('select')).toHaveCount(0);
+  const trigger = themedSelect(page, label);
+  await expect(trigger).toHaveAccessibleName(`${label} ${selected}`);
+  await expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
+  const style = await trigger.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      backgroundColor: computed.backgroundColor,
+      borderRadius: Number.parseFloat(computed.borderRadius),
+      borderWidth: Number.parseFloat(computed.borderTopWidth),
+      height: element.getBoundingClientRect().height,
+    };
+  });
+  expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(style.borderRadius).toBeGreaterThanOrEqual(8);
+  expect(style.borderWidth).toBeGreaterThanOrEqual(1);
+  expect(style.height).toBeGreaterThanOrEqual(44);
+  await expect(field.locator('[data-ui="select-indicator"]')).toBeVisible();
+  await expectVisibleFocusIndicator(trigger);
+  await trigger.click();
+  const listbox = themedSelectListbox(page, label);
+  await expect(listbox).toBeVisible();
+  const option = listbox.getByRole('option', { name: selected, exact: true });
+  await expect(option).toHaveAttribute('aria-selected', 'true');
+  await expect(option.locator('[data-ui="select-check"]')).toBeVisible();
+  const bounds = await listbox.boundingBox();
+  expect(bounds?.x ?? -1).toBeGreaterThanOrEqual(0);
+  expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+  await page.keyboard.press('Escape');
+  await expect(listbox).toBeHidden();
+}
+
+async function selectScheme(select: ReturnType<Page['locator']>) {
+  return select.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return { backgroundColor: computed.backgroundColor, color: computed.color, colorScheme: computed.colorScheme };
+  });
 }
 
 async function expectStyledSelect(select: ReturnType<Page['locator']>) {
@@ -166,7 +200,12 @@ test.describe('extension design system surfaces', () => {
     await expect(popup.locator('[data-ui="empty-state"]')).toBeVisible();
     await expect(extensionPage.locator('img[src*="dark-on-light"]')).toBeVisible();
     await expectDocumentToken(extensionPage);
-    await expectCustomSelect(popup.locator('[data-ui="language-switcher"]'));
+    await expectThemedSelect(extensionPage, popup.locator('[data-ui="language-switcher"]'), 'Active Learning Language', 'Italian');
+    await expect(extensionPage.locator('select')).toHaveCount(0);
+    const sources: string[] = [];
+    for await (const file of glob('apps/extension/entrypoints/popup/**/*.tsx')) sources.push(await readFile(String(file), 'utf8'));
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources.filter((source) => /<select[\s>]/.test(source))).toHaveLength(0);
     const headingTypography = await popup.getByRole('heading', { level: 2 }).last().evaluate((element) => ({
       actual: getComputedStyle(element).fontFamily,
       expected: getComputedStyle(document.documentElement).getPropertyValue('--lexync-type-family-body'),
@@ -242,6 +281,48 @@ test.describe('extension design system surfaces', () => {
     const modeLabel = modeCard.locator('label').filter({ hasText: 'Learning Language' });
     await modeLabel.evaluate((element) => { (element as HTMLElement).hidden = false; });
     await expectStyledSelect(modeLabel.getByRole('combobox'));
+  });
+
+  test('styles the injected selects dark in dark mode without inheriting host page styles', async ({
+    extensionContext,
+    extensionPage,
+    learnerClient,
+  }) => {
+    const learningLanguage = await createLearningLanguage(learnerClient, 'it');
+    const page = await openReadingPage(extensionContext);
+    await page.addStyleTag({ content: 'select { background: rgb(255, 0, 0) !important; color: rgb(0, 255, 0) !important; color-scheme: light !important; }' });
+    await extensionPage.evaluate(([key, languageId]) => chrome.storage.local.set({ [key]: { enabled: true, learningLanguageId: languageId } }), [
+      `lexync.learningMode.${new URL(page.url()).origin}`,
+      learningLanguage.id,
+    ]);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await injectLearningMode(extensionContext, page);
+    await expect(page.getByRole('button', { name: 'Disable Learning Mode' })).toBeVisible();
+    await page.locator('#word').click();
+    const capture = page.getByRole('dialog', { name: 'Capture Expression' });
+    await expect(capture).toBeVisible();
+    const modeCard = page.locator('#lexync-learning-mode .card');
+    await modeCard.evaluate((element) => { (element as HTMLElement).hidden = false; });
+    const modeLabel = modeCard.locator('label').filter({ hasText: 'Learning Language' });
+    await modeLabel.evaluate((element) => { (element as HTMLElement).hidden = false; });
+    const selects = [capture.getByLabel('Learning Language'), modeLabel.getByRole('combobox')];
+
+    const dark = { backgroundColor: 'rgb(19, 26, 46)', color: 'rgb(233, 236, 247)', colorScheme: 'dark' };
+    for (const select of selects) {
+      await expect.poll(() => selectScheme(select)).toEqual(dark);
+      await expectStyledSelect(select);
+    }
+
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.addStyleTag({ content: ':root { color-scheme: dark; }' });
+    const light = { backgroundColor: 'rgb(255, 255, 255)', color: 'rgb(21, 33, 63)', colorScheme: 'light' };
+    for (const select of selects) await expect.poll(() => selectScheme(select)).toEqual(light);
+
+    const hostSelect = await page.evaluate(() => {
+      const computed = getComputedStyle(document.body.appendChild(document.createElement('select')));
+      return { backgroundColor: computed.backgroundColor, colorScheme: computed.colorScheme };
+    });
+    expect(hostSelect).toEqual({ backgroundColor: 'rgb(255, 0, 0)', colorScheme: 'light' });
   });
 
   test('keeps ordinary capture and Learning Mode inside an RTL tablet viewport', async ({
