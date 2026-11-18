@@ -1,6 +1,13 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { PROGRESS_STATE_LABELS, VOCABULARY_PROGRESS_STATES, type VocabularyProgressState } from '../lib/vocabularyProgress';
+
+const PROGRESS_STATE_DESCRIPTIONS: Record<VocabularyProgressState, string> = {
+  new: 'not practised yet.',
+  'in-practice': 'answered at least once but not learned yet.',
+  learned: 'answered correctly 5 times in a row, for every meaning. A wrong answer starts that meaning over.',
+};
 
 export function VocabularyProgressStatesInfo() {
   const [open, setOpen] = useState(false);
@@ -41,9 +48,7 @@ export function VocabularyProgressStatesInfo() {
     {open && <div ref={panel} className="progress-states-info-panel" id={panelId} role="dialog" aria-labelledby={headingId} tabIndex={-1} data-ui="progress-states-info">
       <h2 id={headingId}>Vocabulary Progress States</h2>
       <ul>
-        <li data-state="new"><strong>New</strong>: not practised yet.</li>
-        <li data-state="in-practice"><strong>In practice</strong>: answered at least once but not learned yet.</li>
-        <li data-state="learned"><strong>Learned</strong>: answered correctly 5 times in a row, for every meaning. A wrong answer starts that meaning over.</li>
+        {VOCABULARY_PROGRESS_STATES.map((state) => <li key={state} data-state={state}><strong>{PROGRESS_STATE_LABELS[state]}</strong>: {PROGRESS_STATE_DESCRIPTIONS[state]}</li>)}
       </ul>
     </div>}
   </div>;

@@ -599,7 +599,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
   .library-toolbar-actions { flex-direction: row; }
   .library-toolbar-actions > .primary-button { flex: 1 1 auto; width: auto; }
   .library-toolbar-actions > .progress-states-info { width: auto; }
-  .library-toolbar-actions .progress-states-info-panel { right: auto; left: 0; width: calc(100vw - 2.2rem); transform-origin: top left; }
+  .library-toolbar-actions .progress-states-info-panel { width: calc(100vw - 2.2rem); }
   .vocabulary-entry-actions-main { flex: 1 1 auto; }
   .library-selection-controls { grid-template-columns: 1fr; align-items: stretch; }
   .library-selection-actions { align-items: stretch; flex-direction: column; }

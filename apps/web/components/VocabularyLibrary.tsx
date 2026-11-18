@@ -392,8 +392,8 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       <div className="library-toolbar">
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <div className="library-toolbar-actions">
-          <VocabularyProgressStatesInfo />
           <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setCapturedClipError(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
+          <VocabularyProgressStatesInfo />
         </div>
       </div>
       {!online && <p className="form-notice" role="status" id="library-offline-notice">You are offline. Vocabulary and Collection changes require a connection.</p>}
