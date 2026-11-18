@@ -132,3 +132,29 @@ test.describe('Vocabulary Progress plaque', () => {
     await expect(plaque(page)).toContainText('0 of 1 learned');
   });
 });
+
+test.describe('Vocabulary Progress States info', () => {
+  test('explains each Vocabulary Progress State from the Library header and closes on Escape or an outside click', async ({ page }) => {
+    const fixture = await registerLearner('progress-states-info');
+    await seedEntries(fixture.client, fixture.learningLanguageId, vocabulary.slice(0, 1));
+    await signIn(page, fixture.account);
+    await page.goto('/library');
+    const trigger = page.getByRole('button', { name: 'About Vocabulary Progress States' });
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    const popover = page.getByRole('dialog', { name: 'Vocabulary Progress States' });
+    await expect(popover).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(popover).toContainText('New: not practised yet.');
+    await expect(popover).toContainText('In practice: answered at least once but not learned yet.');
+    await expect(popover).toContainText('Learned: answered correctly 5 times in a row, for every meaning. A wrong answer starts that meaning over.');
+    await page.keyboard.press('Escape');
+    await expect(popover).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await expect(popover).toBeVisible();
+    await page.getByRole('heading', { level: 1 }).click();
+    await expect(popover).toBeHidden();
+  });
+});
