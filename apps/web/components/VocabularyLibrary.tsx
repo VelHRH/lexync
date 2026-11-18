@@ -71,7 +71,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
 
   useEffect(() => {
     const revalidate = () => {
-      if (document.visibilityState === 'visible' && navigator.onLine) void revalidateLibrary(language.id, pairIds);
+      if (document.visibilityState === 'visible' && online) void revalidateLibrary(language.id, pairIds);
     };
     window.addEventListener('focus', revalidate);
     document.addEventListener('visibilitychange', revalidate);
@@ -79,7 +79,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       window.removeEventListener('focus', revalidate);
       document.removeEventListener('visibilitychange', revalidate);
     };
-  }, [language.id, pairIds]);
+  }, [language.id, online, pairIds]);
 
   useEffect(() => {
     queueMicrotask(() => setSelection({ scope: ALL_VOCABULARY_SCOPE, ids: [] }));
