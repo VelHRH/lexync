@@ -16,6 +16,7 @@ import { PROGRESS_STATE_LABELS } from '../lib/vocabularyProgress';
 import { ALL_VOCABULARY_SCOPE, LibraryCollectionShelf, NO_COLLECTION_SCOPE } from './LibraryCollectionShelf';
 import { LibraryFilterBar, type ProgressFilter, type VocabularyStatus } from './LibraryFilterBar';
 import { LibraryScopeBanner, PRACTICE_REASON_ID } from './LibraryScopeBanner';
+import { VocabularyProgressStatesInfo } from './VocabularyProgressStatesInfo';
 import { VocabularyEntryCard, membershipChangeKey } from './VocabularyEntryCard';
 import { VocabularyEntryEditor, toDraft, type EntryDraft } from './VocabularyEntryEditor';
 
@@ -391,6 +392,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       <div className="library-toolbar">
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <div className="library-toolbar-actions">
+          <VocabularyProgressStatesInfo />
           <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setCapturedClipError(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
         </div>
       </div>

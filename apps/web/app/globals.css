@@ -404,6 +404,20 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .library-toolbar, .vocabulary-entry-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--lexync-space-4); }
 .library-toolbar .page-lede { margin: 0; }
 .library-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
+.progress-states-info { position: relative; }
+.progress-states-info-trigger { display: grid; width: 2.75rem; height: 2.75rem; place-items: center; padding: 0; border: var(--lexync-border-hairline) solid transparent; border-radius: var(--lexync-radius-pill); background: transparent; color: var(--web-muted); cursor: pointer; transition: background var(--web-state), color var(--web-state), border-color var(--web-state); }
+.progress-states-info-trigger:hover, .progress-states-info-trigger[aria-expanded='true'] { border-color: var(--web-line); background: var(--web-surface); color: var(--web-ink); }
+.progress-states-info-panel { position: absolute; z-index: var(--lexync-z-dropdown); top: calc(100% + .5rem); right: 0; width: min(22rem, calc(100vw - 2rem)); padding: 1rem 1.1rem 1.1rem; border: var(--lexync-border-hairline) solid var(--web-line); border-radius: var(--lexync-radius-lg); background: var(--web-surface); box-shadow: var(--lexync-elevation-high); color: var(--web-ink); text-align: left; transform-origin: top right; animation: learning-material-menu-enter var(--lexync-motion-duration-normal) var(--lexync-motion-easing-out); }
+.progress-states-info-panel:focus { outline: 0; }
+.progress-states-info-panel:focus-visible { box-shadow: var(--lexync-elevation-high), var(--lexync-focus-ring); }
+.progress-states-info-panel h2 { margin: 0 0 .65rem; font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); line-height: 1.3; }
+.progress-states-info-panel ul { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; }
+.progress-states-info-panel li { position: relative; padding-left: 1.1rem; color: var(--web-muted); font-size: var(--lexync-type-size-sm); line-height: 1.45; }
+.progress-states-info-panel li strong { color: var(--web-ink); font-weight: var(--lexync-type-weight-semibold); }
+.progress-states-info-panel li::before { position: absolute; top: .45em; left: 0; width: .5rem; height: .5rem; border-radius: var(--lexync-radius-pill); content: ''; }
+.progress-states-info-panel li[data-state='learned']::before { background: var(--web-primary); }
+.progress-states-info-panel li[data-state='in-practice']::before { background: var(--web-brand-deep); }
+.progress-states-info-panel li[data-state='new']::before { background: var(--web-skeleton); }
 .vocabulary-discovery-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; margin-top: 1.25rem; padding-bottom: 1.5rem; border-bottom: var(--web-outline); }
 .vocabulary-discovery-controls > .field { flex: 0 1 10rem; }
 .vocabulary-discovery-controls > .field:first-child { flex: 1 1 18rem; }
@@ -582,6 +596,10 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
   .privacy-layout { gap: 2rem; }
   .library-toolbar, .vocabulary-editor-actions, .pair-row, .pair-row-actions, .pair-delete-dialog > div, .library-toolbar-actions { align-items: stretch; flex-direction: column; }
   .library-toolbar > *, .vocabulary-editor-actions > *, .pair-row-actions > *, .library-toolbar-actions > * { width: 100%; }
+  .library-toolbar-actions { flex-direction: row; }
+  .library-toolbar-actions > .primary-button { flex: 1 1 auto; width: auto; }
+  .library-toolbar-actions > .progress-states-info { width: auto; }
+  .library-toolbar-actions .progress-states-info-panel { right: auto; left: 0; width: calc(100vw - 2.2rem); transform-origin: top left; }
   .vocabulary-entry-actions-main { flex: 1 1 auto; }
   .library-selection-controls { grid-template-columns: 1fr; align-items: stretch; }
   .library-selection-actions { align-items: stretch; flex-direction: column; }
