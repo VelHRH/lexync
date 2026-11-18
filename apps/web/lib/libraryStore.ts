@@ -252,3 +252,9 @@ export async function loadLibrary(languageId: string, pairIds: string[], options
     if (stored && stored.promise === promise) inflight.delete(languageId);
   }
 }
+
+export function revalidateLibrary(languageId: string, pairIds: string[]): Promise<void> {
+  const existingLoad = inflight.get(languageId);
+  if (existingLoad && existingLoad.key === pairIdsKey(pairIds)) return existingLoad.promise;
+  return loadLibrary(languageId, pairIds, { force: true });
+}

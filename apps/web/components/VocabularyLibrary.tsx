@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
-import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
+import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, revalidateLibrary, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
 import { normalizeSearchText } from '../lib/searchText';
 import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
@@ -67,6 +67,18 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
 
   useEffect(() => {
     void loadLibrary(language.id, pairIds);
+  }, [language.id, pairIds]);
+
+  useEffect(() => {
+    const revalidate = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void revalidateLibrary(language.id, pairIds);
+    };
+    window.addEventListener('focus', revalidate);
+    document.addEventListener('visibilitychange', revalidate);
+    return () => {
+      window.removeEventListener('focus', revalidate);
+      document.removeEventListener('visibilitychange', revalidate);
+    };
   }, [language.id, pairIds]);
 
   useEffect(() => {
@@ -380,7 +392,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
         <p className="page-lede">{entries.length === 0 ? 'Nothing filed yet.' : <>{entries.length} {entries.length === 1 ? 'expression' : 'expressions'}{visibleEntries.length === entries.length ? '' : <> · <strong>{visibleEntries.length} shown</strong></>}</>}</p>
         <div className="library-toolbar-actions">
           <button className="primary-button" type="button" disabled={!online} aria-describedby={offlineReason} onClick={() => { setNotice(''); setCapturedNotice(''); setCapturedClipError(''); setDraft(null); setShowForm(true); }}>Add vocabulary</button>
-          <button className="secondary-button" type="button" disabled={!online || snapshot.loading || snapshot.refreshing} onClick={() => void loadLibrary(language.id, pairIds, { force: true })}>{snapshot.loading || snapshot.refreshing ? 'Refreshing…' : 'Refresh library'}</button>
         </div>
       </div>
       {!online && <p className="form-notice" role="status" id="library-offline-notice">You are offline. Vocabulary and Collection changes require a connection.</p>}
