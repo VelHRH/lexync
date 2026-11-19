@@ -8,6 +8,7 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
 import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, revalidateLibrary, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
 import { normalizeSearchText } from '../lib/searchText';
+import { AllCollectionsDialog } from './AllCollectionsDialog';
 import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
 import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
@@ -50,8 +51,10 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const [practiceError, setPracticeError] = useState('');
   const [practiceStarting, setPracticeStarting] = useState(false);
   const [selecting, setSelecting] = useState(false);
+  const [showAllCollections, setShowAllCollections] = useState(false);
   const online = useOnlineStatus();
-  const newCollectionRef = useRef<HTMLButtonElement>(null);
+  const allCollectionsRef = useRef<HTMLButtonElement>(null);
+  const allCollectionsSearchRef = useRef<HTMLInputElement>(null);
   const lastSelectedIndex = useRef<number | null>(null);
   const fileIntoNewCollectionRef = useRef<HTMLButtonElement>(null);
 
@@ -83,7 +86,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   }, [language.id, online, pairIds]);
 
   useEffect(() => {
-    queueMicrotask(() => setSelection({ scope: ALL_VOCABULARY_SCOPE, ids: [] }));
+    queueMicrotask(() => { setSelection({ scope: ALL_VOCABULARY_SCOPE, ids: [] }); setShowAllCollections(false); });
   }, [language.id]);
 
   useEffect(() => {
@@ -227,6 +230,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const staleScope = !scopeIsKnown && snapshot.loadedAt !== null && !snapshot.loading && !snapshot.error;
   const selectedCollectionId = scopeIsKnown ? scopeParam : ALL_VOCABULARY_SCOPE;
   const collectedEntryIds = useMemo(() => new Set(memberships.map((membership) => membership.learning_vocabulary_entry_id)), [memberships]);
+  const unfiledCount = entries.filter((entry) => !collectedEntryIds.has(entry.learningVocabularyEntryId)).length;
 
   useEffect(() => {
     if (staleScope) router.replace('/library');
@@ -400,16 +404,25 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
 
       <LibraryCollectionShelf
         collections={collections}
-        entryCount={entries.length}
-        unfiledCount={entries.filter((entry) => !collectedEntryIds.has(entry.learningVocabularyEntryId)).length}
-        minimumEntries={minimumEntries}
+        unfiledCount={unfiledCount}
+        selectedCollectionId={selectedCollectionId}
+        allCollectionsRef={allCollectionsRef}
+        onSelect={selectCollectionScope}
+        onOpenAll={() => { setCollectionNotice(''); setShowAllCollections(true); }}
+      />
+      {showAllCollections && <AllCollectionsDialog
+        collections={collections}
+        unfiledCount={unfiledCount}
         selectedCollectionId={selectedCollectionId}
         online={online}
-        offlineReason={offlineReason}
-        newCollectionRef={newCollectionRef}
-        onSelect={selectCollectionScope}
+        notice={collectionNotice}
+        searchRef={allCollectionsSearchRef}
+        onSelect={(id) => { setShowAllCollections(false); selectCollectionScope(id); }}
         onCreate={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'create' }); }}
-      />
+        onRename={(collection) => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection }); }}
+        onDelete={(collection) => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection }); }}
+        onClose={() => setShowAllCollections(false)}
+      />}
 
       {selectedCollection && <LibraryScopeBanner
         collection={selectedCollection}
@@ -449,7 +462,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
         onSaved={async (name, kind, collectionId) => {
           setCollectionRequest(null);
           if (kind === 'create-and-file') {
-            if (await fileSelectionInto(collectionId ?? '', name)) newCollectionRef.current?.focus();
+            if (await fileSelectionInto(collectionId ?? '', name)) allCollectionsRef.current?.focus();
             else fileIntoNewCollectionRef.current?.focus();
             return;
           }
@@ -461,7 +474,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
           setCollectionNotice(`Deleted the Collection “${name}”. Its Vocabulary Entries are still in your Library.`);
           if (collectionId === selectedCollectionId) router.replace('/library');
           await reload();
-          newCollectionRef.current?.focus();
+          (allCollectionsSearchRef.current ?? allCollectionsRef.current)?.focus();
         }}
       />
       {snapshot.loading && <p className="collections-sr-only" role="status">Loading your vocabulary…</p>}
@@ -480,7 +493,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       {suspensionNotice && <p className="form-notice" role="status">{suspensionNotice}</p>}
       {capturedNotice && <p className="form-notice" role="status">{capturedNotice}</p>}
       {capturedClipError && <p className="form-notice error" role="alert">{capturedClipError}</p>}
-      {collectionNotice && <p className="form-notice" role="status">{collectionNotice}</p>}
+      {collectionNotice && !showAllCollections && <p className="form-notice" role="status">{collectionNotice}</p>}
       {fileNotice && <p className="form-notice" role="status">{fileNotice}</p>}
       {fileError && <p className="form-notice error" role="alert">{fileError}</p>}
       {filing && <p className="collections-sr-only" role="status">Filing into your Collection…</p>}
