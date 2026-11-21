@@ -86,7 +86,6 @@ export type StudyPairResolution =
 
 export type LearningEligibleVocabularyEntry = {
   studyPairId: string;
-  suspended: boolean;
 };
 
 export function canonicalLanguageTag(value: string): string | null {
@@ -218,7 +217,7 @@ export function studyPairLabel(pair: Pick<StudyPair, 'targetLanguageTag' | 'refe
 }
 
 export function isVocabularyEntryLearningEligible(entry: LearningEligibleVocabularyEntry, activeStudyPairId: string): boolean {
-  return entry.studyPairId === activeStudyPairId && !entry.suspended;
+  return entry.studyPairId === activeStudyPairId;
 }
 
 function normalizeClozeText(value: string): string {

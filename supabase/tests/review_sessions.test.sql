@@ -2,7 +2,7 @@ create extension if not exists dblink;
 
 begin;
 
-select plan(150);
+select plan(142);
 
 insert into auth.users (id)
 values
@@ -240,10 +240,10 @@ select dblink_exec(
     values ('33330000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 'es');
     insert into public.study_pairs (id, learner_id, target_language_tag, reference_language_tag, is_primary, learning_language_id)
     values ('33330000-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', 'es', 'en', true, '33330000-0000-0000-0000-000000000001');
-    insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, suspended)
-    values ('33330000-0000-0000-0000-000000000003', '33333333-3333-3333-3333-333333333333', '33330000-0000-0000-0000-000000000001', 'casa', false);
-    insert into public.vocabulary_entries (id, learner_id, study_pair_id, expression, learning_language_id, learning_vocabulary_entry_id, suspended)
-    values ('33330000-0000-0000-0000-000000000004', '33333333-3333-3333-3333-333333333333', '33330000-0000-0000-0000-000000000002', 'casa', '33330000-0000-0000-0000-000000000001', '33330000-0000-0000-0000-000000000003', false);
+    insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression)
+    values ('33330000-0000-0000-0000-000000000003', '33333333-3333-3333-3333-333333333333', '33330000-0000-0000-0000-000000000001', 'casa');
+    insert into public.vocabulary_entries (id, learner_id, study_pair_id, expression, learning_language_id, learning_vocabulary_entry_id)
+    values ('33330000-0000-0000-0000-000000000004', '33333333-3333-3333-3333-333333333333', '33330000-0000-0000-0000-000000000002', 'casa', '33330000-0000-0000-0000-000000000001', '33330000-0000-0000-0000-000000000003');
     insert into public.senses (id, learner_id, vocabulary_entry_id)
     values
       ('33330000-0000-0000-0000-000000000005', '33333333-3333-3333-3333-333333333333', '33330000-0000-0000-0000-000000000004'),
@@ -354,28 +354,7 @@ select dblink_exec(
 select dblink_disconnect('review_fixture_cleanup');
 set local role authenticated;
 
-select public.set_vocabulary_entry_suspended(current_setting('test.vocabulary_entry_id')::uuid, true);
-select is((select count(*) from public.lesson_attempts where lesson_id = current_setting('test.lesson_id')::uuid), 2::bigint, 'suspension preserves recorded Attempts');
 select public.lesson_overview(current_setting('test.learning_language_id')::uuid);
-select is(
-  (select count(*)
-   from public.lesson_questions
-   where lesson_id = current_setting('test.repeat_lesson_id')::uuid
-     and selected_answer is null
-     and sense_id = (select sense_id from public.lesson_questions where id = current_setting('test.question_id')::uuid)),
-  0::bigint,
-  'overview prunes the suspended Sense as a question owner'
-);
-select is(
-  (select count(*)
-   from public.lesson_questions as questions
-   cross join lateral unnest(questions.choice_sense_ids) as choice(sense_id)
-   where questions.lesson_id = current_setting('test.repeat_lesson_id')::uuid
-     and questions.selected_answer is null
-     and choice.sense_id = (select sense_id from public.lesson_questions where id = current_setting('test.question_id')::uuid)),
-  0::bigint,
-  'overview prunes the suspended Sense from unanswered provenance'
-);
 select is(
   (select total_count from public.lessons where id = current_setting('test.repeat_lesson_id')::uuid),
   (select count(*)::integer from public.lesson_questions where lesson_id = current_setting('test.repeat_lesson_id')::uuid),
@@ -433,55 +412,6 @@ select ok(
 set local role postgres;
 delete from public.lessons where id = current_setting('test.repeat_lesson_id')::uuid;
 insert into public.lessons (id, learner_id, learning_language_id, status, total_count)
-values ('11130000-0000-0000-0000-000000000001', auth.uid(), current_setting('test.learning_language_id')::uuid, 'active', 2);
-insert into public.lesson_questions (
-  id, lesson_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
-  answer_language_tag, choices, choice_sense_ids, correct_answer
-)
-select
-  '11130000-0000-0000-0000-000000000002',
-  '11130000-0000-0000-0000-000000000001',
-  learner_id,
-  sense_id,
-  1,
-  prompt,
-  question_type,
-  direction,
-  answer_language_tag,
-  choices,
-  choice_sense_ids,
-  correct_answer
-from public.lesson_questions
-where id = current_setting('test.question_id')::uuid;
-insert into public.lesson_questions (
-  id, lesson_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
-  answer_language_tag, choices, choice_sense_ids, correct_answer
-)
-select
-  '11130000-0000-0000-0000-000000000008',
-  '11130000-0000-0000-0000-000000000001',
-  learner_id,
-  sense_id,
-  2,
-  prompt,
-  question_type,
-  direction,
-  answer_language_tag,
-  choices,
-  choice_sense_ids,
-  correct_answer
-from public.lesson_questions
-where id = current_setting('test.question_two_id')::uuid;
-set local role authenticated;
-select lives_ok(
-  $$select public.submit_lesson_answer('11130000-0000-0000-0000-000000000001'::uuid, '11130000-0000-0000-0000-000000000002'::uuid, 'stale')$$,
-  'a suspended stale question returns a refreshed payload'
-);
-select is((select count(*) from public.lesson_questions where id = '11130000-0000-0000-0000-000000000002'), 0::bigint, 'a suspended stale question is pruned');
-select is((select count(*) from public.lesson_attempts where lesson_id = '11130000-0000-0000-0000-000000000001'), 0::bigint, 'a suspended stale question creates no Attempt');
-set local role postgres;
-delete from public.lessons where id = '11130000-0000-0000-0000-000000000001';
-insert into public.lessons (id, learner_id, learning_language_id, status, total_count)
 values ('11130000-0000-0000-0000-000000000003', auth.uid(), current_setting('test.learning_language_id')::uuid, 'active', 1);
 insert into public.lesson_questions (
   id, lesson_id, learner_id, sense_id, ordinal, prompt, question_type, direction,
@@ -513,6 +443,13 @@ select set_config(
   ),
   true
 );
+update public.lesson_questions
+set choice_sense_ids = array_replace(
+  choice_sense_ids,
+  (select sense_id from public.lesson_questions where id = current_setting('test.question_id')::uuid),
+  '11130000-0000-0000-0000-0000000000ff'::uuid
+)
+where id = '11130000-0000-0000-0000-000000000004';
 set local role authenticated;
 select set_config(
   'test.removed_choice_payload',
@@ -839,7 +776,7 @@ select is(
     join public.vocabulary_entries on vocabulary_entries.id = choice.vocabulary_entry_id
     where questions.lesson_id = current_setting('test.cloze_lesson_id')::uuid
       and questions.question_type = 'cloze'
-      and (vocabulary_entries.learning_language_id <> current_setting('test.cloze_learning_language_id')::uuid or vocabulary_entries.suspended)
+      and (vocabulary_entries.learning_language_id <> current_setting('test.cloze_learning_language_id')::uuid)
   ),
   0::bigint,
   'Cloze choices stay within the active Learning Language'
@@ -909,12 +846,6 @@ select is(
   'retrying a Cloze submission preserves the first answer'
 );
 select is((select count(*) from public.lesson_attempts where lesson_id = current_setting('test.cloze_lesson_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 1::bigint, 'retrying a Cloze submission is idempotent');
-select set_config('test.unanswered_cloze_question_id', (select id::text from public.lesson_questions where lesson_id = current_setting('test.cloze_lesson_id')::uuid and question_type = 'cloze' and selected_answer is null and id <> current_setting('test.cloze_question_id')::uuid order by ordinal limit 1), true);
-select set_config('test.unanswered_cloze_entry_id', (select senses.vocabulary_entry_id::text from public.senses join public.lesson_questions on lesson_questions.sense_id = senses.id where lesson_questions.id = current_setting('test.unanswered_cloze_question_id')::uuid), true);
-select public.set_vocabulary_entry_suspended(current_setting('test.unanswered_cloze_entry_id')::uuid, true);
-select public.lesson_overview(current_setting('test.cloze_learning_language_id')::uuid);
-select is((select count(*) from public.lesson_questions where id = current_setting('test.unanswered_cloze_question_id')::uuid), 0::bigint, 'suspending an unanswered Cloze owner prunes its question');
-select is((select count(*) from public.lesson_attempts where lesson_id = current_setting('test.cloze_lesson_id')::uuid and question_id = current_setting('test.cloze_question_id')::uuid), 1::bigint, 'suspension preserves the submitted Cloze Attempt');
 set local role postgres;
 delete from public.vocabulary_entries where id = current_setting('test.cloze_entry_id')::uuid;
 set local role authenticated;
@@ -950,9 +881,7 @@ select ok(
     select count(*) = 2
       and count(distinct choice.vocabulary_entry_id) = 2
       and bool_and(
-        not vocabulary_entries.suspended
-        and not learning_vocabulary_entries.suspended
-        and vocabulary_entries.learning_language_id = current_setting('test.adaptive_cloze_language_id')::uuid
+        vocabulary_entries.learning_language_id = current_setting('test.adaptive_cloze_language_id')::uuid
         and learning_vocabulary_entries.learning_language_id = current_setting('test.adaptive_cloze_language_id')::uuid
       )
     from public.lesson_questions as questions

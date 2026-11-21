@@ -42,10 +42,10 @@ values
   ('a1000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'es', '2026-09-01T00:00:00Z'),
   ('b1000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'es', '2026-09-01T00:00:00Z');
 
-insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, suspended, created_at)
+insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, created_at)
 values
-  ('a3000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'casa', false, '2026-09-01T01:00:00Z'),
-  ('b3000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1000000-0000-0000-0000-000000000001', 'casa', false, '2026-09-01T01:00:00Z');
+  ('a3000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'casa', '2026-09-01T01:00:00Z'),
+  ('b3000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1000000-0000-0000-0000-000000000001', 'casa', '2026-09-01T01:00:00Z');
 
 select lives_ok(
   $$update public.learning_vocabulary_entries

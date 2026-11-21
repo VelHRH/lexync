@@ -60,15 +60,6 @@ export async function fileEntry(client: SupabaseClient, collectionId: string, le
   if (error) throw error;
 }
 
-export async function suspendEntry(client: SupabaseClient, learningVocabularyEntryId: string, suspended = true) {
-  const { data, error } = await client.from('vocabulary_entries').select('id').eq('learning_vocabulary_entry_id', learningVocabularyEntryId);
-  if (error) throw error;
-  for (const row of (data ?? []) as Array<{ id: string }>) {
-    const { error: suspensionError } = await client.rpc('set_vocabulary_entry_suspended', { p_suspended: suspended, p_vocabulary_entry_id: row.id });
-    if (suspensionError) throw suspensionError;
-  }
-}
-
 export async function practiseCollection(
   client: SupabaseClient,
   learningLanguageId: string,

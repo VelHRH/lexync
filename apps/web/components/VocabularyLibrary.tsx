@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { supabase } from '../lib/supabase';
-import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, revalidateLibrary, setEntrySuspendedInStore, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
+import { EMPTY_LIBRARY_SNAPSHOT, invalidateLibrary, loadLibrary, librarySnapshot, revalidateLibrary, subscribeLibrary, type Collection, type LibraryEntry } from '../lib/libraryStore';
 import { normalizeSearchText } from '../lib/searchText';
 import { CollectionDialogs, type CollectionDialogRequest } from './CollectionDialogs';
 import { SearchablePicker } from './SearchablePicker';
@@ -14,7 +14,7 @@ import { VocabularyCaptureDialog } from './VocabularyCaptureDialog';
 import { VocabularyEntryDeleteDialog } from './VocabularyEntryDeleteDialog';
 import { PROGRESS_STATE_LABELS } from '../lib/vocabularyProgress';
 import { ALL_VOCABULARY_SCOPE, LibraryCollectionShelf, NO_COLLECTION_SCOPE } from './LibraryCollectionShelf';
-import { LibraryFilterBar, type ProgressFilter, type VocabularyStatus } from './LibraryFilterBar';
+import { LibraryFilterBar, type ProgressFilter } from './LibraryFilterBar';
 import { LibraryScopeBanner, PRACTICE_REASON_ID } from './LibraryScopeBanner';
 import { VocabularyProgressStatesInfo } from './VocabularyProgressStatesInfo';
 import { VocabularyEntryCard, membershipChangeKey } from './VocabularyEntryCard';
@@ -34,9 +34,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EntryDraft | null>(null);
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<VocabularyStatus>('all');
   const [progress, setProgress] = useState<ProgressFilter>('all');
-  const [suspensionNotice, setSuspensionNotice] = useState('');
   const [changingMembership, setChangingMembership] = useState('');
   const [collectionRequest, setCollectionRequest] = useState<CollectionDialogRequest | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<LibraryEntry | null>(null);
@@ -173,22 +171,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     return '';
   }
 
-  async function setSuspended(entry: LibraryEntry, suspended: boolean) {
-    setNotice('');
-    setSuspensionNotice('');
-    const { error } = await supabase.rpc('set_vocabulary_entry_suspended', {
-      p_suspended: suspended,
-      p_vocabulary_entry_id: entry.id,
-    });
-    if (error) {
-      setNotice(`${entry.expression} could not be ${suspended ? 'suspended' : 'resumed'}. ${error.message}`);
-      return;
-    }
-    setEntrySuspendedInStore(language.id, entry.id, suspended);
-    setSuspensionNotice(`${entry.expression} is ${suspended ? 'suspended' : 'active'}.`);
-    if (!suspended && !entry.progressState) await loadLibrary(language.id, pairIds, { force: true });
-  }
-
   async function changeMembership(entry: LibraryEntry, collection: Collection, member: boolean) {
     setChangingMembership(membershipChangeKey(member, collection, entry));
     setNotice('');
@@ -248,11 +230,10 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const selectedCollection = collections.find((collection) => collection.id === selectedCollectionId);
   const selectedCollectionEntryIds = new Set(memberships.filter((membership) => membership.collection_id === selectedCollectionId).map((membership) => membership.learning_vocabulary_entry_id));
   const visibleEntries = entries.filter((entry) => {
-    const matchesStatus = status === 'all' || (status === 'suspended' ? entry.suspended : !entry.suspended);
-    const matchesProgress = progress === 'all' || (!entry.suspended && entry.progressState === progress);
+    const matchesProgress = progress === 'all' || entry.progressState === progress;
     const matchesCollection = selectedCollectionId === ALL_VOCABULARY_SCOPE || (selectedCollectionId === NO_COLLECTION_SCOPE ? !collectedEntryIds.has(entry.learningVocabularyEntryId) : selectedCollectionEntryIds.has(entry.learningVocabularyEntryId));
     const haystacks = [entry.expression, ...entry.senses.flatMap((sense) => sense.translations.map((item) => item.text))].map(normalizeSearchText);
-    return matchesStatus && matchesProgress && matchesCollection && (!normalizedQuery || haystacks.some((text) => text.includes(normalizedQuery)));
+    return matchesProgress && matchesCollection && (!normalizedQuery || haystacks.some((text) => text.includes(normalizedQuery)));
   });
   const selectedEntryIds = selection.scope === selectedCollectionId ? selection.ids : [];
   const selectedEntries = entries.filter((entry) => selectedEntryIds.includes(entry.learningVocabularyEntryId));
@@ -266,7 +247,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   const practiceShortfall = minimumEntries - (selectedCollection?.entryCount ?? 0);
   const practiceReason = practiceShortfall > 0
     ? `Add ${practiceShortfall} more ${practiceShortfall === 1 ? 'Vocabulary Entry' : 'Vocabulary Entries'} to practise this Collection.`
-    : selectedCollection && !selectedCollection.canPractise ? 'This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Resume suspended Vocabulary Entries or add translations to practise it.'
+    : selectedCollection && !selectedCollection.canPractise ? 'This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Add translations to practise it.'
     : lessonInProgress ? 'Finish the Lesson in progress first.'
     : '';
   const practiceDescribedBy = lessonInProgress && offlineReason ? `${PRACTICE_REASON_ID} ${offlineReason}` : lessonInProgress ? PRACTICE_REASON_ID : offlineReason;
@@ -347,9 +328,8 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
   }
 
   function emptyStateCopy() {
-    if (status === 'suspended' && progress !== 'all') return { heading: 'Nothing here right now.', message: 'A suspended Vocabulary Entry carries no Vocabulary Progress State. Resume it to see where it stands.' };
-    const described = `${status === 'all' ? '' : `${status} `}${progress === 'all' ? '' : `${PROGRESS_STATE_LABELS[progress].toLowerCase()} `}`;
-    const narrowed = status !== 'all' || progress !== 'all';
+    const described = progress === 'all' ? '' : `${PROGRESS_STATE_LABELS[progress].toLowerCase()} `;
+    const narrowed = progress !== 'all';
     if (normalizedQuery) return { heading: 'No match in this library.', message: `No ${described}Vocabulary Entries match “${query.trim()}”.` };
     if (selectedCollection) return narrowed
       ? { heading: 'Nothing here right now.', message: `No ${described}Vocabulary Entries in “${selectedCollection.name}”.` }
@@ -427,12 +407,10 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
 
       <LibraryFilterBar
         query={query}
-        status={status}
         progress={progress}
         selecting={selecting}
         filing={filing}
         onQueryChange={setQuery}
-        onStatusChange={setStatus}
         onProgressChange={setProgress}
         onToggleSelecting={toggleSelecting}
       />
@@ -477,7 +455,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
         <h3>{emptyHeading}</h3>
         <p>{noResultsMessage}</p>
       </div>}
-      {suspensionNotice && <p className="form-notice" role="status">{suspensionNotice}</p>}
       {capturedNotice && <p className="form-notice" role="status">{capturedNotice}</p>}
       {capturedClipError && <p className="form-notice error" role="alert">{capturedClipError}</p>}
       {collectionNotice && <p className="form-notice" role="status">{collectionNotice}</p>}
@@ -515,7 +492,6 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
           onSelectChange={(selected) => { lastSelectedIndex.current = index; toggleEntrySelected(entry, selected); }}
           onChangeMembership={(collection, member) => void changeMembership(entry, collection, member)}
           onEdit={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}
-          onToggleSuspended={() => void setSuspended(entry, !entry.suspended)}
           onDelete={() => { setNotice(''); setEntryToDelete(entry); }}
           onClipChanged={() => void reload()}
         />)}

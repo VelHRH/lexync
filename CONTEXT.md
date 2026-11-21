@@ -42,7 +42,7 @@ A word or phrase in a Learning Language. Capitalization, Unicode representation,
 
 ## Vocabulary Entry
 
-A Learner's private record of an Expression within one Learning Language. It owns the Learner's Senses, Collection memberships, suspension state, and learning progress. Examples belong to a Sense rather than directly to the Vocabulary Entry.
+A Learner's private record of an Expression within one Learning Language. It owns the Learner's Senses, Collection memberships, and learning progress. Examples belong to a Sense rather than directly to the Vocabulary Entry.
 
 ## Sense
 
@@ -118,15 +118,11 @@ A Vocabulary Entry all of whose Senses are Learned Senses. A Vocabulary Entry wi
 
 ## Vocabulary Progress
 
-The share of a Learner's Vocabulary Entries that are Learned Vocabulary Entries, within one Learning Language. Suspended Vocabulary Entries are counted by neither side of the share. Vocabulary Progress may also be read for a single Collection, counting only the Vocabulary Entries in it.
+The share of a Learner's Vocabulary Entries that are Learned Vocabulary Entries, within one Learning Language. Vocabulary Progress may also be read for a single Collection, counting only the Vocabulary Entries in it.
 
 ## Vocabulary Progress State
 
-The one state each unsuspended Vocabulary Entry occupies. It is `learned` while it is a Learned Vocabulary Entry, `in practice` while at least one of its Senses has a Lesson Attempt but it is not a Learned Vocabulary Entry, and `new` while none of its Senses has ever been attempted.
-
-## Suspended Vocabulary Entry
-
-A Vocabulary Entry retained as known learning material but excluded from a Lesson until resumed.
+The one state each Vocabulary Entry occupies. It is `learned` while it is a Learned Vocabulary Entry, `in practice` while at least one of its Senses has a Lesson Attempt but it is not a Learned Vocabulary Entry, and `new` while none of its Senses has ever been attempted.
 
 ## Learner Timezone
 

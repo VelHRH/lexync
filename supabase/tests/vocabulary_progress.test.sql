@@ -37,32 +37,32 @@ values
   ('a2000000-0000-0000-0000-000800000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ja', 'en', true, 'a1000000-0000-0000-0000-000800000001'),
   ('a2000000-0000-0000-0000-000800000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ja', 'uk', false, 'a1000000-0000-0000-0000-000800000001');
 
-insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, suspended, created_at)
+insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, created_at)
 values
-  ('a3000000-0000-0000-0000-000100000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000100000001', 'casa', false, '2026-09-01T01:00:01Z'),
-  ('a3000000-0000-0000-0000-000200000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000200000001', 'libro', false, '2026-09-01T01:00:01Z'),
-  ('a3000000-0000-0000-0000-000300000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000300000001', 'mesa', false, '2026-09-01T01:00:01Z'),
-  ('a3000000-0000-0000-0000-000400000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000400000001', 'perro', false, '2026-09-01T01:00:01Z'),
-  ('a3000000-0000-0000-0000-000500000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000500000001', 'banco', false, '2026-09-01T01:00:01Z'),
-  ('a3000000-0000-0000-0000-000600000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000600000001', 'vacio', false, '2026-09-01T01:00:01Z'),
-  ('a3000000-0000-0000-0000-000700000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000700000001', 'suspendido', true, '2026-09-01T01:00:01Z'),
-  ('a3000000-0000-0000-0000-000700000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000700000001', 'nuevo', false, '2026-09-01T01:00:02Z'),
-  ('a3000000-0000-0000-0000-000800000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000800000001', 'yama', false, '2026-09-01T01:00:01Z');
+  ('a3000000-0000-0000-0000-000100000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000100000001', 'casa', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-000200000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000200000001', 'libro', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-000300000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000300000001', 'mesa', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-000400000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000400000001', 'perro', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-000500000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000500000001', 'banco', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-000600000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000600000001', 'vacio', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-000700000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000700000001', 'suspendido', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-000700000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000700000001', 'nuevo', '2026-09-01T01:00:02Z'),
+  ('a3000000-0000-0000-0000-000800000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000800000001', 'yama', '2026-09-01T01:00:01Z');
 
 insert into public.vocabulary_entries (
-  id, learner_id, study_pair_id, expression, created_at, learning_language_id, learning_vocabulary_entry_id, suspended
+  id, learner_id, study_pair_id, expression, created_at, learning_language_id, learning_vocabulary_entry_id
 )
 values
-  ('a4000000-0000-0000-0000-000100000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000100000001', 'casa', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000100000001', 'a3000000-0000-0000-0000-000100000001', false),
-  ('a4000000-0000-0000-0000-000200000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000200000001', 'libro', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000200000001', 'a3000000-0000-0000-0000-000200000001', false),
-  ('a4000000-0000-0000-0000-000300000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000300000001', 'mesa', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000300000001', 'a3000000-0000-0000-0000-000300000001', false),
-  ('a4000000-0000-0000-0000-000400000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000400000001', 'perro', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000400000001', 'a3000000-0000-0000-0000-000400000001', false),
-  ('a4000000-0000-0000-0000-000500000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000500000001', 'banco', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000500000001', 'a3000000-0000-0000-0000-000500000001', false),
-  ('a4000000-0000-0000-0000-000600000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000600000001', 'vacio', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000600000001', 'a3000000-0000-0000-0000-000600000001', false),
-  ('a4000000-0000-0000-0000-000700000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000700000001', 'suspendido', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000700000001', 'a3000000-0000-0000-0000-000700000001', true),
-  ('a4000000-0000-0000-0000-000700000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000700000001', 'nuevo', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-000700000001', 'a3000000-0000-0000-0000-000700000002', false),
-  ('a4000000-0000-0000-0000-000800000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000800000001', 'yama', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000800000001', 'a3000000-0000-0000-0000-000800000001', false),
-  ('a4000000-0000-0000-0000-000800000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000800000002', 'yama', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-000800000001', 'a3000000-0000-0000-0000-000800000001', false);
+  ('a4000000-0000-0000-0000-000100000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000100000001', 'casa', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000100000001', 'a3000000-0000-0000-0000-000100000001'),
+  ('a4000000-0000-0000-0000-000200000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000200000001', 'libro', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000200000001', 'a3000000-0000-0000-0000-000200000001'),
+  ('a4000000-0000-0000-0000-000300000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000300000001', 'mesa', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000300000001', 'a3000000-0000-0000-0000-000300000001'),
+  ('a4000000-0000-0000-0000-000400000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000400000001', 'perro', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000400000001', 'a3000000-0000-0000-0000-000400000001'),
+  ('a4000000-0000-0000-0000-000500000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000500000001', 'banco', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000500000001', 'a3000000-0000-0000-0000-000500000001'),
+  ('a4000000-0000-0000-0000-000600000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000600000001', 'vacio', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000600000001', 'a3000000-0000-0000-0000-000600000001'),
+  ('a4000000-0000-0000-0000-000700000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000700000001', 'suspendido', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000700000001', 'a3000000-0000-0000-0000-000700000001'),
+  ('a4000000-0000-0000-0000-000700000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000700000001', 'nuevo', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-000700000001', 'a3000000-0000-0000-0000-000700000002'),
+  ('a4000000-0000-0000-0000-000800000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000800000001', 'yama', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000800000001', 'a3000000-0000-0000-0000-000800000001'),
+  ('a4000000-0000-0000-0000-000800000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000800000002', 'yama', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-000800000001', 'a3000000-0000-0000-0000-000800000001');
 
 insert into public.senses (id, learner_id, vocabulary_entry_id, created_at)
 values
@@ -170,23 +170,23 @@ insert into public.study_pairs (id, learner_id, target_language_tag, reference_l
 values
   ('a2000000-0000-0000-0000-000900000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'sv', 'en', true, 'a1000000-0000-0000-0000-000900000001');
 
-insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, suspended, created_at)
+insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, created_at)
 values
-  ('a3000000-0000-0000-0000-000900000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'ett', false, '2026-09-01T01:00:01Z'),
-  ('a3000000-0000-0000-0000-000900000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'tva', false, '2026-09-01T01:00:02Z'),
-  ('a3000000-0000-0000-0000-000900000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'tre', false, '2026-09-01T01:00:03Z'),
-  ('a3000000-0000-0000-0000-000900000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'fyra', true, '2026-09-01T01:00:04Z'),
-  ('a3000000-0000-0000-0000-000900000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'fem', false, '2026-09-01T01:00:05Z');
+  ('a3000000-0000-0000-0000-000900000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'ett', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-000900000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'tva', '2026-09-01T01:00:02Z'),
+  ('a3000000-0000-0000-0000-000900000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'tre', '2026-09-01T01:00:03Z'),
+  ('a3000000-0000-0000-0000-000900000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'fyra', '2026-09-01T01:00:04Z'),
+  ('a3000000-0000-0000-0000-000900000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000900000001', 'fem', '2026-09-01T01:00:05Z');
 
 insert into public.vocabulary_entries (
-  id, learner_id, study_pair_id, expression, created_at, learning_language_id, learning_vocabulary_entry_id, suspended
+  id, learner_id, study_pair_id, expression, created_at, learning_language_id, learning_vocabulary_entry_id
 )
 values
-  ('a4000000-0000-0000-0000-000900000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'ett', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000001', false),
-  ('a4000000-0000-0000-0000-000900000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'tva', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000002', false),
-  ('a4000000-0000-0000-0000-000900000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'tre', '2026-09-01T02:00:03Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000003', false),
-  ('a4000000-0000-0000-0000-000900000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'fyra', '2026-09-01T02:00:04Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000004', true),
-  ('a4000000-0000-0000-0000-000900000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'fem', '2026-09-01T02:00:05Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000005', false);
+  ('a4000000-0000-0000-0000-000900000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'ett', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000001'),
+  ('a4000000-0000-0000-0000-000900000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'tva', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000002'),
+  ('a4000000-0000-0000-0000-000900000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'tre', '2026-09-01T02:00:03Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000003'),
+  ('a4000000-0000-0000-0000-000900000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'fyra', '2026-09-01T02:00:04Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000004'),
+  ('a4000000-0000-0000-0000-000900000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-000900000001', 'fem', '2026-09-01T02:00:05Z', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000005');
 
 insert into public.senses (id, learner_id, vocabulary_entry_id, created_at)
 values
@@ -286,13 +286,13 @@ select is(
 
 select is(
   (select public.vocabulary_progress('a1000000-0000-0000-0000-000700000001') - 'total_count' - 'collections'),
-  '{"new_count": 1, "in_practice_count": 0, "learned_count": 0}'::jsonb,
-  'a suspended Vocabulary Entry is counted by no state, so only the unsuspended Entry remains'
+  '{"new_count": 1, "in_practice_count": 1, "learned_count": 0}'::jsonb,
+  'a formerly suspended Vocabulary Entry is counted by its Vocabulary Progress State'
 );
 select is(
   (select (public.vocabulary_progress('a1000000-0000-0000-0000-000700000001')->>'total_count')::integer),
-  1,
-  'a suspended Vocabulary Entry lowers the total alongside the state counts'
+  2,
+  'a formerly suspended Vocabulary Entry counts toward the total'
 );
 
 select is(
@@ -323,12 +323,12 @@ select is(
   jsonb_build_object(
     'id', 'b1000000-0000-0000-0000-000900000001',
     'name', 'Numbers',
-    'new_count', 1,
+    'new_count', 2,
     'in_practice_count', 1,
     'learned_count', 1,
-    'total_count', 3
+    'total_count', 4
   ),
-  'a Collection reports the Vocabulary Progress States of the Vocabulary Entries in it and leaves a suspended one out'
+  'a Collection reports the Vocabulary Progress States of every Vocabulary Entry in it'
 );
 
 select is(
@@ -362,8 +362,8 @@ select is(
 
 select is(
   (select public.vocabulary_progress('a1000000-0000-0000-0000-000900000001') - 'collections'),
-  '{"new_count": 2, "in_practice_count": 1, "learned_count": 1, "total_count": 4}'::jsonb,
-  'the library figures count every unsuspended Vocabulary Entry, whether or not it is in a Collection'
+  '{"new_count": 3, "in_practice_count": 1, "learned_count": 1, "total_count": 5}'::jsonb,
+  'the library figures count every Vocabulary Entry, whether or not it is in a Collection'
 );
 
 select is(
@@ -382,16 +382,16 @@ select is(
    from jsonb_array_elements(public.vocabulary_progress_states('a1000000-0000-0000-0000-000900000001')->'entries') as entry
    join public.learning_vocabulary_entries
      on learning_vocabulary_entries.id = (entry->>'learning_vocabulary_entry_id')::uuid),
-  '[{"expression": "ett", "state": "learned"}, {"expression": "tva", "state": "in_practice"}, {"expression": "tre", "state": "new"}, {"expression": "fem", "state": "new"}]'::jsonb,
-  'every unsuspended Vocabulary Entry reports the one Vocabulary Progress State it occupies'
+  '[{"expression": "ett", "state": "learned"}, {"expression": "tva", "state": "in_practice"}, {"expression": "tre", "state": "new"}, {"expression": "fyra", "state": "new"}, {"expression": "fem", "state": "new"}]'::jsonb,
+  'every Vocabulary Entry reports the one Vocabulary Progress State it occupies'
 );
 
 select is(
   (select count(*)
    from jsonb_array_elements(public.vocabulary_progress_states('a1000000-0000-0000-0000-000900000001')->'entries') as entry
    where entry->>'learning_vocabulary_entry_id' = 'a3000000-0000-0000-0000-000900000004'),
-  0::bigint,
-  'a suspended Vocabulary Entry carries no Vocabulary Progress State'
+  1::bigint,
+  'a formerly suspended Vocabulary Entry carries a Vocabulary Progress State'
 );
 
 select is(

@@ -1,6 +1,6 @@
 begin;
 
-select plan(39);
+select plan(38);
 
 select ok(
   to_regprocedure('public.lesson_history(uuid)') is not null,
@@ -26,25 +26,25 @@ values
   ('a1100000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fr', 'en', true, 'a1000000-0000-0000-0000-000000000002'),
   ('b1100000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'es', 'en', true, 'b1000000-0000-0000-0000-000000000001');
 
-insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, suspended, created_at)
+insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, created_at)
 values
-  ('a1200000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'casa', false, '2026-09-01T01:00:00Z'),
-  ('a1200000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'libro', false, '2026-09-01T01:00:01Z'),
-  ('a1200000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'mesa', false, '2026-09-01T01:00:02Z'),
-  ('a1200000-0000-0000-0000-000000000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'perro', false, '2026-09-01T01:00:03Z'),
-  ('a1200000-0000-0000-0000-000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000002', 'chat', false, '2026-09-01T01:00:04Z'),
-  ('b1200000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1000000-0000-0000-0000-000000000001', 'casa', false, '2026-09-01T01:00:00Z');
+  ('a1200000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'casa', '2026-09-01T01:00:00Z'),
+  ('a1200000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'libro', '2026-09-01T01:00:01Z'),
+  ('a1200000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'mesa', '2026-09-01T01:00:02Z'),
+  ('a1200000-0000-0000-0000-000000000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000001', 'perro', '2026-09-01T01:00:03Z'),
+  ('a1200000-0000-0000-0000-000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-000000000002', 'chat', '2026-09-01T01:00:04Z'),
+  ('b1200000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1000000-0000-0000-0000-000000000001', 'casa', '2026-09-01T01:00:00Z');
 
 insert into public.vocabulary_entries (
-  id, learner_id, study_pair_id, expression, created_at, learning_language_id, learning_vocabulary_entry_id, suspended
+  id, learner_id, study_pair_id, expression, created_at, learning_language_id, learning_vocabulary_entry_id
 )
 values
-  ('a1300000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000001', 'casa', '2026-09-01T02:00:00Z', 'a1000000-0000-0000-0000-000000000001', 'a1200000-0000-0000-0000-000000000001', false),
-  ('a1300000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000001', 'libro', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000000000001', 'a1200000-0000-0000-0000-000000000002', false),
-  ('a1300000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000001', 'mesa', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-000000000001', 'a1200000-0000-0000-0000-000000000003', false),
-  ('a1300000-0000-0000-0000-000000000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000001', 'perro', '2026-09-01T02:00:03Z', 'a1000000-0000-0000-0000-000000000001', 'a1200000-0000-0000-0000-000000000004', false),
-  ('a1300000-0000-0000-0000-000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000002', 'chat', '2026-09-01T02:00:04Z', 'a1000000-0000-0000-0000-000000000002', 'a1200000-0000-0000-0000-000000000005', false),
-  ('b1300000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1100000-0000-0000-0000-000000000001', 'casa', '2026-09-01T02:00:00Z', 'b1000000-0000-0000-0000-000000000001', 'b1200000-0000-0000-0000-000000000001', false);
+  ('a1300000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000001', 'casa', '2026-09-01T02:00:00Z', 'a1000000-0000-0000-0000-000000000001', 'a1200000-0000-0000-0000-000000000001'),
+  ('a1300000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000001', 'libro', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-000000000001', 'a1200000-0000-0000-0000-000000000002'),
+  ('a1300000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000001', 'mesa', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-000000000001', 'a1200000-0000-0000-0000-000000000003'),
+  ('a1300000-0000-0000-0000-000000000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000001', 'perro', '2026-09-01T02:00:03Z', 'a1000000-0000-0000-0000-000000000001', 'a1200000-0000-0000-0000-000000000004'),
+  ('a1300000-0000-0000-0000-000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1100000-0000-0000-0000-000000000002', 'chat', '2026-09-01T02:00:04Z', 'a1000000-0000-0000-0000-000000000002', 'a1200000-0000-0000-0000-000000000005'),
+  ('b1300000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1100000-0000-0000-0000-000000000001', 'casa', '2026-09-01T02:00:00Z', 'b1000000-0000-0000-0000-000000000001', 'b1200000-0000-0000-0000-000000000001');
 
 insert into public.senses (id, learner_id, vocabulary_entry_id, created_at)
 values
@@ -151,8 +151,6 @@ select is((select statistic_value->>'last_practiced_at' from jsonb_array_element
 select is((select (statistic_value->>'practice_count')::integer from jsonb_array_elements(current_setting('test.history_before')::jsonb->'sense_statistics') statistic_value where statistic_value->>'sense_id' = 'a1400000-0000-0000-0000-000000000003'), 2, 'statistics count legacy participation without correctness');
 select ok(not jsonb_path_exists(current_setting('test.history_before')::jsonb, '$.sense_statistics[*] ? (@.sense_id == "a1400000-0000-0000-0000-000000000005")'), 'statistics exclude Senses from another Learning Language');
 
-select public.set_vocabulary_entry_suspended('a1300000-0000-0000-0000-000000000003', true);
-select is(public.lesson_history(current_setting('test.es')::uuid)->'sense_statistics', current_setting('test.history_before')::jsonb->'sense_statistics', 'suspension does not change retained history or statistics');
 
 select public.delete_vocabulary_entry('a1300000-0000-0000-0000-000000000002');
 select is((select correct_count from public.lessons where id = current_setting('test.new_session')::uuid), 2, 'deleting an entry recomputes the surviving correct count');

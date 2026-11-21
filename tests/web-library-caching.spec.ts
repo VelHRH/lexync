@@ -194,7 +194,7 @@ test.describe('web Library data lifetime', () => {
     expect(libraryRequests.count()).toBe(0);
   });
 
-  test('reflects Add, Edit, Suspend, Resume, and Delete immediately without a page reload (AC4)', async ({ page }) => {
+  test('reflects Add, Edit, and Delete immediately without a page reload (AC4)', async ({ page }) => {
     const account = credentials('web-library-own-mutations');
     const { client, pairIds } = await register(account);
     await createEntry(client, pairIds[0], 'casa', 'house');
@@ -216,12 +216,6 @@ test.describe('web Library data lifetime', () => {
     await expect(page.locator('summary').filter({ hasText: 'perrito' })).toBeVisible();
 
     await page.locator('summary').filter({ hasText: 'perrito' }).click();
-    await page.getByRole('button', { name: 'Suspend perrito' }).click();
-    await expect(page.getByText('Suspended', { exact: true })).toBeVisible();
-
-    await page.getByRole('button', { name: 'Resume perrito' }).click();
-    await expect(page.getByText('Suspended', { exact: true })).toHaveCount(0);
-
     await page.getByRole('button', { name: 'Delete perrito' }).click();
     await page.getByRole('dialog', { name: 'Delete Vocabulary Entry' }).getByRole('button', { name: 'Delete Vocabulary Entry' }).click();
     await expect(page.getByText('perrito', { exact: true })).toHaveCount(0);

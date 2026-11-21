@@ -19,8 +19,7 @@ test.describe('Lesson domain contract', () => {
     expect(new Set(cards.map((card) => `${card.senseId}:${card.answerLanguageTag}:${card.direction}`)).size).toBe(3);
   });
 
-  test('suspension excludes material from future Lesson eligibility', () => {
-    expect(domain.isVocabularyEntryLearningEligible({ studyPairId: 'spanish-english', suspended: false }, 'spanish-english')).toBe(true);
-    expect(domain.isVocabularyEntryLearningEligible({ studyPairId: 'spanish-english', suspended: true }, 'spanish-english')).toBe(false);
+  test('every Vocabulary Entry of the active Study Pair is eligible for future Lessons', () => {
+    expect(domain.isVocabularyEntryLearningEligible({ studyPairId: 'spanish-english' }, 'spanish-english')).toBe(true);
   });
 });

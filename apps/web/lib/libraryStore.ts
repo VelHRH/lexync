@@ -8,7 +8,7 @@ import { supabase } from './supabase';
 export type ExampleTranslation = { id: string; text: string; answer_language_tag: string };
 export type Example = { id: string; text: string; translations: ExampleTranslation[] };
 export type Sense = { id: string; translations: Translation[]; examples: Example[] };
-export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; suspended: boolean; progressState: VocabularyProgressState | null; audioClipPath: string | null; audioClipDurationMs: number | null };
+export type LibraryEntry = { id: string; learningVocabularyEntryId: string; expression: string; senses: Sense[]; progressState: VocabularyProgressState | null; audioClipPath: string | null; audioClipDurationMs: number | null };
 export type Collection = { id: string; name: string; entryCount: number; eligibleSenseCount: number; canPractise: boolean };
 export type Membership = { collection_id: string; learning_vocabulary_entry_id: string };
 
@@ -69,12 +69,6 @@ export function invalidateLibrary(languageId: string) {
   setSnapshot(languageId, { ...current, loadedAt: 0 });
 }
 
-export function setEntrySuspendedInStore(languageId: string, entryId: string, suspended: boolean) {
-  const current = library.get(languageId);
-  if (!current) return;
-  setSnapshot(languageId, { ...current, entries: current.entries.map((entry) => entry.id === entryId ? { ...entry, suspended } : entry) });
-}
-
 export function clearLibraryStore() {
   library.clear();
   inflight.clear();
@@ -108,7 +102,7 @@ function parseReadiness(value: unknown): { minimumEntries: number; byCollectionI
 
 async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[] } | { error: string }> {
   if (!pairIds.length) return { entries: [] };
-  const { data, error } = await supabase.from('vocabulary_entries').select('id,learning_vocabulary_entry_id,expression,suspended,study_pair_id').in('study_pair_id', pairIds).order('created_at');
+  const { data, error } = await supabase.from('vocabulary_entries').select('id,learning_vocabulary_entry_id,expression,study_pair_id').in('study_pair_id', pairIds).order('created_at');
   if (error) return { error: error.message };
   const entryIds = (data ?? []).map((entry) => entry.id);
   const { data: senses, error: sensesError } = entryIds.length
@@ -148,14 +142,12 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
     const existing = merged.get(key);
     if (existing) {
       existing.senses = [...existing.senses, ...nextSenses];
-      existing.suspended = existing.suspended && entry.suspended;
     } else {
       const clip = audioClips.get(entry.learning_vocabulary_entry_id);
       merged.set(key, {
         id: entry.id,
         learningVocabularyEntryId: entry.learning_vocabulary_entry_id,
         expression: entry.expression.trim(),
-        suspended: entry.suspended,
         progressState: null,
         senses: nextSenses,
         audioClipPath: typeof clip?.audio_clip_path === 'string' ? clip.audio_clip_path : null,
