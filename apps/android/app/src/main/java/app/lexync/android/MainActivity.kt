@@ -31,8 +31,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
@@ -74,6 +76,7 @@ data class LibraryUiState(
     val status: String = "",
     val busy: Boolean = false,
     val error: String? = null,
+    val dailyStreak: DailyStreak? = null,
 )
 
 class LibraryViewModel(
@@ -90,6 +93,7 @@ class LibraryViewModel(
             if (resetLocalData) store.clear()
             val library = store.load()
             mutableState.value = LibraryUiState(library, if (networkDisabled && library != null) "Offline library" else "")
+            refreshDailyStreak()
         }
     }
 
@@ -110,17 +114,29 @@ class LibraryViewModel(
             }
             mutableState.value = mutableState.value.copy(busy = true, error = null)
             try {
-                val activeRepository = repository ?: LibraryRepository.create().also { repository = it }
+                val activeRepository = repository()
                 if (password != null) activeRepository.signIn(email, password)
                 val snapshot = activeRepository.snapshot()
                 store.replace(snapshot, email)
-                mutableState.value = LibraryUiState(store.load(), "Synchronization complete")
+                mutableState.value = LibraryUiState(store.load(), "Synchronization complete", dailyStreak = mutableState.value.dailyStreak)
+                refreshDailyStreak()
             } catch (exception: Exception) {
                 val library = store.load()
-                mutableState.value = LibraryUiState(library, if (library != null) "Offline library" else "", error = exception.message ?: "Synchronization failed")
+                mutableState.value = LibraryUiState(library, if (library != null) "Offline library" else "", error = exception.message ?: "Synchronization failed", dailyStreak = mutableState.value.dailyStreak)
             }
         }
     }
+
+    fun refreshDailyStreak() {
+        if (networkDisabled) return
+        viewModelScope.launch {
+            if (mutableState.value.library == null) return@launch
+            val streak = runCatching { repository().dailyStreak() }.getOrNull() ?: return@launch
+            mutableState.value = mutableState.value.copy(dailyStreak = streak)
+        }
+    }
+
+    private fun repository(): LibraryRepository = repository ?: LibraryRepository.create().also { repository = it }
 
     override fun onCleared() {
         repository?.let { activeRepository ->
@@ -143,6 +159,7 @@ class LibraryViewModel(
 @Composable
 fun LibraryApp(viewModel: LibraryViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshDailyStreak() }
     if (state.library == null) {
         SignInScreen(state, viewModel::signIn)
     } else {
@@ -182,6 +199,7 @@ private fun LibraryScreen(state: LibraryUiState, synchronize: () -> Unit) {
         item {
             Text("Vocabulary", style = MaterialTheme.typography.headlineLarge)
             Text(library.email, style = MaterialTheme.typography.bodyMedium)
+            state.dailyStreak?.let { DailyStreakSummary(it, Modifier.padding(top = 12.dp)) }
             if (state.status.isNotEmpty()) Text(state.status, color = MaterialTheme.colorScheme.primary)
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Button(synchronize, enabled = !state.busy, modifier = Modifier.padding(top = 12.dp)) { Text("Synchronize") }

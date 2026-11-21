@@ -2,6 +2,7 @@ package app.lexync.android
 
 import java.util.UUID
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
@@ -60,6 +61,12 @@ data class Translation(
 data class Example(
     @Serializable(with = UUIDSerializer::class) val id: UUID,
     val text: String,
+)
+
+@Serializable
+data class DailyStreak(
+    val current: Int,
+    @SerialName("extended_today") val extendedToday: Boolean,
 )
 
 data class StoredLibrary(
