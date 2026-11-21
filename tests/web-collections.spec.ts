@@ -101,16 +101,56 @@ function collectionCard(page: Page, name: string | RegExp) {
 }
 
 function collectionCards(page: Page) {
-  return collectionShelf(page).getByRole('button');
+  return collectionShelf(page).getByRole('button').filter({ hasNotText: /^All collections/ });
+}
+
+function allCollectionsChip(page: Page) {
+  return collectionShelf(page).getByRole('button', { name: /^All collections \(\d+\)$/ });
+}
+
+function allCollectionsDialog(page: Page) {
+  return page.getByRole('dialog', { name: 'All collections' });
+}
+
+async function openAllCollections(page: Page) {
+  await allCollectionsChip(page).click();
+  await expect(allCollectionsDialog(page)).toBeVisible();
+  return allCollectionsDialog(page);
 }
 
 async function chooseCollection(page: Page, name: string | RegExp) {
+  await expect(allCollectionsChip(page)).toBeVisible();
+  if (await collectionCard(page, name).count() === 0) {
+    await chooseFromAllCollections(page, name);
+    return;
+  }
   await collectionCard(page, name).click();
   await expect(collectionCard(page, name)).toHaveAttribute('aria-pressed', 'true');
 }
 
+async function chooseFromAllCollections(page: Page, name: string | RegExp) {
+  const dialog = await openAllCollections(page);
+  await dialog.getByRole('button', { name }).first().click();
+  await expect(dialog).toBeHidden();
+  await expect(collectionCard(page, name)).toHaveAttribute('aria-pressed', 'true');
+}
+
+async function clearCollectionScope(page: Page) {
+  await collectionShelf(page).getByRole('button', { pressed: true }).click();
+  await expectWholeLibrary(page);
+}
+
 async function expectCollectionScope(page: Page, name: string) {
   await expect(collectionCard(page, name)).toHaveAttribute('aria-pressed', 'true');
+}
+
+async function expectWholeLibrary(page: Page) {
+  await expect(page).toHaveURL('/library');
+  await expect(collectionShelf(page).getByRole('button', { pressed: true })).toHaveCount(0);
+}
+
+async function shelfRowCount(page: Page) {
+  return collectionShelf(page).getByRole('button').evaluateAll((buttons) => new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().top))).size);
 }
 
 async function enterSelectMode(page: Page) {
@@ -233,7 +273,7 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await expectCollectionScope(page, 'All vocabulary');
+    await expectWholeLibrary(page);
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'sol')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
@@ -254,12 +294,12 @@ test.describe('web Collections', () => {
     await expect(casaEntry.getByText('La casa es grande.', { exact: true })).toBeVisible();
     await expect(casaEntry.getByRole('button', { name: 'Edit casa' })).toBeVisible();
 
-    await chooseCollection(page, 'Not in a Collection');
+    await chooseFromAllCollections(page, 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(entrySummary(page, 'luna')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
-    await chooseCollection(page, 'All vocabulary');
+    await clearCollectionScope(page);
     await expect(page).toHaveURL('/library');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'sol')).toBeVisible();
@@ -285,42 +325,185 @@ test.describe('web Collections', () => {
     await signIn(page, account);
     await page.goto('/library');
     await expect(entrySummary(page, 'casa')).toBeVisible();
-    await expect(collectionCards(page)).toHaveCount(6);
-    await expect(collectionCards(page).nth(0)).toContainText('All vocabulary');
-    await expect(collectionCards(page).nth(1)).toContainText('Not in a Collection');
-    await expect(collectionCards(page).nth(2)).toContainText('Places');
-    await expect(collectionCards(page).nth(2)).toContainText('2 entries');
-    await expect(collectionCards(page).nth(3)).toContainText('Sky');
-    await expect(collectionCards(page).nth(3)).toContainText('1 entry');
-    await expect(collectionCards(page).nth(4)).toContainText('Empty shelf');
-    await expect(collectionCards(page).nth(4)).toContainText('0 entries');
-    await expect(collectionCards(page).nth(4)).toContainText('needs 8 more');
-    await expect(collectionCards(page).nth(5)).toContainText('New Collection');
+    await expect(allCollectionsChip(page)).toHaveText('All collections (3)');
+    const cards = collectionCards(page);
+    const shown = await cards.count();
+    expect(shown).toBeGreaterThanOrEqual(1);
+    const expected = [['Places', '2 entries'], ['Sky', '1 entry'], ['Empty shelf', '0 entries']];
+    for (let index = 0; index < shown; index += 1) {
+      await expect(cards.nth(index)).toHaveText(`${expected[index][0]}${expected[index][1]}`);
+    }
+    await expect(collectionShelf(page).getByRole('button').last()).toHaveText('All collections (3)');
+    await expect(collectionShelf(page).getByText('All vocabulary')).toHaveCount(0);
+    await expect(collectionShelf(page).getByText(/needs \d+ more/)).toHaveCount(0);
+    await expect(collectionShelf(page).getByText('Not in a Collection')).toHaveCount(0);
+    expect(await shelfRowCount(page)).toBe(1);
   });
 
-  test('keeps every Collection reachable on the shelf as their number grows', async ({ page }) => {
+  test('breaks a tie in Vocabulary Entry count by Collection name', async ({ page }) => {
+    const account = credentials('web-collection-shelf-ties');
+    const { client, pairIds } = await register(account);
+    const casa = await createEntry(client, pairIds[0], 'casa', 'house');
+    const sol = await createEntry(client, pairIds[0], 'sol', 'sun');
+    const spanish = await languageIdFor(client, 'es');
+    const zoo = await seedCollection(client, spanish, 'Zoo');
+    const attic = await seedCollection(client, spanish, 'Attic');
+    await fileEntry(client, zoo, casa.learningVocabularyEntryId);
+    await fileEntry(client, attic, sol.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(collectionCards(page).first()).toHaveText('Attic1 entry');
+    const dialog = await openAllCollections(page);
+    await expect(dialog.getByRole('listitem')).toHaveText([/^Not in a Collection/, /^Attic/, /^Zoo/]);
+  });
+
+  test('keeps the shelf to one row as Collections grow and reaches the rest through All collections', async ({ page }) => {
     const account = credentials('web-collection-shelf-growth');
     const { client, pairIds } = await register(account);
     await createEntry(client, pairIds[0], 'casa', 'house');
     const spanish = await languageIdFor(client, 'es');
-    const names = ['Places', 'Sky', 'Weather words', 'Food', 'Travel', 'Work', 'Family', 'Music'];
+    const names = ['Places', 'Sky', 'Weather words', 'Food', 'Travel', 'Work', 'Family', 'Music', 'Numbers', 'Colours', 'Animals', 'Verbs'];
     for (const name of names) await seedCollection(client, spanish, name);
 
     await signIn(page, account);
     await page.goto('/library');
     await expect(entrySummary(page, 'casa')).toBeVisible();
+    await expect(allCollectionsChip(page)).toHaveText(`All collections (${names.length})`);
 
-    for (const name of names) await expect(collectionCard(page, name)).toHaveCount(1);
-    await expect(collectionCards(page)).toHaveCount(names.length + 3);
-
-    const track = collectionShelf(page).locator('.library-shelf-track');
-    expect(await track.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
+    const shown = await collectionCards(page).count();
+    expect(shown).toBeGreaterThanOrEqual(1);
+    expect(shown).toBeLessThan(names.length);
+    expect(await shelfRowCount(page)).toBe(1);
     await assertNoHorizontalOverflow(page);
 
-    await chooseCollection(page, 'Music');
-    await expect(page.getByText('Filtered by Music')).toBeVisible();
+    await page.setViewportSize({ width: (page.viewportSize()?.width ?? 1280) - 200, height: page.viewportSize()?.height ?? 800 });
+    await expect.poll(() => shelfRowCount(page)).toBe(1);
+    await assertNoHorizontalOverflow(page);
+
+    await expect(collectionCard(page, 'Verbs')).toHaveCount(0);
+    await chooseFromAllCollections(page, 'Verbs');
+    await expect(collectionCards(page).first()).toHaveAccessibleName('Verbs');
+    await expect(page.getByText('Filtered by Verbs')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
+    expect(await shelfRowCount(page)).toBe(1);
     await assertNoHorizontalOverflow(page);
+  });
+
+  test('searches, creates, scopes, renames, and deletes Collections from the All collections modal', async ({ page }) => {
+    const account = credentials('web-collection-all-modal');
+    const { client, pairIds } = await register(account);
+    const casa = await createEntry(client, pairIds[0], 'casa', 'house');
+    await createEntry(client, pairIds[0], 'luna', 'moon');
+    const spanish = await languageIdFor(client, 'es');
+    const kitchen = await seedCollection(client, spanish, 'Kitchen');
+    await seedCollection(client, spanish, 'Weather');
+    await fileEntry(client, kitchen, casa.learningVocabularyEntryId);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'luna')).toBeVisible();
+
+    const dialog = await openAllCollections(page);
+    await expect(dialog.getByLabel('Search Collections')).toBeFocused();
+    await expect(dialog.getByRole('listitem').first()).toContainText('Not in a Collection');
+    await expect(dialog.getByRole('listitem').first()).toContainText('1 entry');
+    await dialog.getByLabel('Search Collections').fill('weath');
+    await expect(dialog.getByRole('button', { name: /^Weather/ })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^Kitchen/ })).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: /^Not in a Collection/ })).toBeVisible();
+    await dialog.getByLabel('Search Collections').fill('zzz');
+    await expect(dialog.getByText('No Collections match “zzz”.')).toBeVisible();
+    await dialog.getByLabel('Search Collections').fill('');
+
+    await dialog.getByRole('button', { name: 'New Collection' }).click();
+    const createDialog = page.getByRole('dialog', { name: 'Create Collection' });
+    await page.getByLabel('Collection name').fill('Travel');
+    await createDialog.getByRole('button', { name: 'Create Collection' }).click();
+    await expect(createDialog).toBeHidden();
+    await expect(dialog.getByRole('button', { name: /^Travel/ })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'New Collection' })).toBeFocused();
+    await expect(allCollectionsChip(page)).toHaveText('All collections (3)');
+
+    await dialog.getByRole('button', { name: 'More actions for Weather' }).click();
+    await dialog.getByRole('menuitem', { name: 'Rename' }).click();
+    const renameDialog = page.getByRole('dialog', { name: 'Rename Collection' });
+    await expect(page.getByLabel('Collection name')).toHaveValue('Weather');
+    await page.getByLabel('Collection name').fill('Weather words');
+    await renameDialog.getByRole('button', { name: 'Save Collection' }).click();
+    await expect(renameDialog).toBeHidden();
+    await expect(dialog.getByRole('button', { name: /^Weather words/ })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'More actions for Weather words' })).toBeFocused();
+
+    await dialog.getByRole('button', { name: 'More actions for Kitchen' }).click();
+    await dialog.getByRole('menuitem', { name: 'Delete' }).click();
+    const deleteDialog = page.getByRole('dialog', { name: 'Delete Collection' });
+    await expect(deleteDialog.getByText('Delete “Kitchen”? Vocabulary Entries will stay in your Library.', { exact: true })).toBeVisible();
+    await deleteDialog.getByRole('button', { name: 'Delete Collection' }).click();
+    await expect(deleteDialog).toBeHidden();
+    await expect(dialog.getByRole('button', { name: /^Kitchen/ })).toHaveCount(0);
+    await expect(dialog.getByLabel('Search Collections')).toBeFocused();
+    await expect(dialog.getByRole('listitem').first()).toContainText('2 entries');
+
+    await dialog.getByRole('button', { name: /^Not in a Collection/ }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL('/library?collection=none');
+    await expect(collectionCards(page).first()).toHaveAccessibleName('Not in a Collection');
+    await expectCollectionScope(page, 'Not in a Collection');
+    await expect(entrySummary(page, 'casa')).toBeVisible();
+    await expect(entrySummary(page, 'luna')).toBeVisible();
+
+    await clearCollectionScope(page);
+    await expect(collectionCard(page, 'Not in a Collection')).toHaveCount(0);
+
+    if (test.info().project.name === 'web-collections-mobile') {
+      await openAllCollections(page);
+      await assertNoHorizontalOverflow(page);
+    }
+  });
+
+  test('operates the All collections modal and its menu with the keyboard, trapping and restoring focus', async ({ page }) => {
+    const account = credentials('web-collection-all-keyboard');
+    const { client, pairIds } = await register(account);
+    await createEntry(client, pairIds[0], 'casa', 'house');
+    const spanish = await languageIdFor(client, 'es');
+    await seedCollection(client, spanish, 'Kitchen');
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expect(entrySummary(page, 'casa')).toBeVisible();
+
+    await allCollectionsChip(page).focus();
+    await page.keyboard.press('Enter');
+    const dialog = allCollectionsDialog(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Search Collections')).toBeFocused();
+
+    for (let step = 0; step < 8; step += 1) {
+      await page.keyboard.press('Tab');
+      expect(await page.evaluate(() => Boolean(document.activeElement?.closest('dialog[open]')))).toBe(true);
+    }
+
+    const menuTrigger = dialog.getByRole('button', { name: 'More actions for Kitchen' });
+    await menuTrigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByRole('menuitem', { name: 'Rename' })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(dialog.getByRole('menuitem', { name: 'Delete' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog.getByRole('menu')).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+    await expect(menuTrigger).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(allCollectionsChip(page)).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(allCollectionsChip(page)).toBeFocused();
   });
 
   test('operates the Collection shelf with the keyboard alone to a completed choice', async ({ page }) => {
@@ -340,26 +523,31 @@ test.describe('web Collections', () => {
     await page.goto('/library');
     await expect(entrySummary(page, 'cielo')).toBeVisible();
 
-    await collectionCard(page, 'All vocabulary').focus();
-    await page.keyboard.press('Tab');
-    await expect(collectionCard(page, 'Not in a Collection')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(collectionCard(page, 'Places')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(collectionCard(page, 'Sky')).toBeFocused();
-
-    await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(`/library?collection=${sky}`);
-    await expectCollectionScope(page, 'Sky');
-    await expect(entrySummary(page, 'cielo')).toBeVisible();
-    await expect(entrySummary(page, 'casa')).toHaveCount(0);
-
     await collectionCard(page, 'Places').focus();
-    await page.keyboard.press('Space');
+    await page.keyboard.press('Enter');
     await expect(page).toHaveURL(`/library?collection=${places}`);
     await expectCollectionScope(page, 'Places');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'cielo')).toHaveCount(0);
+
+    await page.keyboard.press('Space');
+    await expectWholeLibrary(page);
+    await expect(entrySummary(page, 'cielo')).toBeVisible();
+
+    await allCollectionsChip(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(allCollectionsDialog(page).getByLabel('Search Collections')).toBeFocused();
+    await page.keyboard.type('sky');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await expect(allCollectionsDialog(page).getByRole('button', { name: /^Sky/ })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(allCollectionsDialog(page)).toBeHidden();
+    await expect(page).toHaveURL(`/library?collection=${sky}`);
+    await expectCollectionScope(page, 'Sky');
+    await expect(entrySummary(page, 'cielo')).toBeVisible();
+    await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
     if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
   });
@@ -406,7 +594,7 @@ test.describe('web Collections', () => {
     await expect(page.getByText('No learned Vocabulary Entries in “Sky”.', { exact: true })).toBeVisible();
     await expect(page.getByText('No vocabulary entries in “Sky”.')).toHaveCount(0);
 
-    await chooseCollection(page, 'Not in a Collection');
+    await chooseFromAllCollections(page, 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     await expect(page.getByText('No learned Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
@@ -451,7 +639,7 @@ test.describe('web Collections', () => {
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
     await expect(page.getByText('No learned Vocabulary Entries in “Sky”.', { exact: true })).toBeVisible();
 
-    await chooseCollection(page, 'Not in a Collection');
+    await chooseFromAllCollections(page, 'Not in a Collection');
     await expect(page.getByText('No learned Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
     await chooseOption(page, 'Vocabulary Progress State', 'new');
     for (const row of unfiled) await expect(entrySummary(page, row.expression)).toBeVisible();
@@ -479,7 +667,7 @@ test.describe('web Collections', () => {
     await expect(page.getByRole('status').filter({ hasText: 'This Collection is empty.' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Library' }).getByRole('alert')).toHaveCount(0);
 
-    await chooseCollection(page, 'Not in a Collection');
+    await chooseFromAllCollections(page, 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(page.getByRole('heading', { name: 'Nothing outside your Collections.' })).toBeVisible();
     await expect(page.getByText('No Vocabulary Entries are outside a Collection.', { exact: true })).toBeVisible();
@@ -505,7 +693,7 @@ test.describe('web Collections', () => {
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toHaveCount(0);
 
-    await chooseCollection(page, 'Not in a Collection');
+    await chooseFromAllCollections(page, 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
 
     await page.reload();
@@ -535,7 +723,7 @@ test.describe('web Collections', () => {
     await selectLearningLanguage(page, french);
     await expectActiveLearningLanguage(page, french);
     await expect(page).toHaveURL('/library');
-    await expectCollectionScope(page, 'All vocabulary');
+    await expectWholeLibrary(page);
     await expect(entrySummary(page, 'fromage')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
     await expect(collectionCard(page, /Paris/)).toBeVisible();
@@ -568,12 +756,12 @@ test.describe('web Collections', () => {
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'cielo')).toHaveCount(0);
 
-    await chooseCollection(page, 'Not in a Collection');
+    await chooseFromAllCollections(page, 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(entrySummary(page, 'luna')).toBeVisible();
     await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
-    await chooseCollection(page, 'All vocabulary');
+    await clearCollectionScope(page);
     await expect(page).toHaveURL('/library');
     await expect(entrySummary(page, 'cielo')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
@@ -591,7 +779,7 @@ test.describe('web Collections', () => {
     await signIn(page, account);
     await page.goto(`/library?collection=${crypto.randomUUID()}`);
     await expect(page).toHaveURL('/library');
-    await expectCollectionScope(page, 'All vocabulary');
+    await expectWholeLibrary(page);
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'This Collection is empty.' })).toHaveCount(0);
@@ -623,8 +811,12 @@ test.describe('web Collections', () => {
     await signIn(page, account);
     await page.goto('/library');
     await expect(entrySummary(page, 'casa')).toBeVisible();
+    await expect(collectionCards(page)).toHaveCount(0);
+    await expect(allCollectionsChip(page)).toHaveText('All collections (0)');
 
-    await page.getByRole('button', { name: 'New Collection' }).click();
+    const allDialog = await openAllCollections(page);
+    await expect(allDialog.getByText('No Collections yet. Create one to group Vocabulary Entries.')).toBeVisible();
+    await allDialog.getByRole('button', { name: 'New Collection' }).click();
     const createDialog = page.getByRole('dialog', { name: 'Create Collection' });
     await expect(createDialog).toBeVisible();
     await createDialog.getByRole('button', { name: 'Create Collection' }).click();
@@ -646,19 +838,18 @@ test.describe('web Collections', () => {
 
     await createDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(createDialog).toBeHidden();
-    await expect(page.getByRole('button', { name: 'New Collection' })).toBeFocused();
-    await expect(collectionCards(page)).toHaveCount(2);
-    await expect(collectionCards(page).nth(0)).toContainText('All vocabulary');
-    await expect(collectionCards(page).nth(1)).toContainText('New Collection');
+    await expect(allDialog.getByRole('button', { name: 'New Collection' })).toBeFocused();
 
-    await page.getByRole('button', { name: 'New Collection' }).click();
+    await allDialog.getByRole('button', { name: 'New Collection' }).click();
     await page.getByLabel('Collection name').fill('Kitchen');
     await createDialog.getByRole('button', { name: 'Create Collection' }).click();
     await expect(createDialog).toBeHidden();
-    await expect(page.getByRole('status').filter({ hasText: 'Created the Collection “Kitchen”.' })).toBeVisible();
+    await expect(allDialog.getByRole('status').filter({ hasText: 'Created the Collection “Kitchen”.' })).toBeVisible();
 
-    await chooseCollection(page, /Kitchen/);
+    await allDialog.getByRole('button', { name: /^Kitchen/ }).click();
+    await expect(allDialog).toBeHidden();
     await expect(page).toHaveURL(/\/library\?collection=/);
+    await expect(collectionCards(page).first()).toHaveAccessibleName('Kitchen');
     await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
 
     if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
@@ -673,7 +864,12 @@ test.describe('web Collections', () => {
     await page.goto('/library');
     await expect(entrySummary(page, 'teclado')).toBeVisible();
 
-    await page.getByRole('button', { name: 'New Collection' }).focus();
+    await allCollectionsChip(page).focus();
+    await page.keyboard.press('Enter');
+    const allDialog = allCollectionsDialog(page);
+    await expect(allDialog.getByLabel('Search Collections')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(allDialog.getByRole('button', { name: 'New Collection' })).toBeFocused();
     await page.keyboard.press('Enter');
     const createDialog = page.getByRole('dialog', { name: 'Create Collection' });
     await expect(createDialog).toBeVisible();
@@ -681,9 +877,11 @@ test.describe('web Collections', () => {
     await page.keyboard.type('Keyboard set');
     await page.keyboard.press('Enter');
     await expect(createDialog).toBeHidden();
-    await expect(page.getByRole('status').filter({ hasText: 'Created the Collection “Keyboard set”.' })).toBeVisible();
+    await expect(allDialog.getByRole('status').filter({ hasText: 'Created the Collection “Keyboard set”.' })).toBeVisible();
 
-    await chooseCollection(page, /Keyboard set/);
+    await allDialog.getByRole('button', { name: /^Keyboard set/ }).focus();
+    await page.keyboard.press('Enter');
+    await expect(allDialog).toBeHidden();
     await expect(page).toHaveURL(/\/library\?collection=/);
     await expect(page.getByText('Filtered by Keyboard set')).toBeVisible();
 
@@ -787,7 +985,7 @@ test.describe('web Collections', () => {
     await deleteDialog.getByRole('button', { name: 'Delete Collection' }).click();
     await expect(page).toHaveURL('/library');
     await expect(page.getByRole('status').filter({ hasText: 'Deleted the Collection “Kitchen”. Its Vocabulary Entries are still in your Library.' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'New Collection' })).toBeFocused();
+    await expect(allCollectionsChip(page)).toBeFocused();
     await expect(page.getByText('Filtered by Kitchen')).toHaveCount(0);
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
@@ -803,10 +1001,12 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await page.getByRole('button', { name: 'New Collection' }).click();
+    const allDialog = await openAllCollections(page);
+    await allDialog.getByRole('button', { name: 'New Collection' }).click();
     await page.getByLabel('Collection name').fill('Private shelf');
     await page.getByRole('dialog', { name: 'Create Collection' }).getByRole('button', { name: 'Create Collection' }).click();
-    await chooseCollection(page, /Private shelf/);
+    await allDialog.getByRole('button', { name: /^Private shelf/ }).click();
+    await expect(allDialog).toBeHidden();
     await expect(page.getByText('Filtered by Private shelf')).toBeVisible();
 
     const { data: snapshot, error } = await client.rpc('account_learning_snapshot');
@@ -869,7 +1069,6 @@ test.describe('web Collections', () => {
     await expect(page.getByText('You are offline. Vocabulary changes require a connection.', { exact: true })).toHaveCount(0);
     await expect(page.getByText('You are offline. Collection changes require a connection.', { exact: true })).toHaveCount(0);
     const collectionControls = [
-      page.getByRole('button', { name: 'New Collection' }),
       page.getByRole('button', { name: 'Rename Kitchen' }),
       page.getByRole('button', { name: 'Delete Kitchen' }),
     ];
@@ -881,8 +1080,27 @@ test.describe('web Collections', () => {
     }
     await assertNoHorizontalOverflow(page);
 
+    const allDialog = await openAllCollections(page);
+    const modalNotice = allDialog.getByText('You are offline. Collection changes require a connection.', { exact: true });
+    await expect(modalNotice).toBeVisible();
+    const modalControls = [
+      allDialog.getByRole('button', { name: 'New Collection' }),
+      allDialog.getByRole('button', { name: 'More actions for Kitchen' }),
+    ];
+    for (const control of modalControls) {
+      await expect(control).toBeDisabled();
+      const describedBy = await control.getAttribute('aria-describedby');
+      expect(describedBy).toBe('all-collections-offline-notice');
+      await expect(page.locator(`#${describedBy}`)).toHaveText('You are offline. Collection changes require a connection.');
+    }
+    await expect(allDialog.getByRole('button', { name: /^Kitchen/ })).toBeEnabled();
+    await assertNoHorizontalOverflow(page);
+
     await page.context().setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    for (const control of modalControls) await expect(control).toBeEnabled();
+    await expect(modalNotice).toHaveCount(0);
+    await allDialog.getByRole('button', { name: 'Close' }).click();
     for (const control of collectionControls) await expect(control).toBeEnabled();
     await expect(offlineNotice).toHaveCount(0);
   });
@@ -1317,7 +1535,7 @@ test.describe('web Collections', () => {
     await expect(page).toHaveURL(`/library?collection=${places}`);
     await expect(page.getByRole('heading', { name: 'This Collection is empty.' })).toBeVisible();
 
-    await chooseCollection(page, 'All vocabulary');
+    await clearCollectionScope(page);
     await expect(page).toHaveURL('/library');
     await expect(entrySummary(page, 'hola')).toBeVisible();
     await expect(entrySummary(page, 'adios')).toBeVisible();

@@ -54,16 +54,26 @@ async function learningLanguages(client: Awaited<ReturnType<typeof register>>['c
 }
 
 async function createCollection(page: Page, name: string) {
-  await page.getByRole('button', { name: 'New Collection' }).click();
+  await page.locator('[data-ui="collection-shelf"]').getByRole('button', { name: /^All collections/ }).click();
+  const allCollections = page.getByRole('dialog', { name: 'All collections' });
+  await allCollections.getByRole('button', { name: 'New Collection' }).click();
   const dialog = page.getByRole('dialog', { name: 'Create Collection' });
   await page.getByLabel('Collection name').fill(name);
   await dialog.getByRole('button', { name: 'Create Collection' }).click();
   await expect(dialog).toBeHidden();
+  await allCollections.getByRole('button', { name: 'Close' }).click();
+  await expect(allCollections).toBeHidden();
 }
 
 async function selectCollectionScope(page: Page, name: string | RegExp) {
-  const card = page.locator('[data-ui="collection-shelf"]').getByRole('button', { name });
-  await card.click();
+  const shelf = page.locator('[data-ui="collection-shelf"]');
+  const card = shelf.getByRole('button', { name });
+  if (await card.count() === 0) {
+    await shelf.getByRole('button', { name: /^All collections/ }).click();
+    await page.getByRole('dialog', { name: 'All collections' }).getByRole('button', { name }).first().click();
+  } else {
+    await card.click();
+  }
   await expect(card).toHaveAttribute('aria-pressed', 'true');
 }
 
@@ -470,7 +480,7 @@ test.describe('web Library data lifetime', () => {
     const libraryRequests = trackLibraryRequests(page);
     libraryRequests.reset();
 
-    await page.locator('[data-ui="collection-shelf"]').getByRole('button', { name: 'All vocabulary' }).click();
+    await page.locator('[data-ui="collection-shelf"]').getByRole('button', { pressed: true }).click();
     await expect(page).toHaveURL('/library');
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
     await expect(page.locator('summary').filter({ hasText: 'perro' })).toBeVisible();
