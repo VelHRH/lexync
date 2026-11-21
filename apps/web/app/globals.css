@@ -511,7 +511,6 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-progress-badge[data-state='learned']::before { background: var(--web-primary); }
 .vocabulary-progress-badge[data-state='in-practice']::before { background: var(--web-brand-deep); }
 .vocabulary-progress-badge[data-state='new']::before { background: var(--web-skeleton); }
-.badge { padding: .2rem .6rem; border: var(--lexync-border-hairline) solid var(--lexync-color-warning); border-radius: var(--lexync-radius-pill); background: var(--lexync-color-warning-surface); color: var(--lexync-color-warning); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); letter-spacing: var(--lexync-type-tracking-wide); text-transform: uppercase; }
 .vocabulary-entry > div { padding: 0 1.15rem 1.15rem; }
 .vocabulary-sense { margin: 0; padding-top: var(--lexync-space-4); }
 .vocabulary-sense + .vocabulary-sense { padding-top: var(--lexync-space-5); }
