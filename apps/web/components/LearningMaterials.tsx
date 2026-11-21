@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { ActionsMenu } from './ActionsMenu';
 import { learningMaterialMessages, MAX_LEARNING_MATERIAL_BYTES } from '../lib/learning-materials/validation';
 import { supabase } from '../lib/supabase';
 
@@ -391,82 +392,19 @@ type MaterialActionsMenuProps = {
 };
 
 function MaterialActionsMenu({ material, open, disabled, canRetry, canDelete, onOpenChange, onRetry, onDelete }: MaterialActionsMenuProps) {
-  const menuId = useId();
-  const container = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const items = useRef<(HTMLButtonElement | null)[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const showRetry = material.status === 'failed';
   const actions = [
-    ...(showRetry ? [{ key: 'retry', label: 'Retry', danger: false, disabled: !canRetry }] : []),
+    ...(material.status === 'failed' ? [{ key: 'retry', label: 'Retry', disabled: !canRetry }] : []),
     { key: 'delete', label: 'Delete', danger: true, disabled: !canDelete },
   ];
-  const expanded = open && !disabled;
 
-  useEffect(() => {
-    if (!expanded) return;
-    const closeOnOutside = (event: PointerEvent) => {
-      if (!container.current?.contains(event.target as Node)) onOpenChange(false);
-    };
-    document.addEventListener('pointerdown', closeOnOutside);
-    return () => document.removeEventListener('pointerdown', closeOnOutside);
-  }, [expanded, onOpenChange]);
-
-  useEffect(() => {
-    if (expanded) items.current[activeIndex]?.focus();
-  }, [activeIndex, expanded]);
-
-  function show(index: number) {
-    setActiveIndex(index);
-    onOpenChange(true);
-  }
-
-  function close(restoreFocus: boolean) {
-    onOpenChange(false);
-    if (restoreFocus) queueMicrotask(() => trigger.current?.focus());
-  }
-
-  function runAction(key: string) {
-    if (actions.find((action) => action.key === key)?.disabled) return;
+  function runAction(key: string, trigger: HTMLButtonElement | null) {
     if (key === 'retry') {
-      close(true);
+      queueMicrotask(() => trigger?.focus());
       onRetry();
       return;
     }
-    close(false);
-    onDelete(trigger.current);
+    onDelete(trigger);
   }
 
-  function triggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      show(0);
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      show(actions.length - 1);
-    }
-  }
-
-  function menuKeyDown(event: KeyboardEvent<HTMLUListElement>) {
-    const last = actions.length - 1;
-    if (event.key === 'ArrowDown') setActiveIndex((index) => index === last ? 0 : index + 1);
-    else if (event.key === 'ArrowUp') setActiveIndex((index) => index === 0 ? last : index - 1);
-    else if (event.key === 'Home') setActiveIndex(0);
-    else if (event.key === 'End') setActiveIndex(last);
-    else if (event.key === 'Escape') close(true);
-    else if (event.key === 'Tab') { onOpenChange(false); return; }
-    else return;
-    event.preventDefault();
-  }
-
-  return <div className="learning-material-menu" ref={container}>
-    <button ref={trigger} className="learning-material-menu-trigger" type="button" aria-label={`More actions for ${material.fileName}`} aria-haspopup="menu" aria-expanded={expanded} aria-controls={expanded ? menuId : undefined} disabled={disabled} onClick={() => expanded ? close(false) : show(0)} onKeyDown={triggerKeyDown}>
-      <svg aria-hidden="true" fill="currentColor" focusable="false" height="20" viewBox="0 0 24 24" width="20"><circle cx="5.5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="18.5" cy="12" r="1.6" /></svg>
-    </button>
-    {expanded && <ul className="learning-material-menu-list" id={menuId} role="menu" aria-label={`Actions for ${material.fileName}`} onKeyDown={menuKeyDown}>
-      {actions.map((action, index) => <li key={action.label} role="none">
-        <button ref={(element) => { items.current[index] = element; }} className={action.danger ? 'learning-material-menu-item danger' : 'learning-material-menu-item'} type="button" role="menuitem" tabIndex={index === activeIndex ? 0 : -1} aria-disabled={action.disabled || undefined} onClick={() => runAction(action.key)}>{action.label}</button>
-      </li>)}
-    </ul>}
-  </div>;
+  return <ActionsMenu triggerLabel={`More actions for ${material.fileName}`} menuLabel={`Actions for ${material.fileName}`} actions={actions} open={open} disabled={disabled} onOpenChange={onOpenChange} onAction={runAction} />;
 }
