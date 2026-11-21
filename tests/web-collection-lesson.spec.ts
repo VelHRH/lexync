@@ -650,7 +650,7 @@ test.describe('web Collection Lesson', () => {
     await expect(practiceReason(page)).toHaveText('Add 5 more Vocabulary Entries to practise this Collection.');
     await page.goto(`/library?collection=${ineligibleCollectionId}`);
     await expect(collectionFilter(page).getByText('Filtered by Office')).toBeVisible();
-    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Resume suspended Vocabulary Entries or add translations to practise it.');
+    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Add translations to practise it.');
   });
 
   test('shows no Collection scope label for a whole-library Lesson', async ({ page }) => {
