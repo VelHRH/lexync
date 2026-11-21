@@ -381,7 +381,7 @@ test.describe('web Collection Lesson', () => {
   });
 
   test('caps the Collection Lesson at the eligible Sense count inside the Collection', async ({ page }) => {
-    const fixture = await seedTravelCollection('collection-lesson-question-cap', travelVocabulary.slice(0, 9), kitchenVocabulary.slice(0, 5));
+    const fixture = await seedTravelCollection('collection-lesson-question-cap', travelVocabulary.slice(0, 8), kitchenVocabulary.slice(0, 5));
     const eligibleSenseCount = fixture.captured.length;
     await signIn(page, fixture.account);
     await openCollectionByUrl(page, fixture.collectionId);
