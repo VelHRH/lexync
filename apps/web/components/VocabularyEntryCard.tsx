@@ -9,7 +9,7 @@ export function membershipChangeKey(member: boolean, collection: Collection, ent
   return `${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`;
 }
 
-export function VocabularyEntryCard({ entry, editor, selecting, selected, filing, memberCollections, otherCollections, changingMembership, online, offlineReason, onSelectClick, onSelectChange, onChangeMembership, onEdit, onToggleSuspended, onDelete, onClipChanged }: {
+export function VocabularyEntryCard({ entry, editor, selecting, selected, filing, memberCollections, otherCollections, changingMembership, online, offlineReason, onSelectClick, onSelectChange, onChangeMembership, onEdit, onDelete, onClipChanged }: {
   entry: LibraryEntry;
   editor: ReactNode;
   selecting: boolean;
@@ -24,7 +24,6 @@ export function VocabularyEntryCard({ entry, editor, selecting, selected, filing
   onSelectChange: (selected: boolean) => void;
   onChangeMembership: (collection: Collection, member: boolean) => void;
   onEdit: () => void;
-  onToggleSuspended: () => void;
   onDelete: () => void;
   onClipChanged: () => void;
 }) {
@@ -34,7 +33,7 @@ export function VocabularyEntryCard({ entry, editor, selecting, selected, filing
   }
 
   return (
-    <article className={`vocabulary-entry-item${entry.suspended ? ' suspended' : ''}`} data-selected={selected} data-has-clip={entry.audioClipPath ? 'true' : undefined}>
+    <article className="vocabulary-entry-item" data-selected={selected} data-has-clip={entry.audioClipPath ? 'true' : undefined}>
       {selecting && <label className="vocabulary-entry-select">
         <input
           type="checkbox"
@@ -54,10 +53,8 @@ export function VocabularyEntryCard({ entry, editor, selecting, selected, filing
             <span className="vocabulary-entry-gloss">{entry.senses.flatMap((sense) => sense.translations.map((item) => item.text)).join(' · ') || 'No translation yet'}</span>
           </span>
           <span className="vocabulary-entry-marks">
-            {entry.suspended
-              ? <span className="vocabulary-status-badge">Suspended</span>
-              : entry.progressState && <span className="vocabulary-progress-badge" data-ui="entry-progress-state" data-state={entry.progressState}>{PROGRESS_STATE_LABELS[entry.progressState]}</span>}
-            {!entry.suspended && entry.senses.length > 1 && <span className="surface-tally">{entry.senses.length}</span>}
+            {entry.progressState && <span className="vocabulary-progress-badge" data-ui="entry-progress-state" data-state={entry.progressState}>{PROGRESS_STATE_LABELS[entry.progressState]}</span>}
+            {entry.senses.length > 1 && <span className="surface-tally">{entry.senses.length}</span>}
           </span>
         </summary>
         <div>
@@ -83,7 +80,6 @@ export function VocabularyEntryCard({ entry, editor, selecting, selected, filing
           <div className="vocabulary-entry-actions">
             <div className="vocabulary-entry-actions-main">
               <button className="secondary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={onEdit}>Edit</button>
-              <button className="inline-button" type="button" aria-label={`${entry.suspended ? 'Resume' : 'Suspend'} ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={onToggleSuspended}>{entry.suspended ? 'Resume' : 'Suspend'}</button>
             </div>
             <button className="inline-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={onDelete}>Delete</button>
           </div>

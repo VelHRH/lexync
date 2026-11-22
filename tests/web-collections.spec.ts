@@ -292,7 +292,7 @@ test.describe('web Collections', () => {
     expect((await casaEntry.getByRole('heading', { name: 'Sense 1' }).boundingBox())!.height).toBeLessThanOrEqual(2);
     await expect(casaEntry.getByText(/^house\s+en$/)).toBeVisible();
     await expect(casaEntry.getByText('La casa es grande.', { exact: true })).toBeVisible();
-    await expect(casaEntry.getByRole('button', { name: 'Suspend casa' })).toBeVisible();
+    await expect(casaEntry.getByRole('button', { name: 'Edit casa' })).toBeVisible();
 
     await chooseFromAllCollections(page, 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
@@ -552,7 +552,7 @@ test.describe('web Collections', () => {
     if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
   });
 
-  test('composes search and the status filter with the Collection scope', async ({ page }) => {
+  test('composes search and the Vocabulary Progress State filter with the Collection scope', async ({ page }) => {
     const account = credentials('web-collection-scope-compose');
     const { client, pairIds } = await register(account);
     const casa = await createEntry(client, pairIds[0], 'casa', 'house');
@@ -568,22 +568,12 @@ test.describe('web Collections', () => {
 
     await signIn(page, account);
     await page.goto('/library');
-    await entrySummary(page, 'sol').click();
-    await page.getByRole('button', { name: 'Suspend sol' }).click();
-    await expect(page.getByText('Suspended', { exact: true })).toBeVisible();
 
     await chooseCollection(page, /Places/);
     await expect(page).toHaveURL(`/library?collection=${places}`);
-
-    await chooseOption(page, 'Vocabulary status', 'active');
     await expect(entrySummary(page, 'casa')).toBeVisible();
-    await expect(entrySummary(page, 'sol')).toHaveCount(0);
-
-    await chooseOption(page, 'Vocabulary status', 'suspended');
     await expect(entrySummary(page, 'sol')).toBeVisible();
-    await expect(entrySummary(page, 'casa')).toHaveCount(0);
 
-    await chooseOption(page, 'Vocabulary status', 'all');
     await page.getByLabel('Search vocabulary').fill('cas');
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'sol')).toHaveCount(0);
@@ -597,17 +587,17 @@ test.describe('web Collections', () => {
     await expectCollectionScope(page, 'Places');
 
     await page.getByLabel('Search vocabulary').fill('');
-    await chooseOption(page, 'Vocabulary status', 'suspended');
+    await chooseOption(page, 'Vocabulary Progress State', 'learned');
     await chooseCollection(page, /Sky/);
     await expect(page).toHaveURL(`/library?collection=${sky}`);
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
-    await expect(page.getByText('No suspended Vocabulary Entries in “Sky”.', { exact: true })).toBeVisible();
+    await expect(page.getByText('No learned Vocabulary Entries in “Sky”.', { exact: true })).toBeVisible();
     await expect(page.getByText('No vocabulary entries in “Sky”.')).toHaveCount(0);
 
     await chooseFromAllCollections(page, 'Not in a Collection');
     await expect(page).toHaveURL('/library?collection=none');
     await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
-    await expect(page.getByText('No suspended Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
+    await expect(page.getByText('No learned Vocabulary Entries outside a Collection.', { exact: true })).toBeVisible();
     await expect(page.getByText('No Vocabulary Entries are outside a Collection.')).toHaveCount(0);
   });
 

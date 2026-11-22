@@ -203,16 +203,13 @@ test.describe('web Lesson history', () => {
     await expect(stats.getByText('chat', { exact: true })).toHaveCount(0);
   });
 
-  test('preserves suspended history, removes deleted details, recomputes summaries, and isolates learners', async ({ page, browser }) => {
+  test('preserves surviving history, removes deleted details, recomputes summaries, and isolates learners', async ({ page, browser }) => {
     const fixture = await seedEntries('lesson-history-lifecycle', vocabulary.slice(0, 3));
     await signIn(page, fixture.account);
     await startLesson(page);
     await completeLesson(page);
     await lessonShell(page).getByRole('button', { name: 'Back to Lessons' }).click();
-    const suspendedId = await bridgeEntryId(fixture.client, fixture.captured[0].vocabularyEntryId);
     const deletedId = await bridgeEntryId(fixture.client, fixture.captured[1].vocabularyEntryId);
-    const { error: suspensionError } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_vocabulary_entry_id: suspendedId, p_suspended: true });
-    if (suspensionError) throw suspensionError;
     const { error: deletionError } = await fixture.client.rpc('delete_vocabulary_entry', { p_vocabulary_entry_id: deletedId });
     if (deletionError) throw deletionError;
     await openHistory(page);

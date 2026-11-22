@@ -90,8 +90,7 @@ select is((select count(*) from public.cards), 8::bigint, 'each Sense and Answer
 select is((select count(distinct (sense_id, answer_language_tag, direction)) from public.cards), 8::bigint, 'Card identity includes Sense, Answer Language, and direction');
 select is((select count(*) from public.review_participations), 0::bigint, 'expansion does not invent historical participation records');
 
-select public.set_vocabulary_entry_suspended((select id from public.vocabulary_entries where learner_id = '79797979-7979-7979-7979-797979797979' limit 1), true);
-select is((select suspended from public.learning_vocabulary_entries where learner_id = '79797979-7979-7979-7979-797979797979'), true, 'canonical suspension follows compatibility writes');
+select ok(not jsonb_path_exists(public.account_learning_snapshot(), '$.learningLanguages[*].vocabularyEntries[*] ? (!(@.suspended == false))'), 'the Learning Language snapshot reports every Vocabulary Entry as not suspended');
 
 select is(public.account_learning_snapshot()->>'schemaVersion', '2', 'the Learning Language snapshot identifies its schema version');
 select is(jsonb_array_length(public.account_learning_snapshot()->'learningLanguages'), 2, 'the new snapshot exposes Learning Languages');
@@ -115,7 +114,6 @@ select ok(
   'legacy Study Pair snapshots hide other Answer Languages'
 );
 
-select public.set_vocabulary_entry_suspended((select id from public.vocabulary_entries where learner_id = '79797979-7979-7979-7979-797979797979' and suspended limit 1), false);
 select ok(
   not jsonb_path_exists(public.account_learning_snapshot(), '$.cards[*].events')
     and not jsonb_path_exists(public.account_learning_snapshot(), '$.cards[*].rating')

@@ -155,11 +155,10 @@ from generate_series(1, 8) as entry_ordinal;
 
 select public.capture_manual_entry(
   (select id from public.study_pairs where learner_id = auth.uid() and target_language_tag = 'es'),
-  'readinessSuspended' || entry_ordinal,
-  'readinessSuspendedTranslation' || entry_ordinal,
+  'readinessSolitary',
+  'readinessSolitaryTranslation',
   null
-)
-from generate_series(1, 8) as entry_ordinal;
+);
 
 select set_config(
   'test.readiness_practicable_collection_id',
@@ -186,13 +185,7 @@ select public.add_collection_membership(
 )
 from public.learning_vocabulary_entries
 where learning_vocabulary_entries.learner_id = auth.uid()
-  and learning_vocabulary_entries.expression like 'readinessSuspended%';
-
-select public.set_vocabulary_entry_suspended(vocabulary_entries.id, true)
-from public.vocabulary_entries
-where vocabulary_entries.learner_id = auth.uid()
-  and vocabulary_entries.expression like 'readinessSuspended%'
-  and vocabulary_entries.expression <> 'readinessSuspended1';
+  and learning_vocabulary_entries.expression = 'readinessSolitary';
 
 select is(
   (public.collection_practice_readiness('11810000-0000-0000-0000-000000000001')->>'minimum_entries')::integer,
@@ -223,8 +216,8 @@ select is(
     from jsonb_array_elements(public.collection_practice_readiness('11810000-0000-0000-0000-000000000001')->'collections') as item
     where item->>'collection_id' = current_setting('test.readiness_not_practicable_collection_id')
   ),
-  8::bigint,
-  'a Collection with suspended Entries still reports its raw Entry count'
+  1::bigint,
+  'a Collection below the minimum reports its raw Entry count'
 );
 select ok(
   (

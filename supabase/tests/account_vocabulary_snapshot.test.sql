@@ -56,12 +56,12 @@ select ok(
   'the snapshot contains private Examples'
 );
 
-update public.vocabulary_entries set suspended = true;
-
-select is(
-  (public.account_vocabulary_snapshot()->'studyPairs'->0->'vocabularyEntries'->0->>'suspended')::boolean,
-  true,
-  'the snapshot contains suspension state'
+select ok(
+  not jsonb_path_exists(
+    public.account_vocabulary_snapshot(),
+    '$.studyPairs[*].vocabularyEntries[*] ? (!(@.suspended == false))'
+  ),
+  'the snapshot reports every Vocabulary Entry as not suspended'
 );
 
 select set_config('request.jwt.claim.sub', '99999999-9999-9999-9999-999999999999', true);

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
-import { PROGRESS_STATE_COPY, defaultVocabulary, fileEntry, practiceStreaks, practiseToMixedStates, seedCollection, seedEntries, stateOf, statesOf, suspendEntry } from './support/vocabulary-progress';
+import { PROGRESS_STATE_COPY, defaultVocabulary, fileEntry, practiceStreaks, practiseToMixedStates, seedCollection, seedEntries, stateOf, statesOf } from './support/vocabulary-progress';
 import { chooseOption, expectSelectValue, themedSelect } from './support/select';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -148,9 +148,7 @@ test.describe('web Vocabulary Entry library', () => {
     const account = credentials('web-discovery');
     const { client, pair } = await registerWithPair(account);
     await createEntry(client, pair.id, 'casa', 'house');
-    const suspended = await createEntry(client, pair.id, 'nube', 'cloud');
-    const { error: suspensionError } = await client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: suspended.vocabularyEntryId });
-    if (suspensionError) throw suspensionError;
+    await createEntry(client, pair.id, 'nube', 'cloud');
     const { data: otherPair, error: pairError } = await client.rpc('create_study_pair', { p_target_language_tag: 'it', p_reference_language_tag: 'en' });
     if (pairError) throw pairError;
     await createEntry(client, (otherPair as { id: string }).id, 'casa italiana', 'Italian house');
@@ -162,26 +160,18 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(page.getByText('casa italiana', { exact: true })).toHaveCount(0);
     await page.getByRole('searchbox', { name: 'Search vocabulary' }).fill('nube');
     await expect(page.locator('summary').filter({ hasText: 'nube' })).toBeVisible();
-    await expect(page.getByText('Suspended', { exact: true })).toBeVisible();
-    await chooseOption(page, 'Vocabulary status', 'active');
-    await expect(page.getByText('No active Vocabulary Entries match “nube”.')).toBeVisible();
+    await expect(page.locator('summary').filter({ hasText: 'casa' })).toHaveCount(0);
+    await expect(page.getByText('Vocabulary status', { exact: true })).toHaveCount(0);
     await page.getByRole('searchbox', { name: 'Search vocabulary' }).fill('');
     await expect(page.locator('summary').filter({ hasText: 'casa' })).toBeVisible();
-    await expect(page.getByText('nube', { exact: true })).toHaveCount(0);
-    await chooseOption(page, 'Vocabulary status', 'suspended');
     await expect(page.locator('summary').filter({ hasText: 'nube' })).toBeVisible();
-    await expect(page.getByText('casa', { exact: true })).toHaveCount(0);
     const { data: languages, error: languagesError } = await client.from('learning_languages').select('id,language_tag');
     if (languagesError) throw languagesError;
     const italian = languages?.find((language) => language.language_tag === 'it');
     if (!italian) throw new Error('The Italian Learning Language fixture is missing.');
     await selectLearningLanguage(page, italian.id);
-    await expectSelectValue(page, 'Vocabulary status', 'all');
-    await chooseOption(page, 'Vocabulary status', 'suspended');
-    await expectSelectValue(page, 'Vocabulary status', 'suspended');
-    await expect(page.getByText('No suspended Vocabulary Entries yet.')).toBeVisible();
-    await chooseOption(page, 'Vocabulary status', 'all');
     await expect(page.locator('summary').filter({ hasText: 'casa italiana' })).toBeVisible();
+    await expect(page.locator('summary').filter({ hasText: 'nube' })).toHaveCount(0);
     if (test.info().project.name === 'web-vocabulary-mobile') {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     }
@@ -250,58 +240,13 @@ test.describe('web Vocabulary Entry library', () => {
 
     await chooseOption(page, 'Vocabulary Progress State', 'all');
     await expect(page.locator('[data-ui="entry-progress-state"]')).toHaveCount(entries.length);
-
-    await chooseOption(page, 'Vocabulary status', 'suspended');
-    await chooseOption(page, 'Vocabulary Progress State', 'learned');
-    await expect(page.getByRole('heading', { name: 'Nothing here right now.' })).toBeVisible();
-    await expect(page.getByText('A suspended Vocabulary Entry carries no Vocabulary Progress State. Resume it to see where it stands.', { exact: true })).toBeVisible();
     if (test.info().project.name === 'web-vocabulary-mobile') {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     }
   });
 
-  test('leaves a suspended word out of the Vocabulary Progress States the plaque and the progress surface report', async ({ page }) => {
-    const account = credentials('web-progress-suspension');
-    const { client } = await registerWithPair(account);
-    const learningLanguageId = await learningLanguageIdFor(client, 'es');
-    const entries = await seedEntries(client, learningLanguageId);
-    const travel = await seedCollection(client, learningLanguageId, 'Travel');
-    for (const entry of entries.slice(0, 8)) await fileEntry(client, travel, entry.vocabularyEntryId);
-    await practiseToMixedStates(client, learningLanguageId, travel);
-    const streaks = await practiceStreaks(client);
-    const [withheld] = entries;
-    const withheldExpression = defaultVocabulary[0][0];
-    await suspendEntry(client, withheld.vocabularyEntryId);
-
-    await signIn(page, account);
-    await page.goto('/library');
-    const withheldRow = expandedEntry(page, withheldExpression);
-    await expect(withheldRow.getByText('Suspended', { exact: true })).toBeVisible();
-    await expect(withheldRow.locator('[data-ui="entry-progress-state"]')).toHaveCount(0);
-
-    const counted = new Map<string, number>();
-    for (const state of ['learned', 'in-practice', 'new'] as const) {
-      counted.set(state, await page.locator(`[data-ui="entry-progress-state"][data-state="${state}"]`).count());
-    }
-
-    await page.goto('/progress');
-    const surface = page.locator('[data-ui="vocabulary-progress-library"]');
-    for (const state of ['learned', 'in-practice', 'new'] as const) {
-      await expect(surface.locator(`[data-state="${state}"] dd`)).toHaveText(String(counted.get(state)));
-    }
-
-    await page.goto('/');
-    await expect(page.locator('[data-ui="vocabulary-progress-plaque"]')).toContainText(`${counted.get('learned')} of ${entries.length - 1} learned`);
-
-    await page.goto('/library');
-    await expandEntry(page, withheldExpression);
-    await page.getByRole('button', { name: `Resume ${withheldExpression}` }).click();
-    await expect(page.getByRole('status').filter({ hasText: `${withheldExpression} is active.` })).toBeVisible();
-    await expect(progressState(page, withheldExpression)).toHaveText(PROGRESS_STATE_COPY[stateOf(withheld, streaks)]);
-  });
-
-  test('suspends and resumes an Entry without losing its details', async ({ page }) => {
-    const account = credentials('web-suspension');
+  test('shows an Entry with its details and no Suspend or Resume action', async ({ page }) => {
+    const account = credentials('web-no-suspension');
     const { client, pair } = await registerWithPair(account);
     await createEntry(client, pair.id, 'descubrir', 'to discover', 'Quiero descubrir la ciudad.');
     await signIn(page, account);
@@ -312,19 +257,10 @@ test.describe('web Vocabulary Entry library', () => {
     const entry = summary.locator('..');
     await expect(entry.getByText(/^to discover en$/)).toBeVisible();
     await expect(entry.getByText('Quiero descubrir la ciudad.')).toBeVisible();
-    const suspend = page.getByRole('button', { name: 'Suspend descubrir' });
-    await suspend.focus();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('status').filter({ hasText: 'descubrir is suspended.' })).toBeVisible();
-    await expect(page.getByText('Suspended', { exact: true })).toBeVisible();
-    await expect(entry.getByText(/^to discover en$/)).toBeVisible();
-    await expect(entry.getByText('Quiero descubrir la ciudad.')).toBeVisible();
-    const resume = page.getByRole('button', { name: 'Resume descubrir' });
-    await resume.focus();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('status').filter({ hasText: 'descubrir is active.' })).toBeVisible();
+    await expect(entry.getByRole('button', { name: 'Edit descubrir' })).toBeVisible();
+    await expect(entry.getByRole('button', { name: 'Suspend descubrir' })).toHaveCount(0);
+    await expect(entry.getByRole('button', { name: 'Resume descubrir' })).toHaveCount(0);
     await expect(page.getByText('Suspended', { exact: true })).toHaveCount(0);
-    await expect(entry.getByText(/^to discover en$/)).toBeVisible();
   });
 
   test('keeps an open Add Vocabulary draft through rerenders and tab switches', async ({ page }) => {
@@ -338,9 +274,9 @@ test.describe('web Vocabulary Entry library', () => {
     await page.getByLabel('Translation', { exact: true }).fill('to discover');
     await page.getByLabel('Example (optional)', { exact: true }).fill('Quiero descubrir la ciudad.');
 
-    await themedSelect(page, 'Vocabulary status').dispatchEvent('click');
-    await page.locator('#vocabulary-status-listbox [role="option"][data-value="active"]').dispatchEvent('click');
-    await expectSelectValue(page, 'Vocabulary status', 'active');
+    await themedSelect(page, 'Vocabulary Progress State').dispatchEvent('click');
+    await page.locator('#vocabulary-progress-state-listbox [role="option"][data-value="new"]').dispatchEvent('click');
+    await expectSelectValue(page, 'Vocabulary Progress State', 'new');
 
     const secondPage = await page.context().newPage();
     await secondPage.goto('/');
@@ -595,8 +531,6 @@ test.describe('web Vocabulary Entry library', () => {
     await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Edit teclado nuevo' })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'Suspend teclado nuevo' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Delete teclado nuevo' })).toBeFocused();
     await page.keyboard.press('Enter');
@@ -1325,17 +1259,16 @@ test.describe('web Vocabulary Entry library', () => {
       await expect(entry.getByRole('button', { name: `Remove casa from ${collection}` })).toBeVisible();
     }
 
-    for (const action of ['Edit casa', 'Suspend casa', 'Delete casa']) {
+    for (const action of ['Edit casa', 'Delete casa']) {
       await expect(entry.getByRole('button', { name: action })).toBeVisible();
     }
-    const weights = await entry.evaluate((node) => ['Edit', 'Suspend', 'Delete'].map((action) => {
+    const weights = await entry.evaluate((node) => ['Edit', 'Delete'].map((action) => {
       const control = [...node.querySelectorAll('.vocabulary-entry-actions button')].find((button) => button.textContent?.trim() === action)!;
       const style = getComputedStyle(control);
       return { action, background: style.backgroundColor, border: style.borderTopColor, borderWidth: Number.parseFloat(style.borderTopWidth) };
     }));
-    const [edit, suspend, remove] = weights;
+    const [edit, remove] = weights;
     expect(edit.background, 'Edit is the one filled action').not.toBe('rgba(0, 0, 0, 0)');
-    expect(suspend.background, 'Suspend recedes to transparent').toBe('rgba(0, 0, 0, 0)');
     expect(remove.background, 'Delete recedes to transparent').toBe('rgba(0, 0, 0, 0)');
     expect(remove.border, 'Delete no longer carries the loudest edge on the card').toBe('rgba(0, 0, 0, 0)');
   });

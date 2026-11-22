@@ -499,8 +499,6 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-entry-select-mark { width: .7rem; height: .35rem; border-left: var(--lexync-border-thick) solid var(--lexync-color-white); border-bottom: var(--lexync-border-thick) solid var(--lexync-color-white); opacity: 0; transform: translateY(-.08rem) rotate(-45deg); pointer-events: none; transition: opacity var(--web-state); }
 .vocabulary-entry-select input:checked ~ .vocabulary-entry-select-mark { opacity: 1; }
 .vocabulary-entry-select input:disabled:checked ~ .vocabulary-entry-select-mark { border-left-color: var(--web-muted); border-bottom-color: var(--web-muted); }
-.vocabulary-entry-item.suspended .vocabulary-entry { border-color: var(--web-muted); background: var(--web-dim); box-shadow: var(--lexync-elevation-none); }
-.vocabulary-entry-item.suspended summary > span:first-child, .vocabulary-entry-item.suspended .vocabulary-sense { color: var(--web-muted); }
 .vocabulary-entry summary { display: flex; align-items: flex-start; justify-content: flex-start; gap: .85rem; padding: 1rem 1.15rem; color: var(--web-ink); font-family: var(--lexync-type-family-display); font-size: var(--lexync-type-size-xl); font-weight: var(--lexync-type-weight-semibold); letter-spacing: var(--lexync-type-tracking-tight); line-height: var(--lexync-type-line-tight); cursor: pointer; }
 .vocabulary-entry[open] summary { border-bottom: var(--lexync-border-regular) solid var(--web-quiet); }
 .vocabulary-entry summary::marker, .vocabulary-entry summary::-webkit-details-marker { content: ''; display: none; }
@@ -515,7 +513,6 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-progress-badge[data-state='learned']::before { background: var(--web-primary); }
 .vocabulary-progress-badge[data-state='in-practice']::before { background: var(--web-brand-deep); }
 .vocabulary-progress-badge[data-state='new']::before { background: var(--web-skeleton); }
-.vocabulary-status-badge, .badge { padding: .2rem .6rem; border: var(--lexync-border-hairline) solid var(--lexync-color-warning); border-radius: var(--lexync-radius-pill); background: var(--lexync-color-warning-surface); color: var(--lexync-color-warning); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-xs); font-weight: var(--lexync-type-weight-bold); letter-spacing: var(--lexync-type-tracking-wide); text-transform: uppercase; }
 .vocabulary-entry > div { padding: 0 1.15rem 1.15rem; }
 .vocabulary-sense { margin: 0; padding-top: var(--lexync-space-4); }
 .vocabulary-sense + .vocabulary-sense { padding-top: var(--lexync-space-5); }

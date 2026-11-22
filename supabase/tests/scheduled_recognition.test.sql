@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(16);
 
 select ok(to_regclass('public.cards') is not null, 'Cards remain the durable Sense ownership records');
 select ok(
@@ -170,12 +170,6 @@ select is(
   (select count(*) from public.review_participations where learner_id = auth.uid()),
   1::bigint,
   'a Learner can query rating-free historical participation records'
-);
-select public.set_vocabulary_entry_suspended(current_setting('test.vocabulary_entry_id')::uuid, true);
-select is(
-  (select count(*) from public.review_participations where learner_id = auth.uid()),
-  1::bigint,
-  'suspension excludes future Review without deleting retained participation history'
 );
 select ok(
   not jsonb_path_exists(public.account_learning_snapshot(), '$.cards[*].events')

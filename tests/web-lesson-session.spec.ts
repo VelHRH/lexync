@@ -1056,16 +1056,15 @@ test.describe('web Lesson', () => {
     }
   });
 
-  test('keeps snapshots through edits and prunes deleted or suspended unanswered material', async ({ page }) => {
+  test('keeps snapshots through edits and prunes deleted unanswered material', async ({ page }) => {
     const fixture = await seedEntries('lesson-material');
     await signIn(page, fixture.account);
     await startFromHome(page);
     const first = await questionSnapshot(page);
     const untouched = fixture.captured.filter((entry) => !first.text.includes(entry.expression) && !first.text.includes(entry.translation));
-    const [edited, suspended, deleted] = untouched;
-    if (!edited || !suspended || !deleted) throw new Error('The Lesson material fixture is incomplete.');
+    const [edited, deleted] = untouched;
+    if (!edited || !deleted) throw new Error('The Lesson material fixture is incomplete.');
     const editedBridgeId = await bridgeEntryId(fixture.client, edited.vocabularyEntryId);
-    const suspendedBridgeId = await bridgeEntryId(fixture.client, suspended.vocabularyEntryId);
     const deletedBridgeId = await bridgeEntryId(fixture.client, deleted.vocabularyEntryId);
     const { error: editError } = await fixture.client.rpc('update_vocabulary_entry', {
       p_expression: `${edited.expression}-edited`,
@@ -1073,8 +1072,6 @@ test.describe('web Lesson', () => {
       p_vocabulary_entry_id: editedBridgeId,
     });
     if (editError) throw editError;
-    const { error: suspensionError } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: suspendedBridgeId });
-    if (suspensionError) throw suspensionError;
     const { error: deletionError } = await fixture.client.rpc('delete_vocabulary_entry', { p_vocabulary_entry_id: deletedBridgeId });
     if (deletionError) throw deletionError;
     await page.reload();
@@ -1092,7 +1089,6 @@ test.describe('web Lesson', () => {
     expect(positions).toEqual(positions.map((_, index) => index + 1));
     expect(visible.some((text) => text.includes(edited.expression) || text.includes(edited.translation))).toBe(true);
     expect(visible.every((text) => !text.includes(`${edited.expression}-edited`) && !text.includes(`${edited.translation}-edited`))).toBe(true);
-    expect(visible.every((text) => !text.includes(suspended.expression) && !text.includes(suspended.translation))).toBe(true);
     expect(visible.every((text) => !text.includes(deleted.expression) && !text.includes(deleted.translation))).toBe(true);
   });
 
@@ -1103,7 +1099,6 @@ test.describe('web Lesson', () => {
     await expect(lessonShell(page).getByText(/\bReview Sessions?\b/i)).toHaveCount(0);
     const total = await progressValue(page, 'max');
     const first = await questionSnapshot(page);
-    const completedPrompt = first.prompt;
     const correct = answerMap().get(first.prompt);
     const wrong = (await questionSnapshot(page)).choices.find((choice) => choice !== correct);
     if (!wrong || !correct) throw new Error('The score fixture could not choose a wrong answer.');
@@ -1123,17 +1118,11 @@ test.describe('web Lesson', () => {
     await expect(missed.getByText(correct, { exact: true }).first()).toBeVisible();
     await expect(result.getByText(/\b(?:due|schedule|rating|again|hard|good|easy)\b/i)).toHaveCount(0);
     await expect(lessonShell(page).getByRole('button', { name: 'Back to Lessons' })).toBeVisible();
-    const completedEntry = fixture.captured.find((entry) => entry.expression === completedPrompt || entry.translation === completedPrompt);
-    if (!completedEntry) throw new Error('The completed Lesson fixture prompt is unknown.');
-    const completedBridgeId = await bridgeEntryId(fixture.client, completedEntry.vocabularyEntryId);
-    const { error: suspensionError } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: completedBridgeId });
-    if (suspensionError) throw suspensionError;
     await page.reload();
     await expect(result.getByText(new RegExp(`\\d+/${total}`))).toBeVisible();
     await expect(missed.getByText(wrong, { exact: true }).first()).toBeVisible();
     await result.getByRole('button', { name: 'Start another lesson' }).click();
     await expect(lessonQuestion(page)).toBeVisible();
-    expect((await questionSnapshot(page)).prompt).not.toBe(completedPrompt);
     await lessonShell(page).getByRole('button', { name: 'Exit' }).click();
     await resumeFromHome(page);
     await expect(lessonShell(page).getByText(/\bReview Sessions?\b/i)).toHaveCount(0);

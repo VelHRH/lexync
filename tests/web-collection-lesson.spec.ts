@@ -126,12 +126,6 @@ async function fileEntry(client: SupabaseClient, collectionId: string, learningV
   if (error) throw error;
 }
 
-async function bridgeEntryId(client: SupabaseClient, learningVocabularyEntryId: string) {
-  const { data, error } = await client.from('vocabulary_entries').select('id').eq('learning_vocabulary_entry_id', learningVocabularyEntryId).limit(1).single();
-  if (error) throw error;
-  return data.id as string;
-}
-
 async function seedTravelCollection(
   prefix: string,
   filed: ReadonlyArray<readonly [string, string]> = travelVocabulary.slice(0, 8),
@@ -393,37 +387,9 @@ test.describe('web Collection Lesson', () => {
     }
   });
 
-  test('leaves a suspended Vocabulary Entry out of the Collection Lesson', async ({ page }) => {
-    const fixture = await seedTravelCollection('collection-lesson-suspended', travelVocabulary.slice(0, 9));
-    const [suspended] = fixture.captured;
-    const suspendedBridgeId = await bridgeEntryId(fixture.client, suspended.vocabularyEntryId);
-    const { error: suspensionError } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: suspendedBridgeId });
-    if (suspensionError) throw suspensionError;
-    await signIn(page, fixture.account);
-    await openCollectionByUrl(page, fixture.collectionId);
-    const lessonId = await startFromLibrary(page);
-    const questions = await lessonQuestions(fixture.client, lessonId);
-    expect(questions.length).toBeGreaterThan(0);
-    for (const question of questions) {
-      expect(question.sense_id).not.toBe(suspended.senseId);
-      expect(question.choice_sense_ids ?? []).not.toContain(suspended.senseId);
-      expect(question.vocabulary_entry_id).not.toBe(suspendedBridgeId);
-      expect(question.choice_vocabulary_entry_ids ?? []).not.toContain(suspendedBridgeId);
-    }
-    for (const text of questionTexts(questions)) {
-      expect(text).not.toContain(suspended.expression);
-      expect(text).not.toContain(suspended.translation);
-    }
-  });
-
   test('caps the Collection Lesson at the eligible Sense count inside the Collection', async ({ page }) => {
-    const fixture = await seedTravelCollection('collection-lesson-question-cap', travelVocabulary.slice(0, 9));
-    const suspended = fixture.captured.slice(0, 4);
-    for (const entry of suspended) {
-      const { error } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: await bridgeEntryId(fixture.client, entry.vocabularyEntryId) });
-      if (error) throw error;
-    }
-    const eligibleSenseCount = fixture.captured.length - suspended.length;
+    const fixture = await seedTravelCollection('collection-lesson-question-cap', travelVocabulary.slice(0, 8), kitchenVocabulary.slice(0, 5));
+    const eligibleSenseCount = fixture.captured.length;
     await signIn(page, fixture.account);
     await openCollectionByUrl(page, fixture.collectionId);
     const lessonId = await startFromLibrary(page);
@@ -635,17 +601,13 @@ test.describe('web Collection Lesson', () => {
   });
 
   test('states a Collection with enough Entries but too few eligible Senses as not practisable', async ({ page }) => {
-    const fixture = await seedTravelCollection('collection-lesson-ineligible', travelVocabulary.slice(0, 8));
-    for (const entry of fixture.captured.slice(0, 7)) {
-      const { error } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: await bridgeEntryId(fixture.client, entry.vocabularyEntryId) });
-      if (error) throw error;
-    }
+    const fixture = await seedTravelCollection('collection-lesson-ineligible', travelVocabulary.slice(0, 8).map(([expression]) => [expression, 'luggage'] as const));
     await signIn(page, fixture.account);
     await page.goto('/library');
     await expect(entrySummary(page, 'maleta')).toBeVisible();
     await expect(collectionCard(page, 'Travel')).toHaveText('Travel8 entries');
     await openCollectionByUrl(page, fixture.collectionId);
-    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Resume suspended Vocabulary Entries or add translations to practise it.');
+    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Add translations to practise it.');
     await expect(practiseButton(page)).toHaveCount(0);
   });
 
@@ -667,15 +629,11 @@ test.describe('web Collection Lesson', () => {
     for (const entry of short) await fileEntry(fixture.client, shortCollectionId, entry.vocabularyEntryId);
 
     const ineligible: CapturedEntry[] = [];
-    for (const [expression, translation] of officeVocabulary) {
-      ineligible.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, translation, 'en', { example: officeExample(expression) }));
+    for (const [expression] of officeVocabulary) {
+      ineligible.push(await captureEntry(fixture.client, fixture.learningLanguageId, expression, 'stationery', 'en', { example: officeExample(expression) }));
     }
     const ineligibleCollectionId = await seedCollection(fixture.client, fixture.learningLanguageId, 'Office');
     for (const entry of ineligible) await fileEntry(fixture.client, ineligibleCollectionId, entry.vocabularyEntryId);
-    for (const entry of ineligible.slice(0, 7)) {
-      const { error } = await fixture.client.rpc('set_vocabulary_entry_suspended', { p_suspended: true, p_vocabulary_entry_id: await bridgeEntryId(fixture.client, entry.vocabularyEntryId) });
-      if (error) throw error;
-    }
 
     await signIn(page, fixture.account);
     await page.goto('/library');
@@ -692,7 +650,7 @@ test.describe('web Collection Lesson', () => {
     await expect(practiceReason(page)).toHaveText('Add 5 more Vocabulary Entries to practise this Collection.');
     await page.goto(`/library?collection=${ineligibleCollectionId}`);
     await expect(collectionFilter(page).getByText('Filtered by Office')).toBeVisible();
-    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Resume suspended Vocabulary Entries or add translations to practise it.');
+    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Add translations to practise it.');
   });
 
   test('shows no Collection scope label for a whole-library Lesson', async ({ page }) => {
