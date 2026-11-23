@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { learnedHeadline, parseVocabularyProgress, type VocabularyProgress, type VocabularyProgressStates } from '../lib/vocabularyProgress';
+import { progressHeadline, parseVocabularyProgress, type VocabularyProgress, type VocabularyProgressStates } from '../lib/vocabularyProgress';
 
 function tallies(progress: VocabularyProgressStates) {
   return [
@@ -73,7 +73,7 @@ export function VocabularyProgressSurface({ learningLanguageId }: { learningLang
     <section className="progress-region" data-ui="vocabulary-progress-library" aria-labelledby="progress-library-heading">
       <div className="progress-region-head">
         <h2 id="progress-library-heading">Whole library</h2>
-        <p className="progress-headline" data-ui="progress-headline">{progress.totalCount === 0 ? 'No words yet' : learnedHeadline(progress)}</p>
+        <p className="progress-headline" data-ui="progress-headline">{progress.totalCount === 0 ? 'No words yet' : progressHeadline(progress)}</p>
       </div>
       {progress.totalCount === 0
         ? <p className="progress-region-note">Capture a word and this surface starts reporting what you know.</p>
@@ -94,7 +94,7 @@ export function VocabularyProgressSurface({ learningLanguageId }: { learningLang
           {progress.collections.map((item) => <li className="progress-collection" data-collection-id={item.id} key={item.id}>
             <div className="progress-region-head">
               <h3>{item.name}</h3>
-              <p className="progress-headline" data-ui="progress-headline">{item.totalCount === 0 ? 'No words filed yet' : learnedHeadline(item)}</p>
+              <p className="progress-headline" data-ui="progress-headline">{item.totalCount === 0 ? 'No words filed yet' : progressHeadline(item)}</p>
             </div>
             <Breakdown progress={item} />
           </li>)}

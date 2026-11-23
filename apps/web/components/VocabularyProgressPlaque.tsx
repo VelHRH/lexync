@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { parseVocabularyProgress, practicePercent, type VocabularyProgress } from '../lib/vocabularyProgress';
+import { learnedCount, parseVocabularyProgress, practicePercent, type VocabularyProgress } from '../lib/vocabularyProgress';
 
 export function VocabularyProgressPlaque({ learningLanguageId }: { learningLanguageId: string }) {
   const [progress, setProgress] = useState<VocabularyProgress | null>(null);
@@ -33,7 +33,7 @@ export function VocabularyProgressPlaque({ learningLanguageId }: { learningLangu
         <p className="progress-plaque-detail">Capture a word to start tracking what you know.</p>
       </>
       : <>
-        <p className="progress-plaque-headline"><span>{practicePercent(progress)}%</span> · <span>{progress.learnedCount} of {progress.totalCount} learned</span> · <span>{progress.inPracticeCount} in practice</span></p>
+        <p className="progress-plaque-headline"><span>{practicePercent(progress)}%</span> · <span>{learnedCount(progress)}</span> · <span>{progress.inPracticeCount} in practice</span></p>
         <progress aria-label="Practice Progress" aria-valuetext={`${practicePercent(progress)}%`} max={100} value={practicePercent(progress)} />
       </>}
   </Link>;

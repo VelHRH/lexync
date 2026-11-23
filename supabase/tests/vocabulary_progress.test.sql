@@ -1,6 +1,6 @@
 begin;
 
-select plan(37);
+select plan(38);
 
 select ok(
   to_regprocedure('public.vocabulary_progress(uuid)') is not null,
@@ -311,14 +311,16 @@ insert into public.collections (id, learner_id, learning_language_id, name, crea
 values
   ('b1000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Practised pair', '2026-09-02T00:00:01Z'),
   ('b1000000-0000-0000-0000-001000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Three in a row', '2026-09-02T00:00:02Z'),
-  ('b1000000-0000-0000-0000-001000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Half known', '2026-09-02T00:00:03Z');
+  ('b1000000-0000-0000-0000-001000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Half known', '2026-09-02T00:00:03Z'),
+  ('b1000000-0000-0000-0000-001000000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Untouched', '2026-09-02T00:00:04Z');
 
 insert into public.collection_memberships (learner_id, collection_id, learning_language_id, learning_vocabulary_entry_id, created_at)
 values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000001', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000001', '2026-09-02T01:00:01Z'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000001', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000002', '2026-09-02T01:00:02Z'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000002', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000001', '2026-09-02T01:00:03Z'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000003', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000002', '2026-09-02T01:00:04Z');
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000003', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000002', '2026-09-02T01:00:04Z'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000004', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000003', '2026-09-02T01:00:05Z');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true);
@@ -548,6 +550,14 @@ select is(
    where collection->>'id' = 'b1000000-0000-0000-0000-001000000003'),
   0.5,
   'a two-Sense Vocabulary Entry with Practice Streaks of five and zero has a Practice Progress of 0.5'
+);
+
+select is(
+  (select (collection->>'practice_progress')::numeric
+   from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-001000000001')->'collections') as collection
+   where collection->>'id' = 'b1000000-0000-0000-0000-001000000004'),
+  0::numeric,
+  'an unpractised Vocabulary Entry with a Sense has no Practice Progress'
 );
 
 set local role postgres;

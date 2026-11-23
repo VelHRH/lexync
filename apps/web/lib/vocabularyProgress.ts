@@ -55,8 +55,12 @@ export function practicePercent(progress: VocabularyProgressStates): number {
   return Math.round(Math.min(Math.max(progress.practiceProgress, 0), 1) * 100);
 }
 
-export function learnedHeadline(progress: VocabularyProgressStates): string {
-  return `${practicePercent(progress)}% · ${progress.learnedCount} of ${progress.totalCount} learned`;
+export function learnedCount(progress: VocabularyProgressStates): string {
+  return `${progress.learnedCount} of ${progress.totalCount} learned`;
+}
+
+export function progressHeadline(progress: VocabularyProgressStates): string {
+  return `${practicePercent(progress)}% · ${learnedCount(progress)}`;
 }
 
 const PROGRESS_STATE_BY_CONTRACT: Record<string, VocabularyProgressState> = {
