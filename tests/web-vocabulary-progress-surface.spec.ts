@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
-import { fileEntry, practiceStreaks, practiseToMixedStates, seedCollection, seedEntries, statesOf } from './support/vocabulary-progress';
+import { fileEntry, practicePercentOf, practiceStreaks, practiseToMixedStates, seedCollection, seedEntries, statesOf } from './support/vocabulary-progress';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -71,7 +71,7 @@ test.describe('Vocabulary Progress surface', () => {
     await expect(page).toHaveURL('/progress');
     await expect(page.getByRole('heading', { level: 1, name: 'Vocabulary Progress' })).toBeVisible();
     await expect(library(page)).toBeVisible();
-    await expect(headline(library(page))).toContainText(`0 of ${entries.length} learned`);
+    await expect(headline(library(page))).toContainText(`0% · 0 of ${entries.length} learned`);
     await expectStates(library(page), { inPractice: 0, learned: 0, new: entries.length });
     await expect(library(page).locator('[data-ui="progress-bar"]')).toBeVisible();
   });
@@ -95,11 +95,14 @@ test.describe('Vocabulary Progress surface', () => {
     await expectStates(library(page), statesOf(entries, streaks));
     const shown = await renderedStates(library(page));
     expect(shown.new + shown.inPractice + shown.learned).toBe(entries.length);
-    await expect(headline(library(page))).toContainText(`${statesOf(entries, streaks).learned} of ${entries.length} learned`);
+    const libraryPercent = practicePercentOf(entries, streaks);
+    expect(libraryPercent, 'the fixture must leave partial Practice Progress in the library').toBeGreaterThan(0);
+    expect(libraryPercent).toBeLessThan(100);
+    await expect(headline(library(page))).toHaveText(`${libraryPercent}% · ${statesOf(entries, streaks).learned} of ${entries.length} learned`);
 
     await expect(collection(page, travel).getByRole('heading', { name: 'Travel' })).toBeVisible();
     await expectStates(collection(page, travel), filedStates);
-    await expect(headline(collection(page, travel))).toContainText(`${filedStates.learned} of ${filed.length} learned`);
+    await expect(headline(collection(page, travel))).toHaveText(`${practicePercentOf(filed, streaks)}% · ${filedStates.learned} of ${filed.length} learned`);
     await expect(collection(page, travel).locator('[data-ui="progress-bar"]')).toBeVisible();
 
     await expect(collection(page, shelf).getByRole('heading', { name: 'Empty shelf' })).toBeVisible();
@@ -141,7 +144,7 @@ test.describe('Vocabulary Progress surface', () => {
     await selectLearningLanguage(page, frenchId);
     await expectStates(library(page), { inPractice: 0, learned: 0, new: french.length });
     await expect(collection(page, market)).toBeVisible();
-    await expect(headline(collection(page, market))).toContainText('0 of 1 learned');
+    await expect(headline(collection(page, market))).toContainText('0% · 0 of 1 learned');
     await expect(collection(page, travel)).toHaveCount(0);
   });
 });

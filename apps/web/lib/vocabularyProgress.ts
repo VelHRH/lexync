@@ -3,6 +3,7 @@ export type VocabularyProgressStates = {
   inPracticeCount: number;
   learnedCount: number;
   totalCount: number;
+  practiceProgress: number;
 };
 
 export type CollectionProgress = VocabularyProgressStates & { id: string; name: string };
@@ -28,8 +29,9 @@ function parseStates(record: Record<string, unknown>): VocabularyProgressStates 
   const inPracticeCount = Number(record.in_practice_count);
   const learnedCount = Number(record.learned_count);
   const totalCount = Number(record.total_count);
-  if (![newCount, inPracticeCount, learnedCount, totalCount].every((count) => Number.isFinite(count))) return null;
-  return { inPracticeCount, learnedCount, newCount, totalCount };
+  const practiceProgress = Number(record.practice_progress ?? 0);
+  if (![newCount, inPracticeCount, learnedCount, totalCount, practiceProgress].every((count) => Number.isFinite(count))) return null;
+  return { inPracticeCount, learnedCount, newCount, practiceProgress, totalCount };
 }
 
 function parseCollection(value: unknown): CollectionProgress | null {
@@ -49,8 +51,12 @@ export function parseVocabularyProgress(value: unknown): VocabularyProgress | nu
   return { ...states, collections };
 }
 
+export function practicePercent(progress: VocabularyProgressStates): number {
+  return Math.round(Math.min(Math.max(progress.practiceProgress, 0), 1) * 100);
+}
+
 export function learnedHeadline(progress: VocabularyProgressStates): string {
-  return `${progress.learnedCount} of ${progress.totalCount} learned`;
+  return `${practicePercent(progress)}% · ${progress.learnedCount} of ${progress.totalCount} learned`;
 }
 
 const PROGRESS_STATE_BY_CONTRACT: Record<string, VocabularyProgressState> = {
