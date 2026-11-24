@@ -120,6 +120,10 @@ A Vocabulary Entry all of whose Senses are Learned Senses. A Vocabulary Entry wi
 
 The share of a Learner's Vocabulary Entries that are Learned Vocabulary Entries, within one Learning Language. Vocabulary Progress may also be read for a single Collection, counting only the Vocabulary Entries in it.
 
+## Practice Progress
+
+The part of Vocabulary Progress that fills as Practice Streaks grow, before any Vocabulary Entry is a Learned Vocabulary Entry. Each Sense contributes its Practice Streak, capped at five, divided by five. A Vocabulary Entry's Practice Progress is the mean over its Senses, and a Vocabulary Entry with no Sense has a Practice Progress of zero. The Practice Progress of a Learning Language or a Collection is the mean over its Vocabulary Entries.
+
 ## Vocabulary Progress State
 
 The one state each Vocabulary Entry occupies. It is `learned` while it is a Learned Vocabulary Entry, `in practice` while at least one of its Senses has a Lesson Attempt but it is not a Learned Vocabulary Entry, and `new` while none of its Senses has ever been attempted.
