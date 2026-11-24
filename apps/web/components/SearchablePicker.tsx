@@ -13,6 +13,10 @@ function filterOptions(options: SearchablePickerOption[], query: string) {
 
 const CREATE_OPTION_ID = 'searchable-picker-create';
 
+function isNewName(options: SearchablePickerOption[], name: string) {
+  return Boolean(name) && !options.some((option) => normalizeSearchText(option.label) === normalizeSearchText(name));
+}
+
 export function SearchablePicker({ id, label, value, options, onChange, emptyMessage, disabled = false, describedBy, autoFocus = false, onCreate, onDismiss }: { id: string; label: string; value: string; options: SearchablePickerOption[]; onChange: (id: string) => void; emptyMessage: string; disabled?: boolean; describedBy?: string; autoFocus?: boolean; onCreate?: (name: string) => void; onDismiss?: (reason: 'escape' | 'leave') => void }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -27,7 +31,7 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
   const searching = filtering && !disabled;
   const panelOpen = open && !disabled;
   const createName = onCreate && searching ? query.trim() : '';
-  const offerCreate = Boolean(createName) && !options.some((option) => normalizeSearchText(option.label) === normalizeSearchText(createName));
+  const offerCreate = isNewName(options, createName);
   const visible = useMemo(() => {
     const matches = searching ? filterOptions(options, query) : options;
     return offerCreate ? [...matches, { id: CREATE_OPTION_ID, label: `Create “${createName}”` }] : matches;
@@ -61,9 +65,7 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
   }, [activeIndex, panelOpen]);
 
   function announceList(list: SearchablePickerOption[], typed = '') {
-    const name = onCreate ? typed.trim() : '';
-    const creatable = Boolean(name) && !options.some((option) => normalizeSearchText(option.label) === normalizeSearchText(name));
-    const count = list.length + (creatable ? 1 : 0);
+    const count = list.length + (onCreate && isNewName(options, typed.trim()) ? 1 : 0);
     setAnnouncement(count ? `${count} options available` : emptyMessage);
   }
 
