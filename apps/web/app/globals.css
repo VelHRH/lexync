@@ -520,7 +520,13 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .vocabulary-sense p { margin: 0; line-height: var(--lexync-type-line-normal); }
 .vocabulary-sense p + p { margin-top: var(--lexync-space-1); }
 .vocabulary-sense p span { margin-left: var(--lexync-space-1); color: var(--web-muted); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-xs); text-transform: uppercase; }
-.vocabulary-sense-example { margin-top: var(--lexync-space-3); }
+.vocabulary-sense-example { margin-top: var(--lexync-space-4); }
+.vocabulary-sense-example .vocabulary-example-translation { margin-top: var(--lexync-space-2); }
+.vocabulary-entry-body { display: grid; gap: var(--lexync-space-5); min-width: 0; padding-top: var(--lexync-space-4); }
+.vocabulary-entry-body > .vocabulary-sense, .vocabulary-entry-body > .vocabulary-sense + .vocabulary-sense { padding-top: 0; }
+.vocabulary-entry-body > .vocabulary-audio-editor { gap: var(--lexync-space-2); }
+.vocabulary-entry-body > .vocabulary-audio-editor legend { float: left; width: 100%; }
+.vocabulary-entry-body > .vocabulary-entry-actions { margin-top: 0; }
 .vocabulary-example { margin: 0; padding: var(--lexync-space-2) var(--lexync-space-3); border-radius: var(--lexync-radius-md); background: var(--web-subtle); font-family: var(--lexync-type-family-material); color: var(--lexync-color-ink-soft); font-style: italic; }
 .vocabulary-example-translation { margin: 0; padding: 0 var(--lexync-space-3); color: var(--web-muted); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); line-height: var(--lexync-type-line-normal); }
 .vocabulary-example-translation span { margin-left: var(--lexync-space-1); color: var(--web-muted); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-xs); text-transform: uppercase; }
@@ -765,15 +771,24 @@ html:has(.lesson-footer) { scroll-padding-bottom: 7rem; }
 .collection-dialog input { width: 100%; min-height: 3rem; box-sizing: border-box; padding: .7rem .8rem; border: var(--web-outline); border-radius: var(--lexync-radius-md); background: var(--web-surface); color: var(--web-ink); font-family: var(--lexync-type-family-body); }
 .collection-dialog form .collection-dialog-notice { min-height: 2.75rem; }
 .collection-dialog-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .5rem; }
-.entry-collections { display: grid; gap: var(--lexync-space-2); min-width: 0; margin: var(--lexync-space-6) 0 0; padding: var(--lexync-space-4) 0 0; border-top: var(--lexync-border-regular) solid var(--web-quiet); }
+.entry-collections { display: grid; gap: var(--lexync-space-2); min-width: 0; margin: 0; padding: var(--lexync-space-4) 0 0; border-top: var(--lexync-border-regular) solid var(--web-quiet); }
 .entry-collections h4 { margin: 0; }
-.entry-collections-member, .entry-collections-rest { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lexync-space-2); min-width: 0; }
+.entry-collections-member { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lexync-space-2); min-width: 0; }
 .entry-collections .collection-chip { flex: 0 0 auto; }
 .collection-chip { min-height: 2.75rem; padding: var(--lexync-space-2) var(--lexync-space-3); border: var(--web-outline); border-radius: var(--web-control-radius); background: var(--web-surface); color: var(--web-ink); font-family: var(--lexync-type-family-body); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); cursor: pointer; transition: background var(--web-state), border-color var(--web-state); }
 .collection-chip:hover { background: var(--web-strong); }
 .collection-chip.selected { border-color: var(--web-primary); background: var(--web-selected); color: var(--web-primary-active); }
 .collection-chip.selected:hover { background: var(--web-strong); }
 .collection-chip:disabled { border-color: var(--web-line); background: var(--web-dim); color: var(--web-muted); cursor: not-allowed; }
+.collection-chip.member { display: inline-flex; max-width: 100%; align-items: center; padding: 0 0 0 var(--lexync-space-3); border-color: var(--web-primary); background: var(--web-selected); color: var(--web-primary-active); cursor: default; }
+.collection-chip.member:hover { background: var(--web-selected); }
+.collection-chip-name { min-width: 0; overflow-wrap: anywhere; }
+.collection-chip-remove { display: grid; flex: 0 0 auto; width: 2.5rem; min-height: 2.75rem; margin: calc(-1 * var(--lexync-border-regular)) calc(-1 * var(--lexync-border-regular)) calc(-1 * var(--lexync-border-regular)) var(--lexync-space-1); place-items: center; padding: 0; border: 0; border-radius: 0 var(--web-control-radius) var(--web-control-radius) 0; background: transparent; color: inherit; font-size: var(--lexync-type-size-lg); line-height: 1; cursor: pointer; transition: background var(--web-state); }
+.collection-chip-remove:hover { background: var(--web-strong); }
+.collection-chip-remove:disabled { color: var(--web-muted); cursor: not-allowed; }
+.collection-chip.add { border-style: dashed; color: var(--web-primary-active); }
+.collection-chip.add:disabled { color: var(--web-muted); }
+.entry-collections-picker { width: min(100%, 24rem); }
 .vocabulary-entry-actions { margin-top: var(--lexync-space-4); }
 .vocabulary-entry-actions-main { display: flex; align-items: center; flex-wrap: wrap; gap: var(--lexync-space-3); min-width: 0; }
 .collections-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; margin: -1px; padding: 0; border: 0; clip: rect(0, 0, 0, 0); white-space: nowrap; }

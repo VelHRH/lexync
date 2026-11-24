@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectActiveLearningLanguage, selectLearningLanguage } from './support/language-switcher';
 import { materialsLinkName } from './support/navigation';
 import { chooseOption } from './support/select';
+import { addEntryToCollection, removeFromCollectionButton } from './support/entry-collections';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -241,13 +242,10 @@ test.describe('web Library data lifetime', () => {
     await createCollection(page, 'Travel');
 
     let entry = await ensureEntryExpanded(page, 'casa');
-    await expect(entry.getByRole('button', { name: 'Add casa to Travel' })).toBeVisible();
-    await entry.getByRole('button', { name: 'Add casa to Travel' }).click();
-    await expect(entry.getByRole('button', { name: 'Remove casa from Travel' })).toBeVisible();
-    await entry.getByRole('button', { name: 'Remove casa from Travel' }).click();
-    await expect(entry.getByRole('button', { name: 'Add casa to Travel' })).toBeVisible();
-    await entry.getByRole('button', { name: 'Add casa to Travel' }).click();
-    await expect(entry.getByRole('button', { name: 'Remove casa from Travel' })).toBeVisible();
+    await addEntryToCollection(entry, 'casa', 'Travel');
+    await removeFromCollectionButton(entry, 'casa', 'Travel').click();
+    await expect(removeFromCollectionButton(entry, 'casa', 'Travel')).toHaveCount(0);
+    await addEntryToCollection(entry, 'casa', 'Travel');
 
     const libraryRequests = trackLibraryRequests(page);
     libraryRequests.reset();
@@ -275,7 +273,8 @@ test.describe('web Library data lifetime', () => {
     await page.getByRole('dialog', { name: 'Delete Collection' }).getByRole('button', { name: 'Delete Collection' }).click();
     await expect(page).toHaveURL('/library');
     entry = await ensureEntryExpanded(page, 'casa');
-    await expect(entry.getByText('Collections', { exact: true })).toHaveCount(0);
+    await expect(entry.locator('[data-ui="entry-collection"]')).toHaveCount(0);
+    await expect(entry.getByRole('button', { name: 'Add to collection' })).toBeVisible();
 
     if (test.info().project.name === 'web-library-caching-mobile') await assertNoHorizontalOverflow(page);
   });

@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
 import { PROGRESS_STATE_COPY, defaultVocabulary, fileEntry, practiceStreaks, practiseToMixedStates, seedCollection, seedEntries, stateOf, statesOf } from './support/vocabulary-progress';
 import { chooseOption, expectSelectValue, themedSelect } from './support/select';
+import { addEntryToCollection, createCollectionFromEntry, entryCollectionPicker, openEntryCollectionPicker, removeFromCollectionButton } from './support/entry-collections';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -517,6 +518,8 @@ test.describe('web Vocabulary Entry library', () => {
     await page.keyboard.press('Tab');
     await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeFocused();
     await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Add to collection' })).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Edit teclado' })).toBeFocused();
     await page.keyboard.press('Enter');
     await page.getByLabel('Expression').focus();
@@ -529,6 +532,8 @@ test.describe('web Vocabulary Entry library', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.press('Tab');
     await expect(audioClipControls(page).getByRole('button', { name: 'Record pronunciation' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Add to collection' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Edit teclado nuevo' })).toBeFocused();
     await page.keyboard.press('Tab');
@@ -1218,7 +1223,60 @@ test.describe('web Vocabulary Entry library', () => {
     }
   });
 
-  test('closes the expanded entry with graded separation, reachable filing, and receding actions', async ({ page }) => {
+  test('files an expanded entry into existing and new Collections from the Add to collection picker and removes it with ×', async ({ page }) => {
+    const account = credentials('web-entry-collections');
+    const { client, pair } = await registerWithPair(account);
+    const spanish = await learningLanguageIdFor(client, 'es');
+    await createEntry(client, pair.id, 'casa', 'house');
+    await seedCollections(client, spanish, ['Kitchen', 'Places', 'Travel']);
+
+    await signIn(page, account);
+    await page.goto('/library');
+    await expandEntry(page, 'casa');
+    const entry = expandedEntry(page, 'casa');
+    const chips = entry.locator('[data-ui="entry-collection"]');
+    await expect(chips).toHaveCount(0);
+
+    await addEntryToCollection(entry, 'casa', 'Places');
+    await expect(chips).toHaveText(['Places×']);
+
+    let picker = await openEntryCollectionPicker(entry, 'casa');
+    await expect(entry.getByRole('option')).toHaveText(['Kitchen', 'Travel']);
+    await picker.fill('trav');
+    await expect(entry.getByRole('option')).toHaveText(['Travel', 'Create “trav”']);
+    await picker.fill('kitchen');
+    await expect(entry.getByRole('option'), 'an existing name is not offered for creation').toHaveText(['Kitchen']);
+    await picker.press('Escape');
+    await expect(entryCollectionPicker(entry, 'casa')).toHaveCount(0);
+    await expect(entry.getByRole('button', { name: 'Add to collection' })).toBeFocused();
+
+    picker = await openEntryCollectionPicker(entry, 'casa');
+    await picker.fill('trav');
+    await picker.press('Enter');
+    await expect(removeFromCollectionButton(entry, 'casa', 'Travel')).toBeVisible();
+    await expect(entry.getByRole('button', { name: 'Add to collection' })).toBeFocused();
+
+    await createCollectionFromEntry(entry, 'casa', 'Weekend');
+    await expect(chips).toHaveCount(3);
+    const { data: created } = await client.from('collections').select('name').eq('name', 'Weekend');
+    expect(created, 'typing a new name creates the Collection').toHaveLength(1);
+
+    await removeFromCollectionButton(entry, 'casa', 'Places').click();
+    await expect(removeFromCollectionButton(entry, 'casa', 'Places')).toHaveCount(0);
+    await expect(chips).toHaveCount(2);
+    picker = await openEntryCollectionPicker(entry, 'casa');
+    await expect(entry.getByRole('option'), 'a removed Collection returns to the picker').toHaveText(['Kitchen', 'Places']);
+    await picker.press('Escape');
+
+    const { count } = await client.from('collection_memberships').select('collection_id', { count: 'exact', head: true });
+    expect(count).toBe(2);
+
+    if (test.info().project.name === 'web-vocabulary-mobile') {
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
+  });
+
+  test('closes the expanded entry with an even rhythm, member-only Collections, and receding actions', async ({ page }) => {
     const account = credentials('web-read-view');
     const { client, pair } = await registerWithPair(account);
     const spanish = await learningLanguageIdFor(client, 'es');
@@ -1229,35 +1287,50 @@ test.describe('web Vocabulary Entry library', () => {
     await page.goto('/library');
     await expandEntry(page, 'casa');
     const entry = expandedEntry(page, 'casa');
-    await expect(entry.getByRole('button', { name: 'Add casa to Colours' })).toBeVisible();
+    await expect(entry.getByRole('button', { name: 'Add to collection' })).toBeVisible();
+    await expect(entry.locator('[data-ui="entry-collection"]'), 'an unfiled entry lists no Collections').toHaveCount(0);
+    await expect(entry.getByRole('button', { name: /Kitchen|Colours/ })).toHaveCount(0);
 
     const title = await entry.locator('summary').evaluate((node) => getComputedStyle(node).fontWeight);
     expect(title, 'DESIGN.md sets card titles at semibold').toBe('600');
 
-    const separations = await entry.evaluate((node) => ['.vocabulary-sense:last-of-type', '.entry-collections', '.vocabulary-entry-actions'].map((selector) => {
-      const region = node.querySelector(selector)!;
-      const style = getComputedStyle(region);
-      return { marginTop: Number.parseFloat(style.marginTop), paddingTop: Number.parseFloat(style.paddingTop), borderTopWidth: Number.parseFloat(style.borderTopWidth) };
-    }));
-    expect(new Set(separations.map((separation) => JSON.stringify(separation))).size, 'content, filing and actions are separated differently').toBe(separations.length);
-    for (const separation of separations) {
-      expect(spacingScale, `${separation.marginTop}px margin comes from --lexync-space-*`).toContain(separation.marginTop);
-      expect(spacingScale, `${separation.paddingTop}px padding comes from --lexync-space-*`).toContain(separation.paddingTop);
-    }
+    const gaps = await entry.evaluate((node) => {
+      const sections = [...node.querySelectorAll('.vocabulary-entry-body > *')].map((section) => section.getBoundingClientRect());
+      return sections.slice(1).map((section, index) => Math.round(section.top - sections[index].bottom));
+    });
+    expect(gaps.length, 'Sense, Audio Clip, Collections and actions are separate sections').toBe(3);
+    expect(new Set(gaps).size, `sections are evenly spaced: ${gaps.join(', ')}`).toBe(1);
+    expect(spacingScale, `${gaps[0]}px section gap comes from --lexync-space-*`).toContain(gaps[0]);
+    expect(gaps[0], 'sections are not cramped against the one above').toBeGreaterThanOrEqual(16);
 
+    const example = await entry.evaluate((node) => {
+      const translation = node.querySelector('.vocabulary-sense > p')!.getBoundingClientRect();
+      const block = node.querySelector('.vocabulary-sense-example')!.getBoundingClientRect();
+      return Math.round(block.top - translation.bottom);
+    });
+    expect(example, 'the Example block breathes below the translation').toBeGreaterThanOrEqual(16);
+
+    const labels = await entry.evaluate((node) => [
+      ['.vocabulary-audio-editor > legend', '.vocabulary-audio-row'],
+      ['.entry-collections > h4', '.entry-collections-member'],
+    ].map(([labelSelector, contentSelector]) => {
+      const label = node.querySelector(labelSelector)!.getBoundingClientRect();
+      const content = node.querySelector(contentSelector)!.getBoundingClientRect();
+      return { left: Math.round(content.left - label.left), gap: Math.round(content.top - label.bottom) };
+    }));
+    for (const label of labels) expect(label.left, 'each section label lines up with its content').toBe(0);
+    expect(labels[0].gap, 'the Audio Clip and Collections labels sit the same distance above their content').toBe(labels[1].gap);
+    expect(labels[0].gap).toBeGreaterThan(0);
+
+    await addEntryToCollection(entry, 'casa', 'Colours');
     const shortControls = await entry.evaluate((node) => [...node.querySelectorAll('button')]
       .filter((control) => control.getBoundingClientRect().height < 44)
       .map((control) => `${control.className}:${control.getAttribute('aria-label') ?? control.textContent}`));
     expect(shortControls, 'every control in the expanded entry meets the 44px minimum').toEqual([]);
 
-    const scrollingGroups = await entry.evaluate((node) => [...node.querySelectorAll('.entry-collections-member, .entry-collections-rest')]
+    const scrollingGroups = await entry.evaluate((node) => [...node.querySelectorAll('.entry-collections-member')]
       .filter((group) => group.scrollWidth > group.clientWidth).length);
     expect(scrollingGroups, 'the filing region wraps its Collections instead of scrolling them').toBe(0);
-
-    for (const collection of ['Kitchen', 'Places', 'Travel', 'Verbs', 'Food', 'Family', 'Work', 'Weather', 'Body', 'Animals', 'Numbers', 'Colours']) {
-      await entry.getByRole('button', { name: `Add casa to ${collection}` }).click();
-      await expect(entry.getByRole('button', { name: `Remove casa from ${collection}` })).toBeVisible();
-    }
 
     for (const action of ['Edit casa', 'Delete casa']) {
       await expect(entry.getByRole('button', { name: action })).toBeVisible();

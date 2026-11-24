@@ -1,15 +1,20 @@
 'use client';
 
-import type { MouseEvent, ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import type { Collection, LibraryEntry } from '../lib/libraryStore';
 import { PROGRESS_STATE_LABELS } from '../lib/vocabularyProgress';
+import { SearchablePicker } from './SearchablePicker';
 import { VocabularyAudioClipPlayer, VocabularyAudioClipRecorder } from './VocabularyAudioClip';
 
 export function membershipChangeKey(member: boolean, collection: Collection, entry: LibraryEntry) {
   return `${member ? 'remove' : 'add'}:${collection.id}:${entry.learningVocabularyEntryId}`;
 }
 
-export function VocabularyEntryCard({ entry, editor, selecting, selected, filing, memberCollections, otherCollections, changingMembership, online, offlineReason, onSelectClick, onSelectChange, onChangeMembership, onEdit, onDelete, onClipChanged }: {
+export function newCollectionChangeKey(entry: LibraryEntry) {
+  return `add:new:${entry.learningVocabularyEntryId}`;
+}
+
+export function VocabularyEntryCard({ entry, editor, selecting, selected, filing, memberCollections, otherCollections, changingMembership, online, offlineReason, onSelectClick, onSelectChange, onChangeMembership, onCreateCollection, onEdit, onDelete, onClipChanged }: {
   entry: LibraryEntry;
   editor: ReactNode;
   selecting: boolean;
@@ -23,13 +28,33 @@ export function VocabularyEntryCard({ entry, editor, selecting, selected, filing
   onSelectClick: (event: MouseEvent<HTMLInputElement>) => void;
   onSelectChange: (selected: boolean) => void;
   onChangeMembership: (collection: Collection, member: boolean) => void;
+  onCreateCollection: (name: string) => void;
   onEdit: () => void;
   onDelete: () => void;
   onClipChanged: () => void;
 }) {
-  function renderCollectionChip(collection: Collection, member: boolean) {
-    const changing = changingMembership === membershipChangeKey(member, collection, entry);
-    return <button className={`collection-chip${member ? ' selected' : ''}`} type="button" key={collection.id} aria-pressed={member} aria-label={member ? `Remove ${entry.expression} from ${collection.name}` : `Add ${entry.expression} to ${collection.name}`} disabled={!online || changing} aria-describedby={offlineReason} onClick={() => onChangeMembership(collection, member)}>{changing ? `${member ? 'Removing' : 'Adding'}…` : collection.name}</button>;
+  const [picking, setPicking] = useState(false);
+  const [restoreFocus, setRestoreFocus] = useState(false);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const adding = changingMembership.startsWith('add:') && changingMembership.endsWith(`:${entry.learningVocabularyEntryId}`);
+
+  useEffect(() => {
+    if (picking || !restoreFocus) return;
+    addButton.current?.focus();
+    queueMicrotask(() => setRestoreFocus(false));
+  }, [picking, restoreFocus]);
+
+  function closePicker(focusAdd: boolean) {
+    setPicking(false);
+    setRestoreFocus(focusAdd);
+  }
+
+  function renderMemberChip(collection: Collection) {
+    const changing = changingMembership === membershipChangeKey(true, collection, entry);
+    return <span className="collection-chip member" key={collection.id} data-ui="entry-collection">
+      <span className="collection-chip-name">{changing ? 'Removing…' : collection.name}</span>
+      <button className="collection-chip-remove" type="button" aria-label={`Remove ${entry.expression} from ${collection.name}`} disabled={!online || changing} aria-describedby={offlineReason} onClick={() => onChangeMembership(collection, true)}><span aria-hidden="true">×</span></button>
+    </span>;
   }
 
   return (
@@ -58,7 +83,7 @@ export function VocabularyEntryCard({ entry, editor, selecting, selected, filing
           </span>
         </summary>
         <div>
-        {editor ?? <>
+        {editor ?? <div className="vocabulary-entry-body">
           {entry.senses.map((sense, index) => <section className="vocabulary-sense" key={sense.id} role="group" aria-labelledby={`sense-${sense.id}`}>
             <h4 className={entry.senses.length > 1 ? undefined : 'visually-hidden'} id={`sense-${sense.id}`}>Sense {index + 1}</h4>
             {sense.translations.map((item) => <p key={item.id}>{item.text} <span>{item.answer_language_tag}</span></p>)}
@@ -68,22 +93,39 @@ export function VocabularyEntryCard({ entry, editor, selecting, selected, filing
             </div>)}
           </section>)}
           <VocabularyAudioClipRecorder entry={entry} online={online} onChanged={onClipChanged} />
-          {memberCollections.length + otherCollections.length > 0 && <div className="entry-collections" role="group" aria-labelledby={`entry-collections-${entry.id}`}>
+          <div className="entry-collections" role="group" aria-labelledby={`entry-collections-${entry.id}`}>
             <h4 id={`entry-collections-${entry.id}`}>Collections</h4>
-            {memberCollections.length > 0 && <div className="entry-collections-member">
-              {memberCollections.map((collection) => renderCollectionChip(collection, true))}
+            <div className="entry-collections-member">
+              {memberCollections.map(renderMemberChip)}
+              {!picking && <button className="collection-chip add" type="button" ref={addButton} disabled={!online} aria-describedby={offlineReason} onClick={() => setPicking(true)}>{adding ? 'Adding…' : <><span aria-hidden="true">+</span> Add to collection</>}</button>}
+            </div>
+            {picking && <div className="entry-collections-picker">
+              <SearchablePicker
+                id={`entry-collection-picker-${entry.id}`}
+                label={`Add ${entry.expression} to a collection`}
+                value=""
+                options={otherCollections.map((collection) => ({ id: collection.id, label: collection.name }))}
+                emptyMessage={otherCollections.length ? 'No Collections match. Type a name to create one.' : 'Type a name to create a Collection.'}
+                disabled={!online}
+                describedBy={offlineReason}
+                autoFocus
+                onChange={(id) => {
+                  const collection = otherCollections.find((item) => item.id === id);
+                  closePicker(true);
+                  if (collection) onChangeMembership(collection, false);
+                }}
+                onCreate={(name) => { closePicker(true); onCreateCollection(name); }}
+                onDismiss={(reason) => closePicker(reason === 'escape')}
+              />
             </div>}
-            {otherCollections.length > 0 && <div className="entry-collections-rest">
-              {otherCollections.map((collection) => renderCollectionChip(collection, false))}
-            </div>}
-          </div>}
+          </div>
           <div className="vocabulary-entry-actions">
             <div className="vocabulary-entry-actions-main">
               <button className="secondary-button" type="button" aria-label={`Edit ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={onEdit}>Edit</button>
             </div>
             <button className="inline-button danger" type="button" aria-label={`Delete ${entry.expression}`} disabled={!online} aria-describedby={offlineReason} onClick={onDelete}>Delete</button>
           </div>
-        </>}
+        </div>}
         </div>
       </details>
     </article>
