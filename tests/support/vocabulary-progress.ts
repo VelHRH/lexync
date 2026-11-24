@@ -114,3 +114,9 @@ export function statesOf(entries: readonly CapturedEntry[], streaks: Map<string,
     new: states.filter((state) => state === 'new').length,
   };
 }
+
+export function practicePercentOf(entries: readonly CapturedEntry[], streaks: Map<string, number>): number {
+  if (entries.length === 0) return 0;
+  const total = entries.reduce((sum, entry) => sum + Math.min(streaks.get(entry.senseId) ?? 0, LEARNED_PRACTICE_STREAK) / LEARNED_PRACTICE_STREAK, 0);
+  return Math.round((total / entries.length) * 100);
+}

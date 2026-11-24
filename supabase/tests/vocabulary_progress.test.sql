@@ -1,6 +1,6 @@
 begin;
 
-select plan(27);
+select plan(38);
 
 select ok(
   to_regprocedure('public.vocabulary_progress(uuid)') is not null,
@@ -245,47 +245,124 @@ values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-000900000001', 'a1000000-0000-0000-0000-000900000001', 'a3000000-0000-0000-0000-000900000004', '2026-09-02T01:00:04Z'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-000100000001', 'a1000000-0000-0000-0000-000100000001', 'a3000000-0000-0000-0000-000100000001', '2026-09-02T01:00:05Z');
 
+insert into public.learning_languages (id, learner_id, language_tag, created_at)
+values
+  ('a1000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ko', '2026-09-01T00:00:10Z');
+
+insert into public.study_pairs (id, learner_id, target_language_tag, reference_language_tag, is_primary, learning_language_id)
+values
+  ('a2000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ko', 'en', true, 'a1000000-0000-0000-0000-001000000001');
+
+insert into public.learning_vocabulary_entries (id, learner_id, learning_language_id, expression, created_at)
+values
+  ('a3000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'san', '2026-09-01T01:00:01Z'),
+  ('a3000000-0000-0000-0000-001000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'bae', '2026-09-01T01:00:02Z'),
+  ('a3000000-0000-0000-0000-001000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'mul', '2026-09-01T01:00:03Z');
+
+insert into public.vocabulary_entries (
+  id, learner_id, study_pair_id, expression, created_at, learning_language_id, learning_vocabulary_entry_id
+)
+values
+  ('a4000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-001000000001', 'san', '2026-09-01T02:00:01Z', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000001'),
+  ('a4000000-0000-0000-0000-001000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-001000000001', 'bae', '2026-09-01T02:00:02Z', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000002'),
+  ('a4000000-0000-0000-0000-001000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a2000000-0000-0000-0000-001000000001', 'mul', '2026-09-01T02:00:03Z', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000003');
+
+insert into public.senses (id, learner_id, vocabulary_entry_id, created_at)
+values
+  ('a5000000-0000-0000-0000-001000000011', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a4000000-0000-0000-0000-001000000001', '2026-09-01T03:00:01Z'),
+  ('a5000000-0000-0000-0000-001000000021', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a4000000-0000-0000-0000-001000000002', '2026-09-01T03:00:02Z'),
+  ('a5000000-0000-0000-0000-001000000022', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a4000000-0000-0000-0000-001000000002', '2026-09-01T03:00:03Z'),
+  ('a5000000-0000-0000-0000-001000000031', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a4000000-0000-0000-0000-001000000003', '2026-09-01T03:00:04Z');
+
+insert into public.lessons (id, learner_id, learning_language_id, status, created_at, completed_at, correct_count, total_count)
+values
+  ('a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'completed', '2026-09-20T09:00:00Z', '2026-09-20T10:00:00Z', 0, 0);
+
+insert into public.lesson_questions (
+  id, lesson_id, learner_id, sense_id, ordinal, prompt, question_type, direction, answer_language_tag,
+  choices, choice_sense_ids, selected_answer, correct_answer, is_correct, answered_at
+)
+values
+  ('a8000000-0000-0000-0000-001000000001', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000011', 1, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:01:00Z'),
+  ('a8000000-0000-0000-0000-001000000002', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000011', 2, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:02:00Z'),
+  ('a8000000-0000-0000-0000-001000000003', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000011', 3, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:03:00Z'),
+  ('a8000000-0000-0000-0000-001000000004', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 4, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:04:00Z'),
+  ('a8000000-0000-0000-0000-001000000005', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 5, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:05:00Z'),
+  ('a8000000-0000-0000-0000-001000000006', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 6, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:06:00Z'),
+  ('a8000000-0000-0000-0000-001000000007', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 7, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:07:00Z'),
+  ('a8000000-0000-0000-0000-001000000008', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 8, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:08:00Z'),
+  ('a8000000-0000-0000-0000-001000000009', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 9, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'a', 'a', true, '2026-09-20T10:09:00Z');
+
+insert into public.lesson_attempts (
+  id, lesson_id, question_id, learner_id, sense_id, question_type, direction, selected_answer, correct_answer, is_correct, answered_at
+)
+values
+  ('a9000000-0000-0000-0000-001000000001', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000011', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:01:00Z'),
+  ('a9000000-0000-0000-0000-001000000002', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000011', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:02:00Z'),
+  ('a9000000-0000-0000-0000-001000000003', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000011', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:03:00Z'),
+  ('a9000000-0000-0000-0000-001000000004', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:04:00Z'),
+  ('a9000000-0000-0000-0000-001000000005', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:05:00Z'),
+  ('a9000000-0000-0000-0000-001000000006', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000006', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:06:00Z'),
+  ('a9000000-0000-0000-0000-001000000007', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000007', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:07:00Z'),
+  ('a9000000-0000-0000-0000-001000000008', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000008', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:08:00Z'),
+  ('a9000000-0000-0000-0000-001000000009', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000009', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000021', 'translation', 'recognition', 'a', 'a', true, '2026-09-20T10:09:00Z');
+
+insert into public.collections (id, learner_id, learning_language_id, name, created_at)
+values
+  ('b1000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Practised pair', '2026-09-02T00:00:01Z'),
+  ('b1000000-0000-0000-0000-001000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Three in a row', '2026-09-02T00:00:02Z'),
+  ('b1000000-0000-0000-0000-001000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Half known', '2026-09-02T00:00:03Z'),
+  ('b1000000-0000-0000-0000-001000000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1000000-0000-0000-0000-001000000001', 'Untouched', '2026-09-02T00:00:04Z');
+
+insert into public.collection_memberships (learner_id, collection_id, learning_language_id, learning_vocabulary_entry_id, created_at)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000001', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000001', '2026-09-02T01:00:01Z'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000001', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000002', '2026-09-02T01:00:02Z'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000002', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000001', '2026-09-02T01:00:03Z'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000003', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000002', '2026-09-02T01:00:04Z'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1000000-0000-0000-0000-001000000004', 'a1000000-0000-0000-0000-001000000001', 'a3000000-0000-0000-0000-001000000003', '2026-09-02T01:00:05Z');
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true);
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000100000001') - 'total_count' - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000100000001') - 'total_count' - 'collections' - 'practice_progress'),
   '{"new_count": 1, "in_practice_count": 0, "learned_count": 0}'::jsonb,
   'a Vocabulary Entry that has never been attempted counts as new'
 );
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000200000001') - 'total_count' - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000200000001') - 'total_count' - 'collections' - 'practice_progress'),
   '{"new_count": 0, "in_practice_count": 1, "learned_count": 0}'::jsonb,
   'a Sense with four correct Lesson Attempts in a row is still in practice rather than learned'
 );
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000300000001') - 'total_count' - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000300000001') - 'total_count' - 'collections' - 'practice_progress'),
   '{"new_count": 0, "in_practice_count": 0, "learned_count": 1}'::jsonb,
   'a Sense counts as learned after five correct Lesson Attempts in a row'
 );
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000400000001') - 'total_count' - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000400000001') - 'total_count' - 'collections' - 'practice_progress'),
   '{"new_count": 0, "in_practice_count": 1, "learned_count": 0}'::jsonb,
   'a Sense that was learned returns to in practice once a later Lesson Attempt is incorrect'
 );
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000500000001') - 'total_count' - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000500000001') - 'total_count' - 'collections' - 'practice_progress'),
   '{"new_count": 0, "in_practice_count": 1, "learned_count": 0}'::jsonb,
   'a Vocabulary Entry with one learned Sense and one unlearned Sense is not yet learned'
 );
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000600000001') - 'total_count' - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000600000001') - 'total_count' - 'collections' - 'practice_progress'),
   '{"new_count": 1, "in_practice_count": 0, "learned_count": 0}'::jsonb,
   'a Vocabulary Entry with no Sense is never learned'
 );
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000700000001') - 'total_count' - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000700000001') - 'total_count' - 'collections' - 'practice_progress'),
   '{"new_count": 1, "in_practice_count": 1, "learned_count": 0}'::jsonb,
   'a formerly suspended Vocabulary Entry is counted by its Vocabulary Progress State'
 );
@@ -311,7 +388,7 @@ select is(
 );
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000800000001') - 'total_count' - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000800000001') - 'total_count' - 'collections' - 'practice_progress'),
   '{"new_count": 0, "in_practice_count": 1, "learned_count": 0}'::jsonb,
   'one Expression captured under two Answer Languages is a single Vocabulary Entry whose Senses are judged together'
 );
@@ -319,7 +396,7 @@ select is(
 select is(
   (select collection
    from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-000900000001')->'collections') as collection
-   where collection->>'id' = 'b1000000-0000-0000-0000-000900000001'),
+   where collection->>'id' = 'b1000000-0000-0000-0000-000900000001') - 'practice_progress',
   jsonb_build_object(
     'id', 'b1000000-0000-0000-0000-000900000001',
     'name', 'Numbers',
@@ -334,7 +411,7 @@ select is(
 select is(
   (select collection
    from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-000900000001')->'collections') as collection
-   where collection->>'id' = 'b1000000-0000-0000-0000-000900000002'),
+   where collection->>'id' = 'b1000000-0000-0000-0000-000900000002') - 'practice_progress',
   jsonb_build_object(
     'id', 'b1000000-0000-0000-0000-000900000002',
     'name', 'Empty shelf',
@@ -361,7 +438,7 @@ select is(
 );
 
 select is(
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000900000001') - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000900000001') - 'collections' - 'practice_progress'),
   '{"new_count": 3, "in_practice_count": 1, "learned_count": 1, "total_count": 5}'::jsonb,
   'the library figures count every Vocabulary Entry, whether or not it is in a Collection'
 );
@@ -402,7 +479,7 @@ select is(
      'total_count', count(*)
    )
    from jsonb_array_elements(public.vocabulary_progress_states('a1000000-0000-0000-0000-000900000001')->'entries') as entry),
-  (select public.vocabulary_progress('a1000000-0000-0000-0000-000900000001') - 'collections'),
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-000900000001') - 'collections' - 'practice_progress'),
   'the states reported for the rows agree with the figures reported for the plaque and the progress surface'
 );
 
@@ -410,6 +487,102 @@ select is(
   (select public.vocabulary_progress_states('a1000000-0000-0000-0000-000600000001')->'entries'),
   jsonb_build_array(jsonb_build_object('learning_vocabulary_entry_id', 'a3000000-0000-0000-0000-000600000001', 'state', 'new')),
   'a Vocabulary Entry with no Sense reports the new state rather than nothing'
+);
+
+
+select is(
+  (select round((public.vocabulary_progress('a1000000-0000-0000-0000-001000000001')->>'practice_progress')::numeric, 4)),
+  0.3667,
+  'the Library Practice Progress is the mean over its Vocabulary Entries, with an unpractised one counting as 0'
+);
+
+select is(
+  (select round((collection->>'practice_progress')::numeric, 4)
+   from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-001000000001')->'collections') as collection
+   where collection->>'id' = 'b1000000-0000-0000-0000-001000000001'),
+  0.55,
+  'a Collection Practice Progress is the mean over the Vocabulary Entries in it'
+);
+
+select is(
+  (select public.vocabulary_progress('a1000000-0000-0000-0000-001000000001') - 'collections' - 'practice_progress'),
+  '{"new_count": 1, "in_practice_count": 2, "learned_count": 0, "total_count": 3}'::jsonb,
+  'Practice Progress leaves the learned, in practice and new counts unchanged'
+);
+
+select is(
+  (select (public.vocabulary_progress('a1000000-0000-0000-0000-000300000001')->>'practice_progress')::numeric),
+  1::numeric,
+  'a Sense with a Practice Streak of five contributes all of its share'
+);
+
+select is(
+  (select (public.vocabulary_progress('a1000000-0000-0000-0000-000600000001')->>'practice_progress')::numeric),
+  0::numeric,
+  'a Vocabulary Entry with no Sense has no Practice Progress'
+);
+
+select is(
+  (select (collection->>'practice_progress')::numeric
+   from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-000900000001')->'collections') as collection
+   where collection->>'id' = 'b1000000-0000-0000-0000-000900000002'),
+  0::numeric,
+  'a Collection holding no Vocabulary Entry has no Practice Progress'
+);
+
+select is(
+  (select round((public.vocabulary_progress('a1000000-0000-0000-0000-000800000001')->>'practice_progress')::numeric, 4)),
+  0.3,
+  'a Vocabulary Entry is the mean over its Senses across Answer Languages'
+);
+
+select is(
+  (select (collection->>'practice_progress')::numeric
+   from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-001000000001')->'collections') as collection
+   where collection->>'id' = 'b1000000-0000-0000-0000-001000000002'),
+  0.6,
+  'a single-Sense Vocabulary Entry with a Practice Streak of three has a Practice Progress of 0.6'
+);
+
+select is(
+  (select (collection->>'practice_progress')::numeric
+   from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-001000000001')->'collections') as collection
+   where collection->>'id' = 'b1000000-0000-0000-0000-001000000003'),
+  0.5,
+  'a two-Sense Vocabulary Entry with Practice Streaks of five and zero has a Practice Progress of 0.5'
+);
+
+select is(
+  (select (collection->>'practice_progress')::numeric
+   from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-001000000001')->'collections') as collection
+   where collection->>'id' = 'b1000000-0000-0000-0000-001000000004'),
+  0::numeric,
+  'an unpractised Vocabulary Entry with a Sense has no Practice Progress'
+);
+
+set local role postgres;
+
+insert into public.lesson_questions (
+  id, lesson_id, learner_id, sense_id, ordinal, prompt, question_type, direction, answer_language_tag,
+  choices, choice_sense_ids, selected_answer, correct_answer, is_correct, answered_at
+)
+values
+  ('a8000000-0000-0000-0000-001000000020', 'a7000000-0000-0000-0000-001000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000011', 20, 'p', 'translation', 'recognition', 'en', array['a', 'b'], null, 'b', 'a', false, '2026-09-20T10:20:00Z');
+
+insert into public.lesson_attempts (
+  id, lesson_id, question_id, learner_id, sense_id, question_type, direction, selected_answer, correct_answer, is_correct, answered_at
+)
+values
+  ('a9000000-0000-0000-0000-001000000020', 'a7000000-0000-0000-0000-001000000001', 'a8000000-0000-0000-0000-001000000020', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a5000000-0000-0000-0000-001000000011', 'translation', 'recognition', 'b', 'a', false, '2026-09-20T10:20:00Z');
+
+set local role authenticated;
+
+select is(
+  (select (collection->>'practice_progress')::numeric
+   from jsonb_array_elements(public.vocabulary_progress('a1000000-0000-0000-0000-001000000001')->'collections') as collection
+   where collection->>'id' = 'b1000000-0000-0000-0000-001000000002'),
+  0::numeric,
+  'an incorrect Lesson Attempt resets that Sense to no Practice Progress'
 );
 
 select throws_ok(

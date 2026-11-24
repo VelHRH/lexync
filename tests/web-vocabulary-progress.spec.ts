@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
 import { selectLearningLanguage } from './support/language-switcher';
+import { fileEntry, practiceStreaks, practiseCollection, seedCollection, defaultVocabulary, seedEntries as seedCapturedEntries } from './support/vocabulary-progress';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -89,16 +90,30 @@ async function completeOneLesson(page: Page) {
 }
 
 test.describe('Vocabulary Progress plaque', () => {
-  test('reports the learned count against the total, the in-practice count and a bar, and leads to the progress surface', async ({ page }) => {
+  test('reports Practice Progress, the learned count against the total, the in-practice count and a bar, and leads to the progress surface', async ({ page }) => {
     const fixture = await registerLearner('progress-plaque');
     await seedEntries(fixture.client, fixture.learningLanguageId);
     await signIn(page, fixture.account);
     await expect(plaque(page)).toBeVisible();
-    await expect(plaque(page)).toContainText('0 of 8 learned');
-    await expect(plaque(page)).toContainText('0 in practice');
-    await expect(plaque(page).getByRole('progressbar')).toHaveAttribute('max', '8');
-    await expect(plaque(page).getByRole('progressbar')).toHaveAttribute('value', '0');
+    await expect(plaque(page)).toContainText('0% · 0 of 8 learned · 0 in practice');
+    await expect(plaque(page).getByRole('progressbar', { name: 'Practice Progress' })).toHaveAttribute('max', '100');
+    await expect(plaque(page).getByRole('progressbar', { name: 'Practice Progress' })).toHaveAttribute('value', '0');
     await expect(plaque(page)).toHaveAttribute('href', '/progress');
+  });
+
+  test('fills the bar with partial Practice Streaks before any Vocabulary Entry is learned', async ({ page }) => {
+    const fixture = await registerLearner('progress-partial');
+    const entries = await seedCapturedEntries(fixture.client, fixture.learningLanguageId, defaultVocabulary);
+    const practised = await seedCollection(fixture.client, fixture.learningLanguageId, 'Practised');
+    for (const entry of entries.slice(0, 8)) await fileEntry(fixture.client, practised, entry.vocabularyEntryId);
+    await practiseCollection(fixture.client, fixture.learningLanguageId, practised);
+    const streaks = await practiceStreaks(fixture.client);
+    expect(entries.slice(0, 8).map((entry) => streaks.get(entry.senseId)), 'every practised Sense must have a Practice Streak of one').toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
+    await signIn(page, fixture.account);
+    await expect(plaque(page)).toContainText('16% · 0 of 10 learned · 8 in practice');
+    const bar = plaque(page).getByRole('progressbar', { name: 'Practice Progress' });
+    await expect(bar).toHaveAttribute('value', '16');
+    await expect(bar).toHaveAttribute('aria-valuetext', '16%');
   });
 
   test('counts every Vocabulary Entry practised in one Lesson as in practice and none of them as learned', async ({ page }) => {
@@ -108,8 +123,7 @@ test.describe('Vocabulary Progress plaque', () => {
     const questionCount = await completeOneLesson(page);
     expect(questionCount).toBeGreaterThan(0);
     await page.goto('/');
-    await expect(plaque(page)).toContainText(`0 of 8 learned`);
-    await expect(plaque(page)).toContainText(`${questionCount} in practice`);
+    await expect(plaque(page)).toContainText(`0 of 8 learned · ${questionCount} in practice`);
   });
 
   test('renders for a Learner who has captured no words at all', async ({ page }) => {
