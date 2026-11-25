@@ -5,7 +5,7 @@ import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { Suspense, type ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { clearLibraryStore } from '../lib/libraryStore';
 import { supabase } from '../lib/supabase';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -59,10 +59,8 @@ function toLearningLanguage(row: LearningLanguageRow): LearningLanguage {
   return { id: row.id, languageTag: row.language_tag };
 }
 
-const lessonsSurfaces = new Set(['Lessons', 'Dynamic Lesson', 'Lesson history']);
-
-function railSection(activeSection: string) {
-  return lessonsSurfaces.has(activeSection) ? 'Lessons' : activeSection;
+function railSection(activeSection: string, pathname: string) {
+  return pathname === '/lessons' || pathname.startsWith('/lessons/') ? 'Lessons' : activeSection;
 }
 
 function lessonSourceLabel(source: string) {
@@ -84,7 +82,7 @@ function sectionLabel(section: string) {
 }
 
 function AppNavigation({ activeSection }: { activeSection: string }) {
-  const current = railSection(activeSection);
+  const current = railSection(activeSection, usePathname());
 
   return <nav className="app-navigation app-navigation-rail" data-ui="task-navigation" aria-label="Main navigation">
     {destinations.map(([label, href]) => <Link aria-current={current === label ? 'page' : undefined} className={current === label ? 'active' : ''} href={href} key={href} title={label}>
@@ -158,6 +156,7 @@ const canonicalOnboardingPath: OnboardingPath = '/onboarding/learning-language';
 export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardingPath, extensionId, navigationCollapsed: navigationCollapsedDefault = false }: { section?: string; publicContent?: ReactNode; onboardingPath?: OnboardingPath; extensionId?: string; navigationCollapsed?: boolean }) {
   const activeSection = sectionLabel(section);
   const router = useRouter();
+  const pathname = usePathname();
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
@@ -420,7 +419,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
           </div>}
           {activeSection === 'Dynamic Lesson' && <>
             <DynamicLessonRequest key={`dynamic-lesson-${activeLanguage.id}`} accessToken={session.access_token} learningLanguageId={activeLanguage.id} readyMaterialCount={readyMaterialCount} activeLessonId={activeLesson?.id ?? null} onLessonCreated={() => void refreshLessonState(activeLanguage.id)} onLessonDiscarded={() => void refreshLessonState(activeLanguage.id)} />
-            <VocabularyProgressPlaque key={`vocabulary-progress-${activeLanguage.id}`} learningLanguageId={activeLanguage.id} />
+            {pathname === '/' && <p className="front-door-lessons"><Link className="text-button" href="/lessons">All lessons <span aria-hidden="true">→</span></Link></p>}
             <ExtensionRecommendation extensionId={extensionId} />
           </>}
           {activeSection === 'Lessons' && activeLesson && <section className="lesson-progress-banner" data-ui="lesson-in-progress" aria-labelledby="lesson-in-progress-heading">
@@ -430,6 +429,7 @@ export function AuthenticatedApp({ section = 'dynamic', publicContent, onboardin
             </div>
             <LessonInProgressActions lessonId={activeLesson.id} onDiscarded={() => void refreshLessonState(activeLanguage.id)} />
           </section>}
+          {activeSection === 'Lessons' && <VocabularyProgressPlaque key={`vocabulary-progress-${activeLanguage.id}`} learningLanguageId={activeLanguage.id} />}
           {activeSection === 'Lessons' && <div className="lesson-tiles" data-ui="visual-primitive">
             <Link className="lesson-tile" data-ui="lesson-tile-dynamic" href="/lessons/dynamic" aria-disabled={dynamicTileBlocked || undefined} tabIndex={dynamicTileBlocked ? -1 : undefined}>
               <h2>Dynamic Lesson</h2>

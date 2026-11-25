@@ -64,7 +64,12 @@ async function signIn(page: Page, account: ReturnType<typeof credentials>) {
 }
 
 function plaque(page: Page) {
-  return page.getByRole('link', { name: 'Vocabulary Progress' });
+  return page.getByRole('region', { name: 'Vocabulary Progress' });
+}
+
+async function openLessonsHub(page: Page) {
+  await page.goto('/lessons');
+  await expect(plaque(page)).toBeVisible();
 }
 
 async function completeOneLesson(page: Page) {
@@ -90,15 +95,40 @@ async function completeOneLesson(page: Page) {
 }
 
 test.describe('Vocabulary Progress plaque', () => {
+  test('sits on the Lessons hub above the tiles and nowhere else, and explains the Vocabulary Progress States', async ({ page }) => {
+    const fixture = await registerLearner('progress-placement');
+    await seedEntries(fixture.client, fixture.learningLanguageId);
+    await signIn(page, fixture.account);
+    await expect(page.getByRole('textbox', { name: 'What do you want to practise?' })).toBeVisible();
+    await expect(plaque(page)).toHaveCount(0);
+    await openLessonsHub(page);
+    const plaqueBox = await plaque(page).boundingBox();
+    const tileBox = await page.locator('[data-ui="lesson-tile-dynamic"]').boundingBox();
+    expect(plaqueBox && tileBox && plaqueBox.y + plaqueBox.height <= tileBox.y, 'the plaque must sit above the Lesson tiles').toBe(true);
+    const trigger = plaque(page).getByRole('button', { name: 'About Vocabulary Progress States' });
+    await trigger.click();
+    const popover = page.getByRole('dialog', { name: 'Vocabulary Progress States' });
+    await expect(popover).toContainText('Learned: answered correctly 5 times in a row, for every meaning. A wrong answer starts that meaning over.');
+    await page.keyboard.press('Escape');
+    await expect(popover).toBeHidden();
+    await expect(page).toHaveURL('/lessons');
+    for (const path of ['/lessons/dynamic', '/library', '/materials', '/progress']) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1 })).toBeAttached();
+      await expect(page.locator('[data-ui="vocabulary-progress-plaque"]')).toHaveCount(0);
+    }
+  });
+
   test('reports Practice Progress, the learned count against the total, the in-practice count and a bar, and leads to the progress surface', async ({ page }) => {
     const fixture = await registerLearner('progress-plaque');
     await seedEntries(fixture.client, fixture.learningLanguageId);
     await signIn(page, fixture.account);
-    await expect(plaque(page)).toBeVisible();
+    await openLessonsHub(page);
     await expect(plaque(page)).toContainText('0% · 0 of 8 learned · 0 in practice');
     await expect(plaque(page).getByRole('progressbar', { name: 'Practice Progress' })).toHaveAttribute('max', '100');
     await expect(plaque(page).getByRole('progressbar', { name: 'Practice Progress' })).toHaveAttribute('value', '0');
-    await expect(plaque(page)).toHaveAttribute('href', '/progress');
+    await plaque(page).getByRole('link', { name: 'Vocabulary Progress' }).click();
+    await expect(page).toHaveURL('/progress');
   });
 
   test('fills the bar with partial Practice Streaks before any Vocabulary Entry is learned', async ({ page }) => {
@@ -110,6 +140,7 @@ test.describe('Vocabulary Progress plaque', () => {
     const streaks = await practiceStreaks(fixture.client);
     expect(entries.slice(0, 8).map((entry) => streaks.get(entry.senseId)), 'every practised Sense must have a Practice Streak of one').toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
     await signIn(page, fixture.account);
+    await openLessonsHub(page);
     await expect(plaque(page)).toContainText('16% · 0 of 10 learned · 8 in practice');
     const bar = plaque(page).getByRole('progressbar', { name: 'Practice Progress' });
     await expect(bar).toHaveAttribute('value', '16');
@@ -122,14 +153,14 @@ test.describe('Vocabulary Progress plaque', () => {
     await signIn(page, fixture.account);
     const questionCount = await completeOneLesson(page);
     expect(questionCount).toBeGreaterThan(0);
-    await page.goto('/');
+    await openLessonsHub(page);
     await expect(plaque(page)).toContainText(`0 of 8 learned · ${questionCount} in practice`);
   });
 
   test('renders for a Learner who has captured no words at all', async ({ page }) => {
     const fixture = await registerLearner('progress-empty');
     await signIn(page, fixture.account);
-    await expect(plaque(page)).toBeVisible();
+    await openLessonsHub(page);
     await expect(plaque(page)).toContainText('No words yet');
     await expect(plaque(page).getByRole('progressbar')).toHaveCount(0);
   });
@@ -140,10 +171,42 @@ test.describe('Vocabulary Progress plaque', () => {
     const secondLanguageId = await addLearningLanguage(fixture.client, 'fr');
     await captureEntry(fixture.client, secondLanguageId, 'maison', 'house');
     await signIn(page, fixture.account);
+    await openLessonsHub(page);
     await selectLearningLanguage(page, fixture.learningLanguageId);
     await expect(plaque(page)).toContainText('0 of 8 learned');
     await selectLearningLanguage(page, secondLanguageId);
     await expect(plaque(page)).toContainText('0 of 1 learned');
+  });
+});
+
+test.describe('Lessons hub entry from the front door', () => {
+  test('keeps the composer on the front door and leads to the Lessons hub through "All lessons"', async ({ page }) => {
+    const fixture = await registerLearner('progress-front-door');
+    await seedEntries(fixture.client, fixture.learningLanguageId);
+    await signIn(page, fixture.account);
+    await expect(page.getByRole('textbox', { name: 'What do you want to practise?' })).toBeVisible();
+    const allLessons = page.getByRole('main').getByRole('link', { name: 'All lessons' });
+    const starterBox = await page.getByRole('list', { name: 'Request ideas' }).boundingBox();
+    const allLessonsBox = await allLessons.boundingBox();
+    expect(starterBox && allLessonsBox && allLessonsBox.y >= starterBox.y + starterBox.height, '"All lessons" must sit under the suggestion chips').toBe(true);
+    await allLessons.click();
+    await expect(page).toHaveURL('/lessons');
+    await expect(plaque(page)).toBeVisible();
+  });
+
+  test('marks Lessons in the sidebar only on the Lessons hub and its subpaths', async ({ page }) => {
+    const fixture = await registerLearner('progress-sidebar');
+    await seedEntries(fixture.client, fixture.learningLanguageId);
+    await signIn(page, fixture.account);
+    const lessons = page.locator('[data-ui="task-navigation"]').getByRole('link', { name: 'Lessons', exact: true });
+    await expect(page.getByRole('textbox', { name: 'What do you want to practise?' })).toBeVisible();
+    await expect(lessons).not.toHaveAttribute('aria-current', 'page');
+    for (const path of ['/lessons', '/lessons/dynamic', '/lessons/history']) {
+      await page.goto(path);
+      await expect(lessons).toHaveAttribute('aria-current', 'page');
+    }
+    await page.goto('/library');
+    await expect(lessons).not.toHaveAttribute('aria-current', 'page');
   });
 });
 
