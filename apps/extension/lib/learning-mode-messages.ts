@@ -4,7 +4,7 @@ export type LearningModeSense = {
   examples: string[];
   translations: Array<{ answerLanguageTag: string; text: string }>;
 };
-export type LearningModeEntry = { expression: string; id: string; senses: LearningModeSense[]; suspended?: boolean };
+export type LearningModeEntry = { expression: string; id: string; senses: LearningModeSense[] };
 export type LearningModeSiteState = {
   decided: boolean;
   detectedLearningLanguageTag?: string;

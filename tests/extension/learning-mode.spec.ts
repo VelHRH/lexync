@@ -107,7 +107,6 @@ test.describe('Learning Mode', () => {
     const learningLanguage = await createLearningLanguage(learnerClient);
     await saveExpression(learnerClient, learningLanguage.id, 'scoperta', 'discovery', 'La scoperta apre una strada nuova.');
     await saveExpression(learnerClient, learningLanguage.id, 'scoperta', 'finding', 'Ogni scoperta cambia il viaggio.');
-    await learnerClient.from('vocabulary_entries').update({ suspended: true }).eq('expression_identity', 'scoperta');
     const page = await openReadingPage(extensionContext);
 
     await enableOnPage(page);
