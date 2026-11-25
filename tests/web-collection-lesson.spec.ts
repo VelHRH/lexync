@@ -219,11 +219,35 @@ function collectionFilter(page: Page) {
 }
 
 function practiseButton(page: Page) {
-  return collectionFilter(page).getByRole('button', { name: 'Practise this Collection', exact: true });
+  return collectionFilter(page).getByRole('button', { name: 'Practise', exact: true });
 }
 
 function practiceReason(page: Page) {
   return page.locator('#library-collection-practice-reason');
+}
+
+function practiceTooltip(page: Page) {
+  return page.getByRole('tooltip');
+}
+
+async function expectPracticeLocked(page: Page) {
+  await expect(practiseButton(page)).toBeVisible();
+  await expect(practiseButton(page)).toBeDisabled();
+  await expect(practiceTooltip(page)).toHaveCount(0);
+  await practiseButton(page).hover();
+  await expect(practiceTooltip(page)).toHaveText('Practice unlocks at 8 entries');
+  await page.mouse.move(0, 0);
+  await expect(practiceTooltip(page)).toHaveCount(0);
+  await practiseButton(page).focus();
+  await expect(practiseButton(page)).toBeFocused();
+  await expect(practiceTooltip(page)).toHaveText('Practice unlocks at 8 entries');
+  await expect(practiseButton(page)).toHaveAccessibleDescription('Practice unlocks at 8 entries');
+  await page.keyboard.press('Escape');
+  await expect(practiceTooltip(page)).toHaveCount(0);
+  await practiseButton(page).click({ force: true });
+  await expect(page).toHaveURL(/\/library\?collection=/);
+  await page.mouse.move(0, 0);
+  await expect(page.getByText(/Add \d+ more/)).toHaveCount(0);
 }
 
 async function assertNoHorizontalOverflow(page: Page) {
@@ -397,22 +421,36 @@ test.describe('web Collection Lesson', () => {
     expect(await lessonQuestions(fixture.client, lessonId)).toHaveLength(eligibleSenseCount);
   });
 
-  test('offers no practice for a Collection one Vocabulary Entry short of the threshold', async ({ page }) => {
+  test('locks practice for a Collection one Vocabulary Entry short of the threshold', async ({ page }) => {
     const fixture = await seedTravelCollection('collection-lesson-one-short', travelVocabulary.slice(0, 7));
     await signIn(page, fixture.account);
     await openCollectionByUrl(page, fixture.collectionId);
-    await expect(practiceReason(page)).toHaveText('Add 1 more Vocabulary Entry to practise this Collection.');
-    await expect(practiseButton(page)).toHaveCount(0);
-    await expect(page.locator('[data-ui="practise-collection"]')).toHaveCount(0);
+    await expectPracticeLocked(page);
+    await expect(practiceReason(page)).toHaveCount(0);
   });
 
-  test('states how many Vocabulary Entries a Collection still needs', async ({ page }) => {
+  test('locks practice for a Collection several Vocabulary Entries short of the threshold', async ({ page }) => {
     const fixture = await seedTravelCollection('collection-lesson-three-short', travelVocabulary.slice(0, 5));
     await signIn(page, fixture.account);
     await openCollectionByUrl(page, fixture.collectionId);
-    await expect(practiceReason(page)).toHaveText('Add 3 more Vocabulary Entries to practise this Collection.');
-    await expect(practiseButton(page)).toHaveCount(0);
-    await expect(page.locator('[data-ui="practise-collection"]')).toHaveCount(0);
+    await expectPracticeLocked(page);
+  });
+
+  test('shows the Collection name, Practise, and a clear control without Rename or Delete', async ({ page }) => {
+    const fixture = await seedTravelCollection('collection-lesson-banner', travelVocabulary.slice(0, 8), kitchenVocabulary.slice(0, 2));
+    await signIn(page, fixture.account);
+    await openCollectionThroughPicker(page, fixture.collectionId);
+    await expect(collectionFilter(page).getByText('Filtered by Travel', { exact: true })).toBeVisible();
+    await expect(practiseButton(page)).toBeEnabled();
+    await expect(collectionFilter(page).getByRole('button')).toHaveCount(2);
+    await expect(collectionFilter(page).getByRole('button', { name: /Rename|Delete/ })).toHaveCount(0);
+
+    await collectionFilter(page).getByRole('button', { name: 'Clear the Travel filter', exact: true }).click();
+    await expect(page).toHaveURL('/library');
+    await expect(collectionFilter(page)).toHaveCount(0);
+    await expect(page.locator('[data-ui="collection-shelf"]').getByRole('button', { pressed: true })).toHaveCount(0);
+    await expect(entrySummary(page, 'maleta')).toBeVisible();
+    await expect(entrySummary(page, 'cuchara')).toBeVisible();
   });
 
   test('offers no Collection practice outside a Collection scope', async ({ page }) => {
@@ -607,8 +645,7 @@ test.describe('web Collection Lesson', () => {
     await expect(entrySummary(page, 'maleta')).toBeVisible();
     await expect(collectionCard(page, 'Travel')).toHaveText('Travel8 entries');
     await openCollectionByUrl(page, fixture.collectionId);
-    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Add translations to practise it.');
-    await expect(practiseButton(page)).toHaveCount(0);
+    await expectPracticeLocked(page);
   });
 
   test('keeps practice availability off the shelf and states it for each scoped Collection', async ({ page }) => {
@@ -647,10 +684,10 @@ test.describe('web Collection Lesson', () => {
     await expect(practiceReason(page)).toHaveCount(0);
     await page.goto(`/library?collection=${shortCollectionId}`);
     await expect(collectionFilter(page).getByText('Filtered by Kitchen')).toBeVisible();
-    await expect(practiceReason(page)).toHaveText('Add 5 more Vocabulary Entries to practise this Collection.');
+    await expectPracticeLocked(page);
     await page.goto(`/library?collection=${ineligibleCollectionId}`);
     await expect(collectionFilter(page).getByText('Filtered by Office')).toBeVisible();
-    await expect(practiceReason(page)).toHaveText('This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Add translations to practise it.');
+    await expectPracticeLocked(page);
   });
 
   test('shows no Collection scope label for a whole-library Lesson', async ({ page }) => {

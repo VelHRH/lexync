@@ -136,6 +136,13 @@ async function chooseFromAllCollections(page: Page, name: string | RegExp) {
   await expect(collectionCard(page, name)).toHaveAttribute('aria-pressed', 'true');
 }
 
+async function openCollectionActions(page: Page, name: string, action: 'Rename' | 'Delete') {
+  const dialog = await openAllCollections(page);
+  await dialog.getByRole('button', { name: `More actions for ${name}` }).click();
+  await dialog.getByRole('menuitem', { name: action }).click();
+  return dialog;
+}
+
 async function clearCollectionScope(page: Page) {
   await collectionShelf(page).getByRole('button', { pressed: true }).click();
   await expectWholeLibrary(page);
@@ -886,7 +893,12 @@ test.describe('web Collections', () => {
     await expect(page).toHaveURL(/\/library\?collection=/);
     await expect(page.getByText('Filtered by Keyboard set')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Rename Keyboard set' }).focus();
+    await allCollectionsChip(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(allDialog.getByLabel('Search Collections')).toBeFocused();
+    await allDialog.getByRole('button', { name: 'More actions for Keyboard set' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(allDialog.getByRole('menuitem', { name: 'Rename' })).toBeFocused();
     await page.keyboard.press('Enter');
     const renameDialog = page.getByRole('dialog', { name: 'Rename Collection' });
     await expect(renameDialog).toBeVisible();
@@ -895,6 +907,9 @@ test.describe('web Collections', () => {
     await page.keyboard.type('Keyboard renamed');
     await page.keyboard.press('Enter');
     await expect(renameDialog).toBeHidden();
+    await expect(allDialog.getByRole('button', { name: 'More actions for Keyboard renamed' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(allDialog).toBeHidden();
     await expect(page.getByText('Filtered by Keyboard renamed')).toBeVisible();
 
     if (test.info().project.name === 'web-collections-mobile') await assertNoHorizontalOverflow(page);
@@ -913,13 +928,14 @@ test.describe('web Collections', () => {
     await expect(page).toHaveURL(`/library?collection=${kitchn}`);
     await page.evaluate(() => { (window as unknown as { __lexyncNoReload?: boolean }).__lexyncNoReload = true; });
 
-    await page.getByRole('button', { name: 'Rename Kitchn' }).click();
+    const allDialog = await openCollectionActions(page, 'Kitchn', 'Rename');
     const renameDialog = page.getByRole('dialog', { name: 'Rename Collection' });
     await expect(renameDialog).toBeVisible();
     await expect(page.getByLabel('Collection name')).toHaveValue('Kitchn');
     await page.getByLabel('Collection name').fill('Kitchen');
     await renameDialog.getByRole('button', { name: 'Save Collection' }).click();
     await expect(renameDialog).toBeHidden();
+    await allDialog.getByRole('button', { name: 'Close' }).click();
 
     await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
     await expect(collectionCards(page).filter({ hasText: 'Kitchen' })).toHaveCount(1);
@@ -930,20 +946,22 @@ test.describe('web Collections', () => {
     await expect(page.getByRole('button', { name: /Kitchn/ })).toHaveCount(0);
     expect(await page.evaluate(() => (window as unknown as { __lexyncNoReload?: boolean }).__lexyncNoReload)).toBe(true);
 
-    const renameTrigger = page.getByRole('button', { name: 'Rename Kitchen' });
-    await renameTrigger.click();
+    await openCollectionActions(page, 'Kitchen', 'Rename');
+    const renameTrigger = allDialog.getByRole('button', { name: 'More actions for Kitchen' });
     await expect(renameDialog).toBeVisible();
     await renameDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(renameDialog).toBeHidden();
     await expect(renameTrigger).toBeFocused();
 
     await renameTrigger.click();
+    await allDialog.getByRole('menuitem', { name: 'Rename' }).click();
     await expect(renameDialog).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(renameDialog).toBeHidden();
     await expect(renameTrigger).toBeFocused();
 
     await renameTrigger.click();
+    await allDialog.getByRole('menuitem', { name: 'Rename' }).click();
     await expect(renameDialog).toBeVisible();
     const { error: removedError } = await client.rpc('delete_collection', { p_collection_id: kitchn });
     if (removedError) throw removedError;
@@ -970,8 +988,8 @@ test.describe('web Collections', () => {
     await chooseCollection(page, /Kitchen/);
     await expect(page).toHaveURL(`/library?collection=${kitchen}`);
 
-    const deleteTrigger = page.getByRole('button', { name: 'Delete Kitchen' });
-    await deleteTrigger.click();
+    const allDialog = await openCollectionActions(page, 'Kitchen', 'Delete');
+    const deleteTrigger = allDialog.getByRole('button', { name: 'More actions for Kitchen' });
     const deleteDialog = page.getByRole('dialog', { name: 'Delete Collection' });
     await expect(deleteDialog).toBeVisible();
     await expect(deleteDialog.getByText('Delete “Kitchen”? Vocabulary Entries will stay in your Library.', { exact: true })).toBeVisible();
@@ -983,10 +1001,12 @@ test.describe('web Collections', () => {
     await expect(page.getByText('Filtered by Kitchen')).toBeVisible();
 
     await deleteTrigger.click();
+    await allDialog.getByRole('menuitem', { name: 'Delete' }).click();
     await deleteDialog.getByRole('button', { name: 'Delete Collection' }).click();
     await expect(page).toHaveURL('/library');
     await expect(page.getByRole('status').filter({ hasText: 'Deleted the Collection “Kitchen”. Its Vocabulary Entries are still in your Library.' })).toBeVisible();
-    await expect(allCollectionsChip(page)).toBeFocused();
+    await expect(allDialog.getByLabel('Search Collections')).toBeFocused();
+    await allDialog.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByText('Filtered by Kitchen')).toHaveCount(0);
     await expect(entrySummary(page, 'casa')).toBeVisible();
     await expect(entrySummary(page, 'luna')).toBeVisible();
@@ -1017,9 +1037,10 @@ test.describe('web Collections', () => {
     const { data: shelf, error: shelfError } = await client.from('collections').select('id').eq('name', 'Private shelf').single();
     if (shelfError || !shelf?.id) throw shelfError ?? new Error('The Library Collection fixture is missing.');
 
-    await page.getByRole('button', { name: 'Rename Private shelf' }).click();
+    let actionsDialog = await openCollectionActions(page, 'Private shelf', 'Rename');
     await page.getByLabel('Collection name').fill('Private archive');
     await page.getByRole('dialog', { name: 'Rename Collection' }).getByRole('button', { name: 'Save Collection' }).click();
+    await actionsDialog.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByText('Filtered by Private archive')).toBeVisible();
 
     const { data: renamedSnapshot, error: renamedError } = await client.rpc('account_learning_snapshot');
@@ -1027,7 +1048,7 @@ test.describe('web Collections', () => {
     expect(JSON.stringify(renamedSnapshot)).toContain('Private archive');
     expect(JSON.stringify(renamedSnapshot)).not.toContain('Private shelf');
 
-    await page.getByRole('button', { name: 'Delete Private archive' }).click();
+    actionsDialog = await openCollectionActions(page, 'Private archive', 'Delete');
     await page.getByRole('dialog', { name: 'Delete Collection' }).getByRole('button', { name: 'Delete Collection' }).click();
     await expect(page).toHaveURL('/library');
     await expect(page.getByRole('status').filter({ hasText: 'Deleted the Collection “Private archive”. Its Vocabulary Entries are still in your Library.' })).toBeVisible();
@@ -1069,16 +1090,8 @@ test.describe('web Collections', () => {
     await expect(offlineNotice).toBeVisible();
     await expect(page.getByText('You are offline. Vocabulary changes require a connection.', { exact: true })).toHaveCount(0);
     await expect(page.getByText('You are offline. Collection changes require a connection.', { exact: true })).toHaveCount(0);
-    const collectionControls = [
-      page.getByRole('button', { name: 'Rename Kitchen' }),
-      page.getByRole('button', { name: 'Delete Kitchen' }),
-    ];
-    for (const control of collectionControls) {
-      await expect(control).toBeDisabled();
-      const describedBy = await control.getAttribute('aria-describedby');
-      expect(describedBy).toBe('library-offline-notice');
-      await expect(page.locator(`#${describedBy}`)).toHaveText('You are offline. Vocabulary and Collection changes require a connection.');
-    }
+    await expect(page.getByRole('button', { name: /^(Rename|Delete) Kitchen$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Clear the Kitchen filter', exact: true })).toBeEnabled();
     await assertNoHorizontalOverflow(page);
 
     const allDialog = await openAllCollections(page);
@@ -1102,7 +1115,6 @@ test.describe('web Collections', () => {
     for (const control of modalControls) await expect(control).toBeEnabled();
     await expect(modalNotice).toHaveCount(0);
     await allDialog.getByRole('button', { name: 'Close' }).click();
-    for (const control of collectionControls) await expect(control).toBeEnabled();
     await expect(offlineNotice).toHaveCount(0);
   });
 
