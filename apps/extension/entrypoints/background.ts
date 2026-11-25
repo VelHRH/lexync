@@ -211,7 +211,6 @@ async function syncExpressionSnapshot(learningLanguageId: string): Promise<Learn
         text: translation.text,
       })),
     })),
-    suspended: entry.suspended,
   }));
   await writeExpressionSnapshot(learningLanguageId, entries);
   return entries;

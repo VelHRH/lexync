@@ -30,7 +30,6 @@ export type LearningLanguageSnapshot = {
       expression: string;
       id: string;
       senses: Array<LearningLanguageSense & { examples: Array<{ id: string; text: string }> }>;
-      suspended: boolean;
     }>;
   }>;
 };
