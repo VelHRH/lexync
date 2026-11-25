@@ -11,32 +11,49 @@ function filterOptions(options: SearchablePickerOption[], query: string) {
   return options.filter((option) => [option.label, ...(option.keywords ?? [])].some((haystack) => normalizeSearchText(haystack).includes(needle)));
 }
 
-export function SearchablePicker({ id, label, value, options, onChange, emptyMessage, disabled = false, describedBy }: { id: string; label: string; value: string; options: SearchablePickerOption[]; onChange: (id: string) => void; emptyMessage: string; disabled?: boolean; describedBy?: string }): JSX.Element {
+const CREATE_OPTION_ID = 'searchable-picker-create';
+
+function isNewName(options: SearchablePickerOption[], name: string) {
+  return Boolean(name) && !options.some((option) => normalizeSearchText(option.label) === normalizeSearchText(name));
+}
+
+export function SearchablePicker({ id, label, value, options, onChange, emptyMessage, disabled = false, describedBy, autoFocus = false, onCreate, onDismiss }: { id: string; label: string; value: string; options: SearchablePickerOption[]; onChange: (id: string) => void; emptyMessage: string; disabled?: boolean; describedBy?: string; autoFocus?: boolean; onCreate?: (name: string) => void; onDismiss?: (reason: 'escape' | 'leave') => void }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [filtering, setFiltering] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [announcement, setAnnouncement] = useState('');
   const container = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
   const optionNodes = useRef<(HTMLLIElement | null)[]>([]);
   const listboxId = `${id}-listbox`;
   const selectedLabel = options.find((option) => option.id === value)?.label ?? '';
   const searching = filtering && !disabled;
   const panelOpen = open && !disabled;
-  const visible = useMemo(() => (searching ? filterOptions(options, query) : options), [options, query, searching]);
+  const createName = onCreate && searching ? query.trim() : '';
+  const offerCreate = isNewName(options, createName);
+  const visible = useMemo(() => {
+    const matches = searching ? filterOptions(options, query) : options;
+    return offerCreate ? [...matches, { id: CREATE_OPTION_ID, label: `Create “${createName}”` }] : matches;
+  }, [createName, offerCreate, options, query, searching]);
   const activeDescendant = panelOpen && visible[activeIndex] ? `${id}-option-${activeIndex}` : undefined;
 
-  const closePanel = useCallback(() => {
+  const closePanel = useCallback((reason: 'escape' | 'leave') => {
     setOpen(false);
     setFiltering(false);
     setAnnouncement('');
-  }, []);
+    onDismiss?.(reason);
+  }, [onDismiss]);
+
+  useEffect(() => {
+    if (autoFocus) input.current?.focus();
+  }, [autoFocus]);
 
   useEffect(() => {
     if (!panelOpen) return;
     const closeOnOutside = (event: MouseEvent) => {
       if (container.current?.contains(event.target as Node)) return;
-      closePanel();
+      closePanel('leave');
     };
     document.addEventListener('mousedown', closeOnOutside);
     return () => document.removeEventListener('mousedown', closeOnOutside);
@@ -47,8 +64,9 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
     optionNodes.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex, panelOpen]);
 
-  function announceList(list: SearchablePickerOption[]) {
-    setAnnouncement(list.length ? `${list.length} options available` : emptyMessage);
+  function announceList(list: SearchablePickerOption[], typed = '') {
+    const count = list.length + (onCreate && isNewName(options, typed.trim()) ? 1 : 0);
+    setAnnouncement(count ? `${count} options available` : emptyMessage);
   }
 
   function openPanel() {
@@ -62,7 +80,8 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
     setOpen(false);
     setFiltering(false);
     setAnnouncement(`${label}: ${option.label}`);
-    onChange(option.id);
+    if (option.id === CREATE_OPTION_ID) onCreate?.(createName);
+    else onChange(option.id);
   }
 
   function move(index: number) {
@@ -89,7 +108,7 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
     setFiltering(true);
     setOpen(true);
     setActiveIndex(0);
-    announceList(filterOptions(options, typed));
+    announceList(filterOptions(options, typed), typed);
   }
 
   function onInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -115,11 +134,11 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
     }
     if (event.key === 'Escape') {
       event.preventDefault();
-      closePanel();
+      closePanel('escape');
       return;
     }
     if (event.key === 'Tab') {
-      closePanel();
+      closePanel('leave');
       return;
     }
     if (event.key === 'Enter') {
@@ -141,11 +160,12 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
         autoComplete="off"
         disabled={disabled}
         id={id}
-        onBlur={() => { if (panelOpen) closePanel(); }}
+        onBlur={() => { if (panelOpen) closePanel('leave'); }}
         onChange={onInputChange}
         onFocus={onInputFocus}
         onKeyDown={onInputKeyDown}
         onMouseDown={onInputMouseDown}
+        ref={input}
         role="combobox"
         type="text"
         value={searching ? query : selectedLabel}
@@ -155,6 +175,7 @@ export function SearchablePicker({ id, label, value, options, onChange, emptyMes
         {visible.map((option, index) => <li
           aria-selected={option.id === value}
           className="searchable-picker-option"
+          data-create={option.id === CREATE_OPTION_ID ? 'true' : undefined}
           data-highlighted={index === activeIndex}
           data-value={option.id}
           id={`${id}-option-${index}`}

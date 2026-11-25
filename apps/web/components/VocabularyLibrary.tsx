@@ -18,7 +18,7 @@ import { ALL_VOCABULARY_SCOPE, LibraryCollectionShelf, NO_COLLECTION_SCOPE } fro
 import { LibraryFilterBar, type ProgressFilter } from './LibraryFilterBar';
 import { LibraryScopeBanner, PRACTICE_REASON_ID } from './LibraryScopeBanner';
 import { VocabularyProgressStatesInfo } from './VocabularyProgressStatesInfo';
-import { VocabularyEntryCard, membershipChangeKey } from './VocabularyEntryCard';
+import { VocabularyEntryCard, membershipChangeKey, newCollectionChangeKey } from './VocabularyEntryCard';
 import { VocabularyEntryEditor, toDraft, type EntryDraft } from './VocabularyEntryEditor';
 
 type LearningLanguage = { id: string; languageTag: string };
@@ -191,6 +191,30 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
       setNotice(`Collection membership could not be ${member ? 'removed' : 'added'}. ${error.message}`);
       return;
     }
+    await reload();
+  }
+
+  async function fileEntryIntoNewCollection(entry: LibraryEntry, name: string) {
+    const existing = collections.find((collection) => normalizeSearchText(collection.name) === normalizeSearchText(name));
+    if (existing) {
+      if (!isMember(entry, existing)) await changeMembership(entry, existing, false);
+      return;
+    }
+    setChangingMembership(newCollectionChangeKey(entry));
+    setNotice('');
+    const created = await supabase.rpc('create_collection', { p_learning_language_id: language.id, p_name: name });
+    const collectionId = (created.data as { id: string } | null)?.id;
+    if (created.error || !collectionId) {
+      setChangingMembership('');
+      setNotice(`The Collection could not be created. ${created.error?.message ?? ''}`.trim());
+      return;
+    }
+    const { error } = await supabase.rpc('add_collection_membership', {
+      p_collection_id: collectionId,
+      p_learning_vocabulary_entry_id: entry.learningVocabularyEntryId,
+    });
+    setChangingMembership('');
+    if (error) setNotice(`Collection membership could not be added. ${error.message}`);
     await reload();
   }
 
@@ -504,6 +528,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
           onSelectClick={(event) => { if (event.shiftKey && selectRange(index, !selectedEntryIds.includes(entry.learningVocabularyEntryId))) event.preventDefault(); }}
           onSelectChange={(selected) => { lastSelectedIndex.current = index; toggleEntrySelected(entry, selected); }}
           onChangeMembership={(collection, member) => void changeMembership(entry, collection, member)}
+          onCreateCollection={(name) => void fileEntryIntoNewCollection(entry, name)}
           onEdit={() => { setShowForm(false); setNotice(''); setDraft(toDraft(entry)); }}
           onDelete={() => { setNotice(''); setEntryToDelete(entry); }}
           onClipChanged={() => void reload()}

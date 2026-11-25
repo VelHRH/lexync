@@ -4,6 +4,7 @@ import { expectActiveLearningLanguage, selectLearningLanguage } from './support/
 import { materialsLinkName } from './support/navigation';
 import { defaultVocabulary, practiceStreaks, practiseToMixedStates, seedEntries, stateOf } from './support/vocabulary-progress';
 import { chooseOption } from './support/select';
+import { addEntryToCollection, removeFromCollectionButton } from './support/entry-collections';
 
 const supabaseUrl = process.env.LEXYNC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const supabasePublishableKey = process.env.LEXYNC_SUPABASE_PUBLISHABLE_KEY;
@@ -1518,13 +1519,12 @@ test.describe('web Collections', () => {
     await page.goto('/library');
     await expect(entrySummary(page, 'hola')).toBeVisible();
     const entry = await expandEntry(page, 'hola');
-    await entry.getByRole('button', { name: 'Add hola to Places' }).click();
-    await expect(entry.getByRole('button', { name: 'Remove hola from Places' })).toHaveAttribute('aria-pressed', 'true');
-    await entry.getByRole('button', { name: 'Add hola to Travel' }).click();
-    await expect(entry.getByRole('button', { name: 'Remove hola from Travel' })).toHaveAttribute('aria-pressed', 'true');
+    await addEntryToCollection(entry, 'hola', 'Places');
+    await addEntryToCollection(entry, 'hola', 'Travel');
 
-    await entry.getByRole('button', { name: 'Remove hola from Places' }).click();
-    await expect(entry.getByRole('button', { name: 'Add hola to Places' })).toHaveAttribute('aria-pressed', 'false');
+    await removeFromCollectionButton(entry, 'hola', 'Places').click();
+    await expect(removeFromCollectionButton(entry, 'hola', 'Places')).toHaveCount(0);
+    await expect(removeFromCollectionButton(entry, 'hola', 'Travel')).toBeVisible();
     await expect(entrySummary(page, 'hola')).toBeVisible();
 
     await chooseCollection(page, /Travel/);
@@ -1625,6 +1625,7 @@ test.describe('web Collections', () => {
       page.getByRole('button', { name: 'File into Collection' }),
       page.getByRole('button', { name: 'File into new Collection' }),
       entry.getByRole('button', { name: 'Remove hola from Travel' }),
+      entry.getByRole('button', { name: 'Add to collection' }),
     ];
     for (const control of filingControls) {
       await expect(control).toBeDisabled();
