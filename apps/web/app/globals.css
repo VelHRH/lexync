@@ -314,7 +314,7 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; border
 .progress-plaque-link { color: inherit; text-decoration: none; }
 .progress-plaque-link::after { position: absolute; inset: 0; border-radius: var(--lexync-radius-xl); content: ''; }
 .progress-plaque-link:focus-visible { outline: 0; box-shadow: none; }
-.progress-plaque:has(.progress-plaque-link:focus-visible) { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); }
+.progress-plaque:has(.progress-plaque-link:focus-visible) { outline: var(--lexync-focus-width) solid var(--lexync-focus-color); outline-offset: var(--lexync-focus-offset); box-shadow: var(--lexync-focus-ring); }
 .progress-plaque .progress-plaque-headline { color: var(--web-ink); font-size: var(--lexync-type-size-lg); font-weight: var(--lexync-type-weight-bold); font-variant-numeric: tabular-nums; }
 .progress-plaque .progress-plaque-headline span { white-space: nowrap; }
 .progress-plaque .progress-plaque-detail { color: var(--web-primary-active); font-weight: var(--lexync-type-weight-bold); }
