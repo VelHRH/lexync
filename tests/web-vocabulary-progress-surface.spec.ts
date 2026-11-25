@@ -67,6 +67,7 @@ test.describe('Vocabulary Progress surface', () => {
     const fixture = await registerLearner('progress-surface-library');
     const entries = await seedEntries(fixture.client, fixture.learningLanguageId);
     await signIn(page, fixture.account);
+    await page.goto('/lessons');
     await plaque(page).click();
     await expect(page).toHaveURL('/progress');
     await expect(page.getByRole('heading', { level: 1, name: 'Vocabulary Progress' })).toBeVisible();

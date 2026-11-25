@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { learnedCount, parseVocabularyProgress, practicePercent, type VocabularyProgress } from '../lib/vocabularyProgress';
+import { VocabularyProgressStatesInfo } from './VocabularyProgressStatesInfo';
 
 export function VocabularyProgressPlaque({ learningLanguageId }: { learningLanguageId: string }) {
   const [progress, setProgress] = useState<VocabularyProgress | null>(null);
@@ -25,8 +26,11 @@ export function VocabularyProgressPlaque({ learningLanguageId }: { learningLangu
 
   if (!progress) return null;
 
-  return <Link className="progress-plaque" data-ui="vocabulary-progress-plaque" href="/progress" aria-labelledby="vocabulary-progress-heading">
-    <h2 id="vocabulary-progress-heading">Vocabulary Progress</h2>
+  return <section className="progress-plaque" data-ui="vocabulary-progress-plaque" aria-labelledby="vocabulary-progress-heading">
+    <div className="progress-plaque-heading">
+      <h2 id="vocabulary-progress-heading"><Link className="progress-plaque-link" href="/progress">Vocabulary Progress</Link></h2>
+      <VocabularyProgressStatesInfo />
+    </div>
     {progress.totalCount === 0
       ? <>
         <p className="progress-plaque-headline">No words yet</p>
@@ -36,5 +40,5 @@ export function VocabularyProgressPlaque({ learningLanguageId }: { learningLangu
         <p className="progress-plaque-headline"><span>{practicePercent(progress)}%</span> · <span>{learnedCount(progress)}</span> · <span>{progress.inPracticeCount} in practice</span></p>
         <progress aria-label="Practice Progress" aria-valuetext={`${practicePercent(progress)}%`} max={100} value={practicePercent(progress)} />
       </>}
-  </Link>;
+  </section>;
 }
