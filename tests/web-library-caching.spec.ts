@@ -78,6 +78,14 @@ async function selectCollectionScope(page: Page, name: string | RegExp) {
   await expect(card).toHaveAttribute('aria-pressed', 'true');
 }
 
+async function chooseCollectionAction(page: Page, name: string, action: 'Rename' | 'Delete') {
+  await page.locator('[data-ui="collection-shelf"]').getByRole('button', { name: /^All collections/ }).click();
+  const allCollections = page.getByRole('dialog', { name: 'All collections' });
+  await allCollections.getByRole('button', { name: `More actions for ${name}` }).click();
+  await allCollections.getByRole('menuitem', { name: action }).click();
+  return allCollections;
+}
+
 async function ensureEntryExpanded(page: Page, expression: string) {
   const summary = page.locator('summary').filter({ hasText: expression });
   const entry = summary.locator('..');
@@ -260,18 +268,20 @@ test.describe('web Library data lifetime', () => {
 
     await selectCollectionScope(page, /Travel/);
     await expect(page).toHaveURL(/\/library\?collection=/);
-    await page.getByRole('button', { name: 'Rename Travel' }).click();
+    let allCollections = await chooseCollectionAction(page, 'Travel', 'Rename');
     await page.getByLabel('Collection name').fill('Trips');
     await page.getByRole('dialog', { name: 'Rename Collection' }).getByRole('button', { name: 'Save Collection' }).click();
+    await allCollections.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByText('Filtered by Trips')).toBeVisible();
     entry = await ensureEntryExpanded(page, 'casa');
     await expect(entry.getByRole('button', { name: 'Remove casa from Trips' })).toBeVisible();
     await expect(entry.getByRole('button', { name: /Travel/ })).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Delete Trips' }).click();
+    allCollections = await chooseCollectionAction(page, 'Trips', 'Delete');
     await expect(page.getByRole('dialog', { name: 'Delete Collection' })).toBeVisible();
     await page.getByRole('dialog', { name: 'Delete Collection' }).getByRole('button', { name: 'Delete Collection' }).click();
     await expect(page).toHaveURL('/library');
+    await allCollections.getByRole('button', { name: 'Close' }).click();
     entry = await ensureEntryExpanded(page, 'casa');
     await expect(entry.locator('[data-ui="entry-collection"]')).toHaveCount(0);
     await expect(entry.getByRole('button', { name: 'Add to collection' })).toBeVisible();

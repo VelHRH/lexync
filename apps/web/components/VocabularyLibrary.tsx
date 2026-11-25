@@ -272,12 +272,7 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
     .filter((entry) => !selectedCollectionEntryIds.has(entry.learningVocabularyEntryId))
     .map((entry) => ({ id: entry.learningVocabularyEntryId, label: entry.expression, keywords: entry.senses.flatMap((sense) => sense.translations.map((item) => item.text)) }));
   const offlineReason = online ? undefined : 'library-offline-notice';
-  const practiceShortfall = minimumEntries - (selectedCollection?.entryCount ?? 0);
-  const practiceReason = practiceShortfall > 0
-    ? `Add ${practiceShortfall} more ${practiceShortfall === 1 ? 'Vocabulary Entry' : 'Vocabulary Entries'} to practise this Collection.`
-    : selectedCollection && !selectedCollection.canPractise ? 'This Collection has enough Vocabulary Entries, but fewer than two Senses are eligible. Add translations to practise it.'
-    : lessonInProgress ? 'Finish the Lesson in progress first.'
-    : '';
+  const practiceReason = lessonInProgress ? 'Finish the Lesson in progress first.' : '';
   const practiceDescribedBy = lessonInProgress && offlineReason ? `${PRACTICE_REASON_ID} ${offlineReason}` : lessonInProgress ? PRACTICE_REASON_ID : offlineReason;
 
   function toggleEntrySelected(entry: LibraryEntry, selected: boolean) {
@@ -430,16 +425,15 @@ export function VocabularyLibrary({ lessonInProgress, onEntriesChanged, language
 
       {selectedCollection && <LibraryScopeBanner
         collection={selectedCollection}
+        minimumEntries={minimumEntries}
         practiceReason={practiceReason}
         practiceDescribedBy={practiceDescribedBy}
         practiceError={practiceError}
         practiceStarting={practiceStarting}
         lessonInProgress={lessonInProgress}
         online={online}
-        offlineReason={offlineReason}
         onPractise={() => void practiseCollection(selectedCollection.id)}
-        onRename={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'rename', collection: selectedCollection }); }}
-        onDelete={() => { setCollectionNotice(''); setCollectionRequest({ kind: 'delete', collection: selectedCollection }); }}
+        onClear={() => { selectCollectionScope(ALL_VOCABULARY_SCOPE); allCollectionsRef.current?.focus(); }}
       />}
 
       <LibraryFilterBar

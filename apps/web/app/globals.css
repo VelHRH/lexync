@@ -936,7 +936,14 @@ h1, h2, h3, h4,
 .library-scope-identity { display: grid; min-width: 0; gap: .2rem; font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-bold); }
 .library-scope-reason { color: var(--web-ink); font-weight: var(--lexync-type-weight-regular); line-height: var(--lexync-type-line-normal); }
 .library-scope-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
-.library-scope-actions .text-button { min-height: 2.75rem; }
+.library-scope-practise { position: relative; display: inline-flex; }
+.library-scope-practise .primary-button[aria-disabled='true'] { border-color: var(--web-line); background: var(--web-dim); color: var(--web-muted); box-shadow: var(--lexync-elevation-none); transform: none; cursor: not-allowed; }
+.library-scope-lock { position: absolute; z-index: var(--lexync-z-dropdown); bottom: calc(100% + .5rem); left: 50%; width: max-content; max-width: min(16rem, calc(100vw - 2rem)); padding: .45rem .7rem; border-radius: var(--lexync-radius-md); background: var(--web-ink); box-shadow: var(--lexync-elevation-high); color: var(--web-surface); font-size: var(--lexync-type-size-sm); font-weight: var(--lexync-type-weight-regular); line-height: var(--lexync-type-line-normal); text-align: center; transform: translateX(-50%); animation: library-scope-lock-enter var(--lexync-motion-duration-fast) var(--lexync-motion-easing-out); }
+.library-scope-lock[hidden] { display: none; }
+.library-scope-clear { display: inline-grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: var(--lexync-radius-pill); background: transparent; color: var(--web-muted); cursor: pointer; transition: background var(--web-state), color var(--web-state); }
+.library-scope-clear:hover { background: var(--web-strong); color: var(--web-ink); }
+@keyframes library-scope-lock-enter { from { opacity: 0; transform: translate(-50%, .25rem); } }
+@media (prefers-reduced-motion: reduce) { .library-scope-lock { animation: none; } }
 .library-scope-error { flex: 1 1 100%; margin: 0; font-weight: var(--lexync-type-weight-regular); }
 
 .vocabulary-discovery-controls { margin-top: 1rem; }
@@ -954,8 +961,9 @@ h1, h2, h3, h4,
 
 @media (max-width: 44rem) {
   .library-select-toggle { width: 100%; }
-  .library-scope, .library-scope-actions { align-items: stretch; flex-direction: column; }
-  .library-scope-actions > * { width: 100%; }
+  .library-scope { align-items: stretch; flex-direction: column; }
+  .library-scope-practise { flex: 1 1 auto; }
+  .library-scope-practise .primary-button { width: 100%; }
   .library-selection { bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
 }
 
