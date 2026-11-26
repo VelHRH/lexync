@@ -64,11 +64,17 @@ values
   ('a1500000-0000-0000-0000-000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000005', 'cat', 'en', '2026-09-01T04:00:04Z'),
   ('b1500000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1400000-0000-0000-0000-000000000001', 'house', 'en', '2026-09-01T04:00:00Z');
 
-insert into public.examples (id, learner_id, sense_id, text, created_at)
+insert into public.examples (id, learner_id, text, created_at)
 values
-  ('a1600000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000001', 'La casa es azul.', '2026-09-01T05:00:00Z'),
-  ('a1600000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000002', 'Leo un libro.', '2026-09-01T05:00:01Z'),
-  ('a1600000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000003', 'La mesa es grande.', '2026-09-01T05:00:02Z');
+  ('a1600000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'La casa es azul.', '2026-09-01T05:00:00Z'),
+  ('a1600000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Leo un libro.', '2026-09-01T05:00:01Z'),
+  ('a1600000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'La mesa es grande.', '2026-09-01T05:00:02Z');
+
+insert into public.sense_examples (learner_id, sense_id, example_id)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000001', 'a1600000-0000-0000-0000-000000000001'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000002', 'a1600000-0000-0000-0000-000000000002'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a1400000-0000-0000-0000-000000000003', 'a1600000-0000-0000-0000-000000000003');
 
 insert into public.review_participations (id, learner_id, card_id, occurred_at)
 values

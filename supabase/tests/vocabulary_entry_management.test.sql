@@ -54,7 +54,7 @@ select is((select expression from public.vocabulary_entries where expression = '
 select is((select count(*) from public.senses where vocabulary_entry_id = (select id from public.vocabulary_entries where expression = 'casa nueva')), 2::bigint, 'a Sense can be added');
 select is((select count(*) from public.translations where text in ('home', 'dwelling', 'household')), 3::bigint, 'translations can be edited and added');
 select is((select text from public.examples), 'Una casa nueva.', 'an Example can be edited');
-select is((select translations.text from public.translations join public.senses on senses.id = translations.sense_id join public.examples on examples.sense_id = senses.id where examples.text = 'Una casa nueva.'), 'household', 'an Example can move to another Sense');
+select is((select translations.text from public.translations join public.senses on senses.id = translations.sense_id join public.sense_examples on sense_examples.sense_id = senses.id join public.examples on examples.id = sense_examples.example_id where examples.text = 'Una casa nueva.'), 'household', 'an Example can move to another Sense');
 
 select throws_ok(
   format(
@@ -130,7 +130,7 @@ select public.capture_manual_entry(current_setting('tests.study_pair_id')::uuid,
 select set_config('tests.playa_entry_id', (select id::text from public.vocabulary_entries where expression = 'playa'), true);
 select set_config('tests.playa_sense_id', (select id::text from public.senses where vocabulary_entry_id = current_setting('tests.playa_entry_id')::uuid), true);
 select set_config('tests.playa_translation_id', (select id::text from public.translations where sense_id = current_setting('tests.playa_sense_id')::uuid), true);
-select set_config('tests.playa_example_id', (select id::text from public.examples where sense_id = current_setting('tests.playa_sense_id')::uuid), true);
+select set_config('tests.playa_example_id', (select example_id::text from public.sense_examples where sense_id = current_setting('tests.playa_sense_id')::uuid), true);
 
 select public.update_vocabulary_entry(
   current_setting('tests.playa_entry_id')::uuid,
@@ -284,7 +284,7 @@ select public.capture_manual_entry(current_setting('tests.study_pair_id')::uuid,
 select set_config('tests.cometa_entry_id', (select id::text from public.vocabulary_entries where expression = 'cometa'), true);
 select set_config('tests.cometa_sense_id', (select id::text from public.senses where vocabulary_entry_id = current_setting('tests.cometa_entry_id')::uuid), true);
 select set_config('tests.cometa_translation_id', (select id::text from public.translations where sense_id = current_setting('tests.cometa_sense_id')::uuid), true);
-select set_config('tests.cometa_example_id', (select id::text from public.examples where sense_id = current_setting('tests.cometa_sense_id')::uuid), true);
+select set_config('tests.cometa_example_id', (select example_id::text from public.sense_examples where sense_id = current_setting('tests.cometa_sense_id')::uuid), true);
 
 select public.update_vocabulary_entry(
   current_setting('tests.cometa_entry_id')::uuid,
@@ -317,7 +317,7 @@ select public.capture_manual_entry(current_setting('tests.study_pair_id')::uuid,
 select set_config('tests.lago_entry_id', (select id::text from public.vocabulary_entries where expression = 'lago'), true);
 select set_config('tests.lago_sense1_id', (select id::text from public.senses where vocabulary_entry_id = current_setting('tests.lago_entry_id')::uuid), true);
 select set_config('tests.lago_translation1_id', (select id::text from public.translations where sense_id = current_setting('tests.lago_sense1_id')::uuid), true);
-select set_config('tests.lago_example1_id', (select id::text from public.examples where sense_id = current_setting('tests.lago_sense1_id')::uuid), true);
+select set_config('tests.lago_example1_id', (select example_id::text from public.sense_examples where sense_id = current_setting('tests.lago_sense1_id')::uuid), true);
 
 select public.update_vocabulary_entry(
   current_setting('tests.lago_entry_id')::uuid,
@@ -364,7 +364,7 @@ select public.capture_manual_entry(current_setting('tests.study_pair_id')::uuid,
 select set_config('tests.desierto_entry_id', (select id::text from public.vocabulary_entries where expression = 'desierto'), true);
 select set_config('tests.desierto_sense_id', (select id::text from public.senses where vocabulary_entry_id = current_setting('tests.desierto_entry_id')::uuid), true);
 select set_config('tests.desierto_translation_id', (select id::text from public.translations where sense_id = current_setting('tests.desierto_sense_id')::uuid), true);
-select set_config('tests.desierto_example_id', (select id::text from public.examples where sense_id = current_setting('tests.desierto_sense_id')::uuid), true);
+select set_config('tests.desierto_example_id', (select example_id::text from public.sense_examples where sense_id = current_setting('tests.desierto_sense_id')::uuid), true);
 
 select public.update_vocabulary_entry(
   current_setting('tests.desierto_entry_id')::uuid,

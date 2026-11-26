@@ -105,7 +105,7 @@ function trackRequests(page: Page, pattern: RegExp) {
 }
 
 function trackLibraryRequests(page: Page) {
-  return trackRequests(page, /\/rest\/v1\/(vocabulary_entries|senses|translations|examples|collections|collection_memberships)(?:[?/]|$)/);
+  return trackRequests(page, /\/rest\/v1\/(vocabulary_entries|senses|translations|examples|sense_examples|collections|collection_memberships)(?:[?/]|$)/);
 }
 
 async function clickNavLink(page: Page, name: string | RegExp) {

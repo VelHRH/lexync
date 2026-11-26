@@ -82,6 +82,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'], launchOptions: { args: fakeMediaDeviceArgs } },
     },
     {
+      name: 'web-shared-examples',
+      testMatch: /web-shared-examples\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-shared-examples-mobile',
+      testMatch: /web-shared-examples\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-vocabulary-progress',
       testMatch: /web-vocabulary-progress\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
