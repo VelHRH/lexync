@@ -54,7 +54,7 @@ A Learner's expression of one Sense's meaning in exactly one Answer Language.
 
 ## Example
 
-A sentence showing an Expression in context. One Example can be linked to Senses of several Vocabulary Entries of the same Learner and Learning Language, so editing its text or Example Translations changes it for every linked Sense. Removing an Example from a Sense only unlinks it there; an Example linked to no Sense no longer exists. An Example is private unless it is explicitly published in a later sharing workflow.
+A sentence showing an Expression in context. One Example can be linked to Senses of several Vocabulary Entries of the same Learner and Learning Language, so editing its text or Example Translations changes it for every linked Sense. Entering a sentence that matches an existing Example (after trimming and collapsing whitespace, case-sensitive) links that Example instead of creating a copy, keeping its Example Translations; editing an Example to match another merges the two. Removing an Example from a Sense only unlinks it there; an Example linked to no Sense no longer exists. An Example is private unless it is explicitly published in a later sharing workflow.
 
 ## Example Translation
 
