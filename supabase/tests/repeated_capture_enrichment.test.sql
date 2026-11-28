@@ -29,7 +29,7 @@ select is((select count(*) from public.senses), 1::bigint, 'an equivalent transl
 select is((select count(*) from public.translations), 1::bigint, 'an equivalent translation is not duplicated');
 select is((select count(*) from public.examples), 2::bigint, 'a matching Sense receives another Example');
 select is(
-  (select count(distinct sense_id) from public.examples),
+  (select count(distinct sense_id) from public.sense_examples),
   1::bigint,
   'matching Examples belong to the reused Sense'
 );
@@ -53,16 +53,17 @@ select is(
   (
     select examples.text
     from public.examples as examples
-    join public.translations as translations on translations.sense_id = examples.sense_id
+    join public.sense_examples as sense_examples on sense_examples.example_id = examples.id
+    join public.translations as translations on translations.sense_id = sense_examples.sense_id
     where translations.text = 'coffee with milk'
   ),
   'Ce café au lait accompagne le déjeuner.',
   'the new Example is assigned to the new Sense'
 );
 select is(
-  (select count(*) from public.examples where sense_id is null),
+  (select count(*) from public.examples where not exists (select 1 from public.sense_examples where sense_examples.example_id = examples.id)),
   0::bigint,
-  'every Example belongs to exactly one Sense'
+  'every Example belongs to a Sense'
 );
 
 select public.capture_manual_entry(

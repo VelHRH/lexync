@@ -110,14 +110,17 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
     : { data: [], error: null };
   if (sensesError) return { error: sensesError.message };
   const senseIds = (senses ?? []).map((sense) => sense.id);
-  const [{ data: translations, error: translationsError }, { data: examples, error: examplesError }] = senseIds.length
+  const [{ data: translations, error: translationsError }, { data: exampleLinks, error: examplesError }] = senseIds.length
     ? await Promise.all([
       supabase.from('translations').select('id,sense_id,text,answer_language_tag').in('sense_id', senseIds).order('created_at'),
-      supabase.from('examples').select('id,sense_id,text').in('sense_id', senseIds).order('created_at'),
+      supabase.from('sense_examples').select('sense_id,example:examples!inner(id,text,created_at)').in('sense_id', senseIds),
     ])
     : [{ data: [], error: null }, { data: [], error: null }];
   if (translationsError || examplesError) return { error: translationsError?.message ?? examplesError?.message ?? 'Vocabulary details could not be loaded.' };
-  const exampleIds = (examples ?? []).map((example) => example.id);
+  const examples = (exampleLinks ?? [])
+    .map((link) => ({ sense_id: link.sense_id as string, ...(link.example as unknown as { id: string; text: string; created_at: string }) }))
+    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const exampleIds = [...new Set(examples.map((example) => example.id))];
   const { data: exampleTranslations, error: exampleTranslationsError } = exampleIds.length
     ? await supabase.from('example_translations').select('id,example_id,text,answer_language_tag').in('example_id', exampleIds).order('created_at')
     : { data: [], error: null };
@@ -134,9 +137,10 @@ async function fetchEntries(pairIds: string[]): Promise<{ entries: LibraryEntry[
     const nextSenses = (senses ?? []).filter((sense) => sense.vocabulary_entry_id === entry.id).map((sense) => ({
       id: sense.id,
       translations: (translations ?? []).filter((item) => item.sense_id === sense.id),
-      examples: (examples ?? []).filter((item) => item.sense_id === sense.id).map((example) => ({
-        ...example,
-        translations: (exampleTranslations ?? []).filter((item) => item.example_id === example.id),
+      examples: examples.filter((item) => item.sense_id === sense.id).map(({ id, text }) => ({
+        id,
+        text,
+        translations: (exampleTranslations ?? []).filter((item) => item.example_id === id),
       })),
     }));
     const existing = merged.get(key);

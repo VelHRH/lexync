@@ -94,7 +94,10 @@ select is(
       and not exists (
         select 1
         from public.examples
-        where examples.sense_id = questions.sense_id
+        join public.sense_examples
+          on sense_examples.example_id = examples.id
+          and sense_examples.learner_id = examples.learner_id
+        where sense_examples.sense_id = questions.sense_id
           and examples.learner_id = questions.learner_id
           and examples.text = questions.revealed_example
       )
@@ -113,7 +116,10 @@ select is(
         join public.example_translations
           on example_translations.example_id = examples.id
           and example_translations.learner_id = examples.learner_id
-        where examples.sense_id = questions.sense_id
+        join public.sense_examples
+          on sense_examples.example_id = examples.id
+          and sense_examples.learner_id = examples.learner_id
+        where sense_examples.sense_id = questions.sense_id
           and examples.learner_id = questions.learner_id
       )
   ),
@@ -131,7 +137,10 @@ select is(
         join public.examples
           on examples.id = example_translations.example_id
           and examples.learner_id = example_translations.learner_id
-        where examples.sense_id = questions.sense_id
+        join public.sense_examples
+          on sense_examples.example_id = examples.id
+          and sense_examples.learner_id = examples.learner_id
+        where sense_examples.sense_id = questions.sense_id
           and examples.learner_id = questions.learner_id
       )
   ),
@@ -194,7 +203,7 @@ select ok(
     select count(*)
     from public.lesson_questions as questions
     where questions.lesson_id = current_setting('test.fixture2_lesson_id')::uuid
-      and not exists (select 1 from public.examples where examples.sense_id = questions.sense_id and examples.learner_id = questions.learner_id)
+      and not exists (select 1 from public.sense_examples where sense_examples.sense_id = questions.sense_id and sense_examples.learner_id = questions.learner_id)
   ) > 0,
   'the absence fixture asks about Senses that have no Example at all'
 );
@@ -203,7 +212,7 @@ select is(
     select count(*)
     from public.lesson_questions as questions
     where questions.lesson_id = current_setting('test.fixture2_lesson_id')::uuid
-      and not exists (select 1 from public.examples where examples.sense_id = questions.sense_id and examples.learner_id = questions.learner_id)
+      and not exists (select 1 from public.sense_examples where sense_examples.sense_id = questions.sense_id and sense_examples.learner_id = questions.learner_id)
       and (questions.revealed_example is not null or questions.revealed_example_translation is not null or questions.revealed_example_translation_answer_language_tag is not null)
   ),
   0::bigint,
@@ -219,7 +228,7 @@ select is(
   'a Question never borrows the Example of another Sense of the same Vocabulary Entry'
 );
 select is(
-  (select examples.text from public.examples where examples.sense_id = current_setting('test.riverbank_sense')::uuid),
+  (select examples.text from public.examples join public.sense_examples on sense_examples.example_id = examples.id and sense_examples.learner_id = examples.learner_id where sense_examples.sense_id = current_setting('test.riverbank_sense')::uuid),
   'El banco del rio es verde.',
   'the sibling Sense of that same Vocabulary Entry does hold an Example, ruling out absence as the explanation'
 );
@@ -242,8 +251,8 @@ select is(
   (
     select example_translations.answer_language_tag
     from public.example_translations
-    join public.examples on examples.id = example_translations.example_id and examples.learner_id = example_translations.learner_id
-    where examples.sense_id = current_setting('test.unpreferred_sense')::uuid
+    join public.sense_examples on sense_examples.example_id = example_translations.example_id and sense_examples.learner_id = example_translations.learner_id
+    where sense_examples.sense_id = current_setting('test.unpreferred_sense')::uuid
   ),
   'uk',
   'that Example does carry an Example Translation, only not in the Preferred Answer Language, ruling out absence as the explanation'

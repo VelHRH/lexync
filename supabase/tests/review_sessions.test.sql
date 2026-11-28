@@ -808,7 +808,7 @@ select is((select correct_answer from public.lesson_questions where id = current
 set local role postgres;
 update public.examples
 set text = text || ' edited'
-where sense_id = (select sense_id from public.lesson_questions where id = current_setting('test.cloze_question_id')::uuid);
+where id in (select example_id from public.sense_examples where sense_id = (select sense_id from public.lesson_questions where id = current_setting('test.cloze_question_id')::uuid));
 update public.vocabulary_entries
 set expression = expression || '-edited'
 where id = current_setting('test.cloze_entry_id')::uuid;

@@ -127,7 +127,8 @@ select is(
   (
     select count(*)
     from public.examples
-    join public.senses on senses.id = examples.sense_id
+    join public.sense_examples on sense_examples.example_id = examples.id
+    join public.senses on senses.id = sense_examples.sense_id
     join public.vocabulary_entries on vocabulary_entries.id = senses.vocabulary_entry_id
     where vocabulary_entries.study_pair_id = (select id from public.study_pairs where target_language_tag = 'fr' and reference_language_tag = 'en')
       and vocabulary_entries.expression_identity = public.expression_identity('casa')
