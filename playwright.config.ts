@@ -92,6 +92,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
     {
+      name: 'web-example-reuse',
+      testMatch: /web-example-reuse\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'web-example-reuse-mobile',
+      testMatch: /web-example-reuse\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
       name: 'web-vocabulary-progress',
       testMatch: /web-vocabulary-progress\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
